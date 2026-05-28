@@ -1,11 +1,12 @@
-﻿import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../core/theme/app_theme.dart';
+import "package:flutter/material.dart";
+import "package:go_router/go_router.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
+import "../../../core/theme/app_theme.dart";
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-  @override State<SplashScreen> createState() => _SplashScreenState();
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
@@ -26,21 +27,42 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
     final session = Supabase.instance.client.auth.currentSession;
-    context.go(session != null ? '/home' : '/onboarding');
+    context.go(session != null ? "/home" : "/onboarding");
   }
 
-  @override void dispose() { _ctrl.dispose(); super.dispose(); }
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.secondary,
-    body: Center(child: FadeTransition(opacity: _fade, child: ScaleTransition(scale: _scale, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Container(width: 100, height: 100, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 30, spreadRadius: 5)]),
-        child: const Center(child: Text('ðŸ›µ', style: TextStyle(fontSize: 48)))),
-      const SizedBox(height: 24),
-      const Text('Go Deli', style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, fontFamily: 'Nunito', letterSpacing: -1)),
-      const SizedBox(height: 8),
-      Text('Pide lo que quieras', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16)),
-    ])))),
-  );
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.secondary,
+      body: Center(
+        child: FadeTransition(
+          opacity: _fade,
+          child: ScaleTransition(
+            scale: _scale,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 100, height: 100,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 30, spreadRadius: 5)],
+                  ),
+                  child: const Center(child: Text("Go", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white))),
+                ),
+                const SizedBox(height: 24),
+                const Text("Go Deli", style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, fontFamily: "Nunito")),
+                const SizedBox(height: 8),
+                Text("Pide lo que quieras", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
