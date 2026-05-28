@@ -2,7 +2,6 @@ import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
-import "package:cached_network_image/cached_network_image.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
 class StoreScreen extends StatefulWidget {
@@ -31,7 +30,7 @@ class _StoreScreenState extends State<StoreScreen> {
     return Scaffold(backgroundColor: AppColors.background, body: CustomScrollView(slivers: [
       SliverAppBar(expandedHeight: 200, pinned: true, backgroundColor: AppColors.secondary, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => context.pop()),
         actions: [Stack(children: [IconButton(icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white), onPressed: () => context.push("/cart")), if (cart.itemCount > 0) Positioned(right: 6, top: 6, child: Container(width: 16, height: 16, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: Center(child: Text("${cart.itemCount}", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)))))])],
-        flexibleSpace: FlexibleSpaceBar(background: _store?["cover_url"] != null ? CachedNetworkImage(imageUrl: _store!["cover_url"], fit: BoxFit.cover) : Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Center(child: Text(_store?["emoji"] ?? "X", style: const TextStyle(fontSize: 70)))))),
+        flexibleSpace: FlexibleSpaceBar(background: _store?["cover_url"] != null ? Image.network(_store!["cover_url"], fit: BoxFit.cover) : Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Center(child: Text(_store?["emoji"] ?? "X", style: const TextStyle(fontSize: 70)))))),
       SliverToBoxAdapter(child: Container(color: AppColors.surface, padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(_store?["name"] ?? "", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 4), Text(_store?["description"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
@@ -41,7 +40,7 @@ class _StoreScreenState extends State<StoreScreen> {
       SliverList(delegate: SliverChildBuilderDelegate((ctx, i) {
         final item = _filtered[i]; final qty = cart.getQuantity(item["id"]);
         return Container(margin: const EdgeInsets.fromLTRB(16, 0, 16, 12), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)), child: Row(children: [
-          item["image_url"] != null ? ClipRRect(borderRadius: BorderRadius.circular(12), child: CachedNetworkImage(imageUrl: item["image_url"], width: 80, height: 80, fit: BoxFit.cover)) : Container(width: 80, height: 80, decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12)), child: Center(child: Text(item["emoji"] ?? "X", style: const TextStyle(fontSize: 36)))),
+          item["image_url"] != null ? ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(item["image_url"], width: 80, height: 80, fit: BoxFit.cover)) : Container(width: 80, height: 80, decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12)), child: Center(child: Text(item["emoji"] ?? "X", style: const TextStyle(fontSize: 36)))),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(item["name"], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),

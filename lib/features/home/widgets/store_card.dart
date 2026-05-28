@@ -1,5 +1,4 @@
 import "package:flutter/material.dart";
-import "package:cached_network_image/cached_network_image.dart";
 import "../../../core/theme/app_theme.dart";
 
 class StoreCard extends StatelessWidget {
@@ -23,7 +22,7 @@ class StoreCard extends StatelessWidget {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             child: Stack(children: [
               store["cover_url"] != null
-                ? CachedNetworkImage(imageUrl: store["cover_url"], height: 130, width: double.infinity, fit: BoxFit.cover)
+                ? Image.network(store["cover_url"], height: 130, width: double.infinity, fit: BoxFit.cover)
                 : Container(
                     height: 130, width: double.infinity,
                     decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight)),

@@ -1,5 +1,4 @@
 import "package:flutter/material.dart";
-import "package:cached_network_image/cached_network_image.dart";
 import "../../../core/theme/app_theme.dart";
 
 class HomeBanner extends StatefulWidget {
@@ -49,7 +48,7 @@ class _HomeBannerState extends State<HomeBanner> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: b["image_url"] != null
-                  ? CachedNetworkImage(imageUrl: b["image_url"], fit: BoxFit.cover, width: double.infinity)
+                  ? Image.network(b["image_url"], fit: BoxFit.cover, width: double.infinity)
                   : _defaultBanner(),
               ),
             );
