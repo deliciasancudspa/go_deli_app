@@ -1,4 +1,4 @@
-﻿name: go_deli
+name: go_deli
 description: Go Deli - App Cliente
 publish_to: none
 version: 1.0.0+1
@@ -32,7 +32,7 @@ dependencies:
   audioplayers: ^6.0.0
   shared_preferences: ^2.2.2
   flutter_secure_storage: ^9.0.0
-  intl: ^0.18.1
+  intl: ^0.20.2
   url_launcher: ^6.2.4
   image_picker: ^1.0.7
   permission_handler: ^11.1.0
