@@ -23,15 +23,15 @@ class _HomeScreenState extends State<HomeScreen> {
   final _sb = Supabase.instance.client;
 
   final _cats = [
-    {"name": "Todos", "emoji": "X"},
-    {"name": "Hamburguesas", "emoji": "X"},
-    {"name": "Sushi", "emoji": "X"},
-    {"name": "Pizza", "emoji": "X"},
-    {"name": "Carnes", "emoji": "X"},
-    {"name": "Bebidas", "emoji": "X"},
-    {"name": "Postres", "emoji": "X"},
-    {"name": "Supermercado", "emoji": "X"},
-    {"name": "Farmacia", "emoji": "X"},
+    {"name": "Todos", "emoji": "⭐"},
+    {"name": "Hamburguesas", "emoji": "🍔"},
+    {"name": "Sushi", "emoji": "🍣"},
+    {"name": "Pizza", "emoji": "🍕"},
+    {"name": "Carnes", "emoji": "🥩"},
+    {"name": "Bebidas", "emoji": "🥤"},
+    {"name": "Postres", "emoji": "🍰"},
+    {"name": "Supermercado", "emoji": "🛒"},
+    {"name": "Farmacia", "emoji": "💊"},
   ];
 
   @override

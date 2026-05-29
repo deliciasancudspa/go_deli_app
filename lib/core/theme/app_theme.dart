@@ -14,6 +14,7 @@ class AppColors {
   static const Color border     = Color(0xFFE5E7EB);
   static const Color darkBg     = Color(0xFF0F1923);
   static const Color darkSurface= Color(0xFF1A2636);
+  static const Color info       = Color(0xFF3B82F6);
 }
 
 class AppTheme {
