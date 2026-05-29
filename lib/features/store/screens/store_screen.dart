@@ -13,6 +13,8 @@ class _StoreScreenState extends State<StoreScreen> {
   Map<String, dynamic>? _store;
   List<Map<String, dynamic>> _cats = [], _items = [];
   bool _loading = true;
+  bool _isFav = false;
+  String? _userId;
   String? _selCat;
   final _sb = Supabase.instance.client;
   @override void initState() { super.initState(); _load(); }
@@ -20,8 +22,33 @@ class _StoreScreenState extends State<StoreScreen> {
     final s = await _sb.from("stores").select().eq("id", widget.storeId).single();
     final c = await _sb.from("menu_categories").select().eq("store_id", widget.storeId).eq("is_visible", true).order("sort_order");
     final i = await _sb.from("menu_items").select().eq("store_id", widget.storeId).eq("is_available", true).order("sort_order");
+    try {
+      final user = _sb.auth.currentUser;
+      if (user != null) {
+        final u = await _sb.from("users").select("id").eq("auth_id", user.id).single();
+        _userId = u["id"] as String;
+        print("userId cargado: $_userId");
+        final fav = await _sb.from("user_favorites").select().eq("user_id", _userId!).eq("store_id", widget.storeId).maybeSingle();
+        if (mounted) setState(() => _isFav = fav != null);
+      } else {
+        print("No hay usuario autenticado");
+      }
+    } catch (e) { print("Error cargando userId: \$e"); }
     if (mounted) setState(() { _store = s; _cats = List<Map<String, dynamic>>.from(c); _items = List<Map<String, dynamic>>.from(i); _loading = false; });
   }
+  Future<void> _toggleFav() async {
+    if (_userId == null) { print("ERROR: _userId es null"); return; }
+    try {
+      if (_isFav) {
+        await _sb.from("user_favorites").delete().eq("user_id", _userId!).eq("store_id", widget.storeId);
+      } else {
+        await _sb.from("user_favorites").insert({"user_id": _userId, "store_id": widget.storeId});
+      }
+      setState(() => _isFav = !_isFav);
+      print("Favorito actualizado: _isFav=\${_isFav}");
+    } catch(e) { print("ERROR favorito: \$e"); }
+  }
+
   List<Map<String, dynamic>> get _filtered => _selCat == null ? _items : _items.where((i) => i["category_id"] == _selCat).toList();
   String _fmt(dynamic p) => "\$${(p as num).toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
   @override Widget build(BuildContext context) {
@@ -29,7 +56,7 @@ class _StoreScreenState extends State<StoreScreen> {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
     return Scaffold(backgroundColor: AppColors.background, body: CustomScrollView(slivers: [
       SliverAppBar(expandedHeight: 200, pinned: true, backgroundColor: AppColors.secondary, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => context.pop()),
-        actions: [Stack(children: [IconButton(icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white), onPressed: () => context.push("/cart")), if (cart.itemCount > 0) Positioned(right: 6, top: 6, child: Container(width: 16, height: 16, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: Center(child: Text("${cart.itemCount}", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)))))])],
+        actions: [IconButton(icon: Icon(_isFav ? Icons.favorite : Icons.favorite_border, color: _isFav ? Colors.red : Colors.white), onPressed: _toggleFav), Stack(children: [IconButton(icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white), onPressed: () => context.push("/cart")), if (cart.itemCount > 0) Positioned(right: 6, top: 6, child: Container(width: 16, height: 16, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: Center(child: Text("${cart.itemCount}", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)))))])],
         flexibleSpace: FlexibleSpaceBar(background: _store?["cover_url"] != null ? Image.network(_store!["cover_url"], fit: BoxFit.cover) : Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Center(child: Text(_store?["emoji"] ?? "X", style: const TextStyle(fontSize: 70)))))),
       SliverToBoxAdapter(child: Container(color: AppColors.surface, padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(_store?["name"] ?? "", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
