@@ -1,15 +1,15 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:provider/provider.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'config/app_config.dart';
-import 'config/app_routes.dart';
-import 'core/theme/app_theme.dart';
-import 'providers/auth_provider.dart';
-import 'providers/cart_provider.dart';
-import 'providers/theme_provider.dart';
-import 'providers/language_provider.dart';
+import "package:flutter/material.dart";
+import "package:flutter/services.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
+import "package:provider/provider.dart";
+import "package:flutter_localizations/flutter_localizations.dart";
+import "config/app_config.dart";
+import "config/app_routes.dart";
+import "core/theme/app_theme.dart";
+import "providers/auth_provider.dart";
+import "providers/cart_provider.dart";
+import "providers/theme_provider.dart";
+import "providers/language_provider.dart";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
