@@ -172,10 +172,47 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 const Divider(height: 16),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   const Text("Total", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
-                  Text("\$${((_order!["total"] as num?)?.toStringAsFixed(0)) ?? "0"}", style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary, fontSize: 16)),
+                  Text("\$${((_order!["total"] as num?)?.toStringAsFixed(0)) ?? "0"}", style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.accent, fontSize: 16)),
                 ]),
               ]),
             ),
+
+            // Codigo de entrega delivery
+            if (!isPickup && _order!["delivery_code"] != null && ["on_the_way","picked_up"].contains(status)) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.accent.withOpacity(0.4), width: 2),
+                ),
+                child: Column(children: [
+                  const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.delivery_dining, color: AppColors.accent, size: 20),
+                    SizedBox(width: 8),
+                    Text("Tu código de entrega", style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.accent)),
+                  ]),
+                  const SizedBox(height: 6),
+                  const Text("Entrégalo al repartidor cuando recibas tu pedido", style: TextStyle(color: AppColors.textLight, fontSize: 12), textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  Text(_order!["delivery_code"], style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.accent, letterSpacing: 8)),
+                ]),
+              ),
+            ],
+
+            // Boton chat con repartidor
+            if (["picked_up","on_the_way"].contains(status)) ...[
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () => context.push("/chat/${widget.orderId}"),
+                icon: const Icon(Icons.chat_outlined),
+                label: const Text("Chatear con el repartidor"),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              ),
+            ],
+
+            const SizedBox(height: 24),
           ],
         )),
       ]),
