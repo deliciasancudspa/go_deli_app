@@ -88,7 +88,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
                   Text(_order!["stores"]?["name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                   Text(isPickup ? "Retiro en tienda" : "Delivery a domicilio", style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
                 ])),
-                Text("\$${((_order!["total"] as num?)?.toStringAsFixed(0)) ?? "0"}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.primary)),
+                Text("\$${((_order!["total"] as num?)?.toStringAsFixed(0)) ?? "0"}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.accent)),
               ]),
             ),
             const SizedBox(height: 20),
@@ -98,7 +98,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
               title: "Tu código de retiro",
               subtitle: "Muestra este código en la tienda para retirar tu pedido",
               code: pickupCode,
-              color: AppColors.primary,
+              color: AppColors.accent,
               icon: Icons.store_outlined,
             ),
 
@@ -127,7 +127,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
                 foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
+                side: const BorderSide(color: AppColors.accent),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),

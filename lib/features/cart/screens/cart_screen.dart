@@ -19,11 +19,11 @@ class CartScreen extends StatelessWidget {
               final item = cart.items[i];
               return Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)), child: Row(children: [
                 const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.name, style: const TextStyle(fontWeight: FontWeight.w800)), Text(_fmt(item.totalPrice), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700))])),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.name, style: const TextStyle(fontWeight: FontWeight.w800)), Text(_fmt(item.totalPrice), style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700))])),
                 Row(children: [
                   GestureDetector(onTap: () => cart.removeItem(item.id), child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: AppColors.secondary, shape: BoxShape.circle), child: const Icon(Icons.remove, color: Colors.white, size: 16))),
                   Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text("${item.quantity}", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
-                  GestureDetector(onTap: () => cart.addItem(item), child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: const Icon(Icons.add, color: Colors.white, size: 16))),
+                  GestureDetector(onTap: () => cart.addItem(item), child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle), child: const Icon(Icons.add, color: Colors.white, size: 16))),
                 ]),
               ]));
             })),

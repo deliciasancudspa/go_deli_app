@@ -121,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
           flexibleSpace: FlexibleSpaceBar(
             background: Container(
               decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [AppColors.primary, Color(0xFF5B21B6)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                gradient: LinearGradient(colors: [AppColors.primary, AppColors.secondary], begin: Alignment.topLeft, end: Alignment.bottomRight),
               ),
               padding: const EdgeInsets.fromLTRB(16, 48, 16, 12),
               child: Row(children: [
@@ -193,10 +193,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: selected ? AppColors.primary : AppColors.surface,
+                    color: selected ? AppColors.accent : AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: selected ? AppColors.primary : AppColors.border, width: selected ? 2 : 1),
-                    boxShadow: selected ? [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 8)] : [],
+                    border: Border.all(color: selected ? AppColors.accent : AppColors.border, width: selected ? 2 : 1),
+                    boxShadow: selected ? [BoxShadow(color: AppColors.accent.withOpacity(0.3), blurRadius: 8)] : [],
                   ),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Text(cat["emoji"]!, style: const TextStyle(fontSize: 24)),
@@ -428,7 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               height: 110,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [AppColors.primary.withOpacity(0.8), AppColors.accent.withOpacity(0.8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                gradient: LinearGradient(colors: [AppColors.secondary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 image: store["cover_url"] != null ? DecorationImage(image: NetworkImage(store["cover_url"]), fit: BoxFit.cover) : null,
               ),
               child: store["cover_url"] == null ? Center(child: Text(store["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 40))) : null,

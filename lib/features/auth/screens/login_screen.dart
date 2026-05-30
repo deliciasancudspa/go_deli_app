@@ -39,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Column(children: [
               Container(
                 width: 72, height: 72,
-                decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(20)),
                 child: const Center(child: Text("Go", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white))),
               ),
               const SizedBox(height: 16),
@@ -61,11 +61,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     hintText: "Correo electronico",
                     hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                    prefixIcon: const Icon(Icons.email_outlined, color: AppColors.primary),
+                    prefixIcon: const Icon(Icons.email_outlined, color: AppColors.accent),
                     filled: true, fillColor: const Color(0xFF0F1923),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent, width: 2)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     hintText: "Contrasena",
                     hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.primary),
+                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.accent),
                     suffixIcon: IconButton(
                       icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: Colors.white38),
                       onPressed: () => setState(() => _obscure = !_obscure),
@@ -85,13 +85,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     filled: true, fillColor: const Color(0xFF0F1923),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent, width: 2)),
                   ),
                 ),
                 if (_error != null) ...[const SizedBox(height: 8), Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13))],
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton(onPressed: () {}, child: const Text("Olvidaste tu contrasena?", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700))),
+                  child: TextButton(onPressed: () {}, child: const Text("Olvidaste tu contrasena?", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700))),
                 ),
                 ElevatedButton(
                   onPressed: auth.loading ? null : _login,
@@ -104,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 24),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Text("No tienes cuenta? ", style: TextStyle(color: Colors.white60)),
-              GestureDetector(onTap: () => context.go("/register"), child: const Text("Registrate", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800))),
+              GestureDetector(onTap: () => context.go("/register"), child: const Text("Registrate", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800))),
             ]),
           ]),
         ),

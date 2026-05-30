@@ -146,12 +146,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _addressCtrl,
-            decoration: const InputDecoration(hintText: "Ej: Calle Principal 123, Ancud", prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.primary)),
+            decoration: const InputDecoration(hintText: "Ej: Calle Principal 123, Ancud", prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.accent)),
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: _refCtrl,
-            decoration: const InputDecoration(hintText: "Referencia (opcional)", prefixIcon: Icon(Icons.info_outline, color: AppColors.primary)),
+            decoration: const InputDecoration(hintText: "Referencia (opcional)", prefixIcon: Icon(Icons.info_outline, color: AppColors.accent)),
           ),
           const SizedBox(height: 20),
         ],
@@ -164,9 +164,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.primary.withOpacity(0.3))),
             child: const Row(children: [
-              Icon(Icons.info_outline, color: AppColors.primary, size: 18),
+              Icon(Icons.info_outline, color: AppColors.accent, size: 18),
               SizedBox(width: 8),
-              Expanded(child: Text("El retiro en tienda requiere pago con tarjeta o transferencia", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 13))),
+              Expanded(child: Text("El retiro en tienda requiere pago con tarjeta o transferencia", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 13))),
             ]),
           )
         else
@@ -184,7 +184,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Expanded(child: TextFormField(
             controller: _couponCtrl,
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(hintText: "Ej: BIENVENIDO", prefixIcon: Icon(Icons.local_offer_outlined, color: AppColors.primary)),
+            decoration: const InputDecoration(hintText: "Ej: BIENVENIDO", prefixIcon: Icon(Icons.local_offer_outlined, color: AppColors.accent)),
           )),
           const SizedBox(width: 8),
           ElevatedButton(
@@ -218,7 +218,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const Divider(thickness: 2),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text("Total", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-              Text(_fmt(total), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppColors.primary)),
+              Text(_fmt(total), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppColors.accent)),
             ]),
           ]),
         ),
@@ -280,7 +280,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             Text(sub, style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
           ]),
           const Spacer(),
-          if (selected && !disabled) const Icon(Icons.check_circle, color: AppColors.primary),
+          if (selected && !disabled) const Icon(Icons.check_circle, color: AppColors.accent),
         ]),
       ),
     );
