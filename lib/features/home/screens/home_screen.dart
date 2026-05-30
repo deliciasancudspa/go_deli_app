@@ -87,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildPedidos(),
         _buildPerfil(),
       ]),
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _navIdx,
         onTap: (i) => setState(() => _navIdx = i),
@@ -412,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text("Mi Perfil"), automaticallyImplyLeading: false),
-      body: const Center(child: Text("Perfil")),
+      body: _PerfilTab(key: ValueKey(_navIdx)),
     );
   }
 
@@ -573,6 +574,141 @@ class _PedidosTabState extends State<_PedidosTab> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _PerfilTab extends StatefulWidget {
+  const _PerfilTab({super.key});
+  @override
+  State<_PerfilTab> createState() => _PerfilTabState();
+}
+
+class _PerfilTabState extends State<_PerfilTab> {
+  Map<String, dynamic>? _user;
+  List<Map<String, dynamic>> _favorites = [];
+  bool _loading = true;
+  bool _showFavs = false;
+  final _sb = Supabase.instance.client;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final authUser = _sb.auth.currentUser;
+      if (authUser == null) { setState(() => _loading = false); return; }
+      final u = await _sb.from("users").select().eq("auth_id", authUser.id).single();
+      final favs = await _sb.from("user_favorites").select("*, stores(id,name,emoji,category,rating,delivery_time,delivery_fee,is_open)").eq("user_id", u["id"]);
+      if (mounted) setState(() {
+        _user = u;
+        _favorites = List<Map<String, dynamic>>.from(favs);
+        _loading = false;
+      });
+    } catch (_) { if (mounted) setState(() => _loading = false); }
+  }
+
+  Future<void> _logout() async {
+    await _sb.auth.signOut();
+    if (mounted) context.go("/login");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+    if (_user == null) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      const Text("Inicia sesión para ver tu perfil", style: TextStyle(color: AppColors.textLight)),
+      const SizedBox(height: 16),
+      ElevatedButton(onPressed: () => context.go("/login"), child: const Text("Iniciar sesión")),
+    ]));
+
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      // Avatar
+      Center(child: Column(children: [
+        const SizedBox(height: 16),
+        CircleAvatar(
+          radius: 48,
+          backgroundColor: AppColors.primary,
+          child: Text((_user!["name"] as String? ?? "U")[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900)),
+        ),
+        const SizedBox(height: 12),
+        Text(_user!["name"] ?? "", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+        Text(_user!["email"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
+        if (_user!["phone"] != null) Text(_user!["phone"], style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
+        const SizedBox(height: 24),
+      ])),
+
+      // Menu items
+      _menuItem(Icons.favorite_border, "Mis favoritos (${_favorites.length})", () => setState(() => _showFavs = !_showFavs)),
+
+      // Favoritos expandibles
+      if (_showFavs) ...[
+        const SizedBox(height: 8),
+        if (_favorites.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+            child: const Center(child: Text("Sin tiendas favoritas aún", style: TextStyle(color: AppColors.textLight))),
+          )
+        else
+          ..._favorites.map((fav) {
+            final store = fav["stores"] as Map<String, dynamic>?;
+            if (store == null) return const SizedBox();
+            return GestureDetector(
+              onTap: () => context.push("/store/${store["id"]}"),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+                child: Row(children: [
+                  Text(store["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 28)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(store["name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text(store["category"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
+                  ])),
+                  const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textLight),
+                ]),
+              ),
+            );
+          }),
+        const SizedBox(height: 8),
+      ],
+
+      _menuItem(Icons.receipt_long_outlined, "Mis pedidos", () => setState(() {})),
+      _menuItem(Icons.notifications_outlined, "Notificaciones", () => context.push("/notifications")),
+      _menuItem(Icons.location_on_outlined, "Mis direcciones", () {}),
+      _menuItem(Icons.help_outline, "Ayuda y soporte", () {}),
+      const SizedBox(height: 24),
+
+      // Cerrar sesion
+      ElevatedButton.icon(
+        onPressed: _logout,
+        icon: const Icon(Icons.logout),
+        label: const Text("Cerrar sesión"),
+        style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+      ),
+      const SizedBox(height: 16),
+      const Center(child: Text("Go Deli v1.0.0", style: TextStyle(color: AppColors.textLight, fontSize: 12))),
+      const SizedBox(height: 32),
+    ]);
+  }
+
+  Widget _menuItem(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+        child: Row(children: [
+          Icon(icon, color: AppColors.primary, size: 22),
+          const SizedBox(width: 14),
+          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+          const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textLight),
+        ]),
       ),
     );
   }

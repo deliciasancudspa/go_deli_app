@@ -25,15 +25,14 @@ class _StoreScreenState extends State<StoreScreen> {
     try {
       final user = _sb.auth.currentUser;
       if (user != null) {
-        final u = await _sb.from("users").select("id").eq("auth_id", user.id).single();
-        _userId = u["id"] as String;
-        print("userId cargado: $_userId");
-        final fav = await _sb.from("user_favorites").select().eq("user_id", _userId!).eq("store_id", widget.storeId).maybeSingle();
-        if (mounted) setState(() => _isFav = fav != null);
-      } else {
-        print("No hay usuario autenticado");
+        final u = await _sb.from("users").select("id").eq("auth_id", user.id).maybeSingle();
+        if (u != null) {
+          _userId = u["id"] as String;
+          final fav = await _sb.from("user_favorites").select().eq("user_id", _userId!).eq("store_id", widget.storeId).maybeSingle();
+          if (mounted) setState(() => _isFav = fav != null);
+        }
       }
-    } catch (e) { print("Error cargando userId: \$e"); }
+    } catch (e) { debugPrint("Error favorito: $e"); }
     if (mounted) setState(() { _store = s; _cats = List<Map<String, dynamic>>.from(c); _items = List<Map<String, dynamic>>.from(i); _loading = false; });
   }
   Future<void> _toggleFav() async {
