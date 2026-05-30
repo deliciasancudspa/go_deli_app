@@ -201,6 +201,22 @@ class _TrackingScreenState extends State<TrackingScreen> {
               ),
             ],
 
+            // Boton ver mapa
+            if (["assigned","picked_up","on_the_way"].contains(status)) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => context.push("/map/${widget.orderId}"),
+                icon: const Icon(Icons.map_outlined),
+                label: const Text("Ver en mapa"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ],
+
             // Boton chat con repartidor
             if (["picked_up","on_the_way"].contains(status)) ...[
               const SizedBox(height: 12),

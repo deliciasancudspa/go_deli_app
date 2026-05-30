@@ -16,6 +16,7 @@ import "../features/tracking/screens/tracking_screen.dart";
 import "../features/order/screens/order_history_screen.dart";
 import "../features/notifications/screens/notifications_screen.dart";
 import "../features/chat/screens/chat_screen.dart";
+import "../features/map/screens/map_screen.dart";
 
 final GoRouter appRouter = GoRouter(
   initialLocation: "/splash",
@@ -43,5 +44,6 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: "/orders",       builder: (c,s) => const OrderHistoryScreen()),
     GoRoute(path: "/notifications",builder: (c,s) => const NotificationsScreen()),
     GoRoute(path: "/chat/:orderId",builder: (c,s) => ChatScreen(orderId: s.pathParameters["orderId"]!)),
+    GoRoute(path: "/map/:orderId",  builder: (c,s) => MapScreen(orderId: s.pathParameters["orderId"]!)),
   ],
 );

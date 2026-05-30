@@ -29,7 +29,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final u = await _sb.from("users").select("id,name").eq("auth_id", user.id).single();
       _userId = u["id"] as String;
       final order = await _sb.from("orders")
-        .select("*, stores(name,emoji), deliverers(users(name,phone))")
+        .select("id, status, stores(name,emoji)")
         .eq("id", widget.orderId)
         .single();
       final msgs = await _sb.from("chat_messages")
@@ -98,8 +98,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   bool get _chatEnabled {
-    final status = _order?["status"] as String? ?? "";
-    return ["picked_up", "on_the_way"].contains(status);
+    // Chat habilitado desde que el pedido es aceptado hasta entregado
+    if (_loading) return false;
+    return true; // El repartidor asignado puede chatear en cualquier momento
   }
 
   @override
