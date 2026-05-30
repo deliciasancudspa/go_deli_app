@@ -4,6 +4,8 @@ import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
+import "../../../providers/auth_provider.dart";
+import "dart:math";
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -12,176 +14,283 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  final _addrCtrl   = TextEditingController();
-  final _couponCtrl = TextEditingController();
-  String _pay = "cash";
-  bool _loading = false;
-  bool _couponApplied = false;
-  double _discount = 0;
+  final _addressCtrl = TextEditingController();
+  final _refCtrl     = TextEditingController();
+  final _couponCtrl  = TextEditingController();
+  String _deliveryType = "delivery";
+  String _payMethod    = "cash";
+  double _discount     = 0;
+  String _couponCode   = "";
+  String? _couponMsg;
+  bool _couponValid    = false;
+  bool _loading        = false;
+  Map<String, dynamic>? _storeData;
   final _sb = Supabase.instance.client;
+
+  @override
+  void initState() { super.initState(); _loadStore(); }
+
+  Future<void> _loadStore() async {
+    final cart = context.read<CartProvider>();
+    if (cart.currentStoreId == null) return;
+    final store = await _sb.from("stores").select().eq("id", cart.currentStoreId!).single();
+    if (mounted) setState(() => _storeData = store);
+  }
+
+  String _generateCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    final r = Random();
+    return List.generate(6, (_) => chars[r.nextInt(chars.length)]).join();
+  }
 
   String _fmt(num p) => "\$${p.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
 
+  bool get _allowPickup => _storeData?["allow_pickup"] == true;
+
   Future<void> _applyCoupon() async {
     final code = _couponCtrl.text.trim().toUpperCase();
-    if (code.isEmpty) return;
     if (code == "BIENVENIDO") {
-      setState(() { _couponApplied = true; _discount = 0.10; });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cupon aplicado: 10% de descuento"), backgroundColor: AppColors.success));
+      setState(() { _discount = 0.10; _couponCode = code; _couponValid = true; _couponMsg = "✅ 10% de descuento aplicado"; });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cupon invalido"), backgroundColor: AppColors.error));
+      setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón no válido"; });
     }
   }
 
-  Future<void> _place() async {
-    if (_addrCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ingresa tu direccion")));
+  Future<void> _placeOrder() async {
+    if (_deliveryType == "delivery" && _addressCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ingresa tu dirección de entrega"), backgroundColor: AppColors.error));
       return;
     }
     setState(() => _loading = true);
     try {
-      final cart = context.read<CartProvider>();
-      final user = _sb.auth.currentUser!;
-      final u = await _sb.from("users").select("id").eq("auth_id", user.id).single();
-      final s = await _sb.from("stores").select("delivery_fee,fixed_fee,commission_pct").eq("id", cart.currentStoreId!).single();
-      final fee     = (s["delivery_fee"] as num).toInt();
-      final fix     = (s["fixed_fee"] as num).toInt();
-      final pct     = (s["commission_pct"] as num).toDouble();
-      final subtotal = cart.subtotal;
-      final discountAmt = (_discount * subtotal).toInt();
-      final finalSubtotal = subtotal - discountAmt;
-      final platFee = (finalSubtotal * pct / 100).toInt();
-      final total   = finalSubtotal + fee;
+      final cart   = context.read<CartProvider>();
+      final auth   = context.read<AuthProvider>();
+      final subtotal   = cart.subtotal;
+      final discAmt    = (subtotal * _discount).round();
+      final finalSub   = subtotal - discAmt;
+      final delivFee   = _deliveryType == "delivery" ? (_storeData?["delivery_fee"] ?? 1990) as num : 0;
+      final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 7) as num) / 100).round();
+      final fixedFee   = (_storeData?["fixed_fee"] ?? 3000) as num;
+      final total      = finalSub + delivFee;
+      final pickupCode = _generateCode();
+      final delivCode  = _deliveryType == "delivery" ? _generateCode() : null;
+
+      final u = await _sb.from("users").select("id").eq("auth_id", auth.user!.id).single();
       final order = await _sb.from("orders").insert({
-        "client_id": u["id"], "store_id": cart.currentStoreId,
-        "subtotal": finalSubtotal, "delivery_fee": fee,
-        "platform_fee": platFee, "fixed_fee": fix,
-        "total": total, "delivery_address": _addrCtrl.text,
-        "payment_method": _pay, "status": "pending",
-        "coupon_code": _couponApplied ? _couponCtrl.text.trim().toUpperCase() : null,
-        "discount": discountAmt,
+        "client_id": u["id"],
+        "store_id": cart.currentStoreId,
+        "subtotal": finalSub,
+        "delivery_fee": delivFee,
+        "platform_fee": platformFee,
+        "fixed_fee": fixedFee,
+        "total": total,
+        "delivery_address": _deliveryType == "delivery" ? _addressCtrl.text.trim() : null,
+        "delivery_reference": _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
+        "payment_method": _payMethod,
+        "order_type": _deliveryType,
+        "status": "pending",
+        "coupon_code": _couponCode.isEmpty ? null : _couponCode,
+        "discount": discAmt,
+        "pickup_code": pickupCode,
+        "delivery_code": delivCode,
       }).select().single();
-      await _sb.from("order_items").insert(cart.items.map((i) => {
-        "order_id": order["id"], "menu_item_id": i.id,
-        "item_name": i.name, "item_price": i.price,
-        "quantity": i.quantity, "subtotal": i.totalPrice,
+
+      await _sb.from("order_items").insert(cart.items.map((item) => {
+        "order_id": order["id"],
+        "menu_item_id": item.id,
+        "item_name": item.name,
+        "item_price": item.price,
+        "quantity": item.quantity,
+        "subtotal": item.price * item.quantity,
       }).toList());
+
       cart.clearCart();
-      if (mounted) context.go("/order-success");
+      if (mounted) context.go("/order-success/${order["id"]}");
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: AppColors.error));
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
-    final discount = (_discount * cart.subtotal).toInt();
-    final total = cart.subtotal - discount;
-    final methods = [
-      {"id": "cash", "label": "Efectivo", "icon": Icons.payments_outlined},
-      {"id": "card", "label": "Tarjeta", "icon": Icons.credit_card},
-      {"id": "transfer", "label": "Transferencia", "icon": Icons.account_balance_outlined},
-    ];
+    final subtotal  = cart.subtotal;
+    final discAmt   = (subtotal * _discount).round();
+    final finalSub  = subtotal - discAmt;
+    final delivFee  = _deliveryType == "delivery" ? (_storeData?["delivery_fee"] ?? 1990) as num : 0;
+    final total     = finalSub + delivFee;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text("Confirmar pedido")),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        _sectionTitle("Direccion de entrega"),
-        TextFormField(
-          controller: _addrCtrl,
-          decoration: const InputDecoration(hintText: "Ej: Calle Principal 123", prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.primary)),
-        ),
+      appBar: AppBar(
+        title: const Text("Confirmar pedido"),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+      ),
+      body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+        // Tipo de entrega
+        const Text("Tipo de entrega", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(child: _typeBtn("delivery", "🛵 Delivery", "Entrega a domicilio")),
+          const SizedBox(width: 12),
+          if (_allowPickup) Expanded(child: _typeBtn("pickup", "🏪 Retiro", "Retira en tienda")),
+        ]),
         const SizedBox(height: 20),
-        _sectionTitle("Metodo de pago"),
-        Row(children: methods.map((m) => Expanded(child: GestureDetector(
-          onTap: () => setState(() => _pay = m["id"] as String),
-          child: Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _pay == m["id"] ? AppColors.primary.withOpacity(0.1) : AppColors.surface,
-              border: Border.all(color: _pay == m["id"] ? AppColors.primary : AppColors.border, width: _pay == m["id"] ? 2 : 1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(children: [
-              Icon(m["icon"] as IconData, color: _pay == m["id"] ? AppColors.primary : AppColors.textLight, size: 24),
-              const SizedBox(height: 4),
-              Text(m["label"] as String, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _pay == m["id"] ? AppColors.primary : AppColors.textMedium)),
-            ]),
+
+        // Direccion (solo delivery)
+        if (_deliveryType == "delivery") ...[
+          const Text("Dirección de entrega", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _addressCtrl,
+            decoration: const InputDecoration(hintText: "Ej: Calle Principal 123, Ancud", prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.primary)),
           ),
-        ))).toList()),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _refCtrl,
+            decoration: const InputDecoration(hintText: "Referencia (opcional)", prefixIcon: Icon(Icons.info_outline, color: AppColors.primary)),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // Metodo de pago
+        const Text("Método de pago", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
+        if (_deliveryType == "pickup")
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.primary.withOpacity(0.3))),
+            child: const Row(children: [
+              Icon(Icons.info_outline, color: AppColors.primary, size: 18),
+              SizedBox(width: 8),
+              Expanded(child: Text("El retiro en tienda requiere pago con tarjeta o transferencia", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 13))),
+            ]),
+          )
+        else
+          _payMethodCard("cash", "💵", "Efectivo", "Paga al recibir"),
+        const SizedBox(height: 8),
+        _payMethodCard("card", "💳", "Tarjeta", "Débito o crédito"),
+        const SizedBox(height: 8),
+        _payMethodCard("transfer", "📱", "Transferencia", "Pago digital"),
         const SizedBox(height: 20),
-        _sectionTitle("Cupon de descuento"),
+
+        // Cupon
+        const Text("Cupón de descuento", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
         Row(children: [
           Expanded(child: TextFormField(
             controller: _couponCtrl,
-            enabled: !_couponApplied,
             textCapitalization: TextCapitalization.characters,
-            decoration: InputDecoration(
-              hintText: "Ej: BIENVENIDO",
-              prefixIcon: const Icon(Icons.local_offer_outlined, color: AppColors.primary),
-              suffixIcon: _couponApplied ? const Icon(Icons.check_circle, color: AppColors.success) : null,
-            ),
+            decoration: const InputDecoration(hintText: "Ej: BIENVENIDO", prefixIcon: Icon(Icons.local_offer_outlined, color: AppColors.primary)),
           )),
           const SizedBox(width: 8),
           ElevatedButton(
-            onPressed: _couponApplied ? null : _applyCoupon,
+            onPressed: _applyCoupon,
             style: ElevatedButton.styleFrom(minimumSize: const Size(80, 52)),
-            child: Text(_couponApplied ? "OK" : "Aplicar"),
+            child: const Text("Aplicar"),
           ),
         ]),
+        if (_couponMsg != null) ...[
+          const SizedBox(height: 8),
+          Text(_couponMsg!, style: TextStyle(color: _couponValid ? AppColors.success : AppColors.error, fontSize: 13, fontWeight: FontWeight.w600)),
+        ],
         const SizedBox(height: 20),
+
+        // Resumen
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
           child: Column(children: [
-            _sectionTitle("Resumen del pedido"),
-            ...cart.items.map((i) => Padding(
+            ...cart.items.map((item) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Expanded(child: Text("${i.quantity}x ${i.name}", style: const TextStyle(color: AppColors.textMedium, fontWeight: FontWeight.w600))),
-                Text(_fmt(i.totalPrice), style: const TextStyle(fontWeight: FontWeight.w700)),
+                Expanded(child: Text("${item.quantity}x ${item.name}", style: const TextStyle(fontSize: 13))),
+                Text(_fmt(item.price * item.quantity), style: const TextStyle(fontWeight: FontWeight.w700)),
               ]),
             )),
             const Divider(),
+            _summaryRow("Subtotal", _fmt(subtotal)),
+            if (discAmt > 0) _summaryRow("Descuento", "-${_fmt(discAmt)}", color: AppColors.success),
+            if (_deliveryType == "delivery") _summaryRow("Envío", _fmt(delivFee)),
+            const Divider(thickness: 2),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text("Subtotal", style: TextStyle(color: AppColors.textLight)),
-              Text(_fmt(cart.subtotal), style: const TextStyle(fontWeight: FontWeight.w600)),
-            ]),
-            if (discount > 0) ...[
-              const SizedBox(height: 4),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text("Descuento", style: TextStyle(color: AppColors.success)),
-                Text("-${_fmt(discount)}", style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w700)),
-              ]),
-            ],
-            const SizedBox(height: 8),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text("Total", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-              Text(_fmt(total), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: AppColors.primary)),
+              const Text("Total", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+              Text(_fmt(total), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppColors.primary)),
             ]),
           ]),
         ),
         const SizedBox(height: 24),
-      ]),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ElevatedButton(
-          onPressed: _loading ? null : _place,
+
+        ElevatedButton(
+          onPressed: _loading ? null : _placeOrder,
           child: _loading
             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
             : Text("Confirmar pedido · ${_fmt(total)}"),
         ),
+        const SizedBox(height: 32),
+      ])),
+    );
+  }
+
+  Widget _typeBtn(String type, String label, String sub) {
+    final selected = _deliveryType == type;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _deliveryType = type;
+        if (type == "pickup") _payMethod = "card";
+      }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary.withOpacity(0.08) : AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: selected ? AppColors.primary : AppColors.border, width: selected ? 2 : 1),
+        ),
+        child: Column(children: [
+          Text(label, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: selected ? AppColors.primary : AppColors.textDark)),
+          const SizedBox(height: 4),
+          Text(sub, style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+        ]),
       ),
     );
   }
 
-  Widget _sectionTitle(String title) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textMedium)),
+  Widget _payMethodCard(String method, String emoji, String label, String sub) {
+    final selected = _payMethod == method;
+    final disabled = _deliveryType == "pickup" && method == "cash";
+    return GestureDetector(
+      onTap: disabled ? null : () => setState(() => _payMethod = method),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: disabled ? AppColors.background : selected ? AppColors.primary.withOpacity(0.08) : AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: selected && !disabled ? AppColors.primary : AppColors.border, width: selected ? 2 : 1),
+        ),
+        child: Row(children: [
+          Text(emoji, style: const TextStyle(fontSize: 24)),
+          const SizedBox(width: 12),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: TextStyle(fontWeight: FontWeight.w700, color: disabled ? AppColors.textLight : AppColors.textDark)),
+            Text(sub, style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+          ]),
+          const Spacer(),
+          if (selected && !disabled) const Icon(Icons.check_circle, color: AppColors.primary),
+        ]),
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value, {Color? color}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(label, style: const TextStyle(fontSize: 14, color: AppColors.textMedium)),
+      Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color ?? AppColors.textDark)),
+    ]),
   );
 }

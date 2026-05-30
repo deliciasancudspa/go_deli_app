@@ -1,20 +1,19 @@
 import "package:flutter/material.dart";
 
 class AppColors {
-  static const Color primary    = Color(0xFFFF6B35);
+  static const Color primary    = Color(0xFF7C3AED);
   static const Color secondary  = Color(0xFF1A1A2E);
-  static const Color accent     = Color(0xFFFFB800);
+  static const Color accent     = Color(0xFFFF6B35);
   static const Color success    = Color(0xFF22C55E);
   static const Color error      = Color(0xFFEF4444);
-  static const Color background = Color(0xFFFAFAFA);
+  static const Color warning    = Color(0xFFF59E0B);
+  static const Color info       = Color(0xFF3B82F6);
+  static const Color background = Color(0xFFF8F9FA);
   static const Color surface    = Color(0xFFFFFFFF);
   static const Color textDark   = Color(0xFF1A1A2E);
   static const Color textMedium = Color(0xFF374151);
   static const Color textLight  = Color(0xFF9CA3AF);
   static const Color border     = Color(0xFFE5E7EB);
-  static const Color darkBg     = Color(0xFF0F1923);
-  static const Color darkSurface= Color(0xFF1A2636);
-  static const Color info       = Color(0xFF3B82F6);
 }
 
 class AppTheme {
@@ -24,17 +23,17 @@ class AppTheme {
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.primary,
       primary: AppColors.primary,
-      secondary: AppColors.secondary,
+      secondary: AppColors.accent,
       surface: AppColors.surface,
       error: AppColors.error,
     ),
     scaffoldBackgroundColor: AppColors.background,
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.surface,
-      foregroundColor: AppColors.textDark,
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: true,
-      titleTextStyle: TextStyle(fontFamily: "Nunito", fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textDark),
+      titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white, fontFamily: "Nunito"),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -42,7 +41,7 @@ class AppTheme {
         foregroundColor: Colors.white,
         minimumSize: const Size(double.infinity, 52),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        textStyle: const TextStyle(fontFamily: "Nunito", fontSize: 16, fontWeight: FontWeight.w800),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, fontFamily: "Nunito"),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -57,38 +56,17 @@ class AppTheme {
     cardTheme: CardThemeData(
       color: AppColors.surface,
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: AppColors.surface,
+      selectedItemColor: AppColors.primary,
+      unselectedItemColor: AppColors.textLight,
+      type: BottomNavigationBarType.fixed,
+      elevation: 12,
+      selectedLabelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
     ),
   );
 
-  static ThemeData get darkTheme => ThemeData(
-    useMaterial3: true,
-    fontFamily: "Nunito",
-    brightness: Brightness.dark,
-    colorScheme: ColorScheme.fromSeed(
-      brightness: Brightness.dark,
-      seedColor: AppColors.primary,
-      primary: AppColors.primary,
-      secondary: AppColors.accent,
-      surface: AppColors.darkSurface,
-      error: AppColors.error,
-    ),
-    scaffoldBackgroundColor: AppColors.darkBg,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.darkSurface,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      centerTitle: true,
-      titleTextStyle: TextStyle(fontFamily: "Nunito", fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white),
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        minimumSize: const Size(double.infinity, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        textStyle: const TextStyle(fontFamily: "Nunito", fontSize: 16, fontWeight: FontWeight.w800),
-      ),
-    ),
-  );
+  static ThemeData get darkTheme => lightTheme;
 }

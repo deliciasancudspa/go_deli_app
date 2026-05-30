@@ -1,26 +1,183 @@
 import "package:flutter/material.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
+
 class TrackingScreen extends StatefulWidget {
   final String orderId;
   const TrackingScreen({super.key, required this.orderId});
   @override State<TrackingScreen> createState() => _TrackingScreenState();
 }
+
 class _TrackingScreenState extends State<TrackingScreen> {
   Map<String, dynamic>? _order;
   final _sb = Supabase.instance.client;
-  final _msgs = {"pending": "Esperando confirmacion", "accepted": "Restaurante confirmo", "preparing": "Preparando tu pedido", "ready": "Listo para recoger", "assigned": "Repartidor asignado", "picked_up": "Repartidor en camino", "on_the_way": "Tu pedido esta en camino", "delivered": "Entregado! Buen provecho", "cancelled": "Pedido cancelado"};
-  @override void initState() { super.initState(); _load(); _subscribe(); }
-  Future<void> _load() async { final o = await _sb.from("orders").select("*, stores(name,emoji)").eq("id", widget.orderId).single(); if (mounted) setState(() => _order = o); }
-  void _subscribe() { _sb.channel("order_${widget.orderId}").onPostgresChanges(event: PostgresChangeEvent.update, schema: "public", table: "orders", filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: "id", value: widget.orderId), callback: (_) => _load()).subscribe(); }
-  @override Widget build(BuildContext context) {
+
+  final _msgsDelivery = {
+    "pending":   "Esperando confirmacion del restaurante",
+    "accepted":  "Restaurante confirmo tu pedido",
+    "preparing": "Preparando tu pedido",
+    "ready":     "Listo! Esperando repartidor",
+    "assigned":  "Repartidor asignado",
+    "picked_up": "Repartidor recogió tu pedido",
+    "on_the_way":"Tu pedido esta en camino",
+    "delivered": "Entregado! Buen provecho 🎉",
+    "cancelled": "Pedido cancelado",
+  };
+
+  final _msgsPickup = {
+    "pending":   "Esperando confirmacion del restaurante",
+    "accepted":  "Restaurante confirmo tu pedido",
+    "preparing": "Preparando tu pedido",
+    "ready":     "Tu pedido esta listo para retirar!",
+    "delivered": "Pedido retirado exitosamente 🎉",
+    "cancelled": "Pedido cancelado",
+  };
+
+  final _iconsDelivery = {
+    "pending":   "⏳", "accepted": "✅", "preparing": "👨‍🍳",
+    "ready":     "🎉", "assigned": "🛵", "picked_up": "📦",
+    "on_the_way":"🚀", "delivered":"🏁", "cancelled": "❌",
+  };
+
+  final _iconsPickup = {
+    "pending":   "⏳", "accepted": "✅", "preparing": "👨‍🍳",
+    "ready":     "🏪", "delivered":"🏁", "cancelled": "❌",
+  };
+
+  @override
+  void initState() { super.initState(); _load(); _subscribe(); }
+
+  Future<void> _load() async {
+    final o = await _sb.from("orders").select("*, stores(name,emoji)").eq("id", widget.orderId).single();
+    if (mounted) setState(() => _order = o);
+  }
+
+  void _subscribe() {
+    _sb.channel("order_${widget.orderId}")
+      .onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: "public",
+        table: "orders",
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: "id", value: widget.orderId),
+        callback: (_) => _load(),
+      ).subscribe();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     if (_order == null) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
-    final steps = ["pending", "accepted", "preparing", "ready", "assigned", "picked_up", "on_the_way", "delivered"];
-    final cur = steps.indexOf(_order!["status"] ?? "pending");
-    return Scaffold(backgroundColor: AppColors.background, appBar: AppBar(title: const Text("Seguimiento")), body: Column(children: [
-      Container(width: double.infinity, padding: const EdgeInsets.all(24), decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Text(_msgs[_order!["status"]] ?? "", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800))),
-      Expanded(child: ListView(padding: const EdgeInsets.all(20), children: steps.asMap().entries.map((e) { final done = e.key <= cur; final isCur = e.key == cur; return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Column(children: [Container(width: 32, height: 32, decoration: BoxDecoration(color: done ? AppColors.primary : AppColors.border, shape: BoxShape.circle), child: Icon(done ? Icons.check : Icons.circle_outlined, color: done ? Colors.white : AppColors.textLight, size: 16)), if (e.key < steps.length-1) Container(width: 2, height: 40, color: done ? AppColors.primary : AppColors.border)]), const SizedBox(width: 16), Expanded(child: Padding(padding: const EdgeInsets.only(top: 6), child: Text(_msgs[e.value] ?? "", style: TextStyle(fontWeight: isCur ? FontWeight.w800 : FontWeight.w600, color: done ? AppColors.textDark : AppColors.textLight))))]); }).toList())),
-      if (_order!["pickup_code"] != null) Container(margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.primary.withOpacity(0.3))), child: Column(children: [const Text("Codigo de retiro", style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textLight)), const SizedBox(height: 8), Text(_order!["pickup_code"], style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 8))])),
-    ]));
+
+    final isPickup = _order!["order_type"] == "pickup";
+    final msgs  = isPickup ? _msgsPickup  : _msgsDelivery;
+    final icons = isPickup ? _iconsPickup : _iconsDelivery;
+
+    final steps = isPickup
+      ? ["pending", "accepted", "preparing", "ready", "delivered"]
+      : ["pending", "accepted", "preparing", "ready", "assigned", "picked_up", "on_the_way", "delivered"];
+
+    final status = _order!["status"] as String? ?? "pending";
+    final cur = steps.indexOf(status);
+    final isDone = status == "delivered";
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text("Seguimiento del pedido"),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
+      ),
+      body: Column(children: [
+        // Header estado actual
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDone ? [AppColors.success, const Color(0xFF16A34A)] : [AppColors.primary, const Color(0xFF5B21B6)],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(children: [
+            Text(icons[status] ?? "⏳", style: const TextStyle(fontSize: 48)),
+            const SizedBox(height: 8),
+            Text(msgs[status] ?? "", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text("${_order!["stores"]?["emoji"] ?? ""} ${_order!["stores"]?["name"] ?? ""}", style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
+          ]),
+        ),
+
+        // Steps
+        Expanded(child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            ...steps.asMap().entries.map((e) {
+              final idx  = e.key;
+              final step = e.value;
+              final done = idx <= cur;
+              final isCur = idx == cur;
+              final isLast = idx == steps.length - 1;
+              return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Column(children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: done ? AppColors.primary : AppColors.border,
+                      shape: BoxShape.circle,
+                      boxShadow: isCur ? [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 10)] : [],
+                    ),
+                    child: Center(child: done
+                      ? const Icon(Icons.check, color: Colors.white, size: 18)
+                      : Text("${idx+1}", style: const TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w800, fontSize: 12)),
+                    ),
+                  ),
+                  if (!isLast) AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    width: 2, height: 44,
+                    color: done ? AppColors.primary : AppColors.border,
+                  ),
+                ]),
+                const SizedBox(width: 16),
+                Expanded(child: Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 20),
+                  child: Text(
+                    msgs[step] ?? step,
+                    style: TextStyle(
+                      fontWeight: isCur ? FontWeight.w800 : FontWeight.w600,
+                      fontSize: isCur ? 15 : 14,
+                      color: done ? AppColors.textDark : AppColors.textLight,
+                    ),
+                  ),
+                )),
+              ]);
+            }),
+
+            // Info tipo de pedido
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+              child: Column(children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text("Tipo de entrega", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+                  Text(isPickup ? "🏪 Retiro en tienda" : "🛵 Delivery", style: const TextStyle(fontWeight: FontWeight.w700)),
+                ]),
+                if (!isPickup && _order!["delivery_address"] != null) ...[
+                  const Divider(height: 16),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text("Dirección", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+                    Expanded(child: Text(_order!["delivery_address"], textAlign: TextAlign.end, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                  ]),
+                ],
+                const Divider(height: 16),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text("Total", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+                  Text("\$${((_order!["total"] as num?)?.toStringAsFixed(0)) ?? "0"}", style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary, fontSize: 16)),
+                ]),
+              ]),
+            ),
+          ],
+        )),
+      ]),
+    );
   }
 }
