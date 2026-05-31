@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "dart:async";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -20,6 +21,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String _selectedCat = "Todos";
   final _sb = Supabase.instance.client;
+  final _bannerCtrl = PageController();
+  int _bannerPage = 0;
+  Timer? _bannerTimer;
 
   final _categories = [
     {"name": "Todos",            "emoji": "⭐"},
@@ -45,13 +49,28 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startBannerTimer());
+  }
+
+  void _startBannerTimer() {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (_banners.isEmpty || !_bannerCtrl.hasClients) return;
+      final next = (_bannerPage + 1) % _banners.length;
+      _bannerCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+    });
+  }
+
+  @override
+  void dispose() { _bannerTimer?.cancel(); _bannerCtrl.dispose(); super.dispose(); }
 
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
       final stores  = await _sb.from("stores").select().eq("status", "approved").eq("is_active", true);
-      final banners = await _sb.from("banners").select().eq("is_active", true).eq("banner_type", "app").order("sort_order").limit(4);
+      final banners = await _sb.from("banners").select().eq("is_active", true).eq("banner_type", "app").order("sort_order").limit(6);
       final services = await _sb.from("service_providers").select().eq("status", "approved").eq("is_active", true);
       if (mounted) setState(() {
         _stores   = List<Map<String, dynamic>>.from(stores);
@@ -229,26 +248,61 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBanners() {
-    return SizedBox(
-      height: 160,
-      child: PageView.builder(
-        itemCount: _banners.length,
-        itemBuilder: (ctx, i) {
-          final b = _banners[i];
-          return Container(
-            margin: const EdgeInsets.only(right: 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(children: [
+        SizedBox(
+          height: 165,
+          child: PageView.builder(
+            controller: _bannerCtrl,
+            itemCount: _banners.length,
+            onPageChanged: (i) => setState(() => _bannerPage = i),
+            itemBuilder: (ctx, i) {
+              final b = _banners[i];
+              final hasImg = b["image_url"] != null;
+              return Container(
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: const LinearGradient(colors: [AppColors.accent, AppColors.primary], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  image: hasImg ? DecorationImage(image: NetworkImage(b["image_url"]), fit: BoxFit.cover, colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.18), BlendMode.darken)) : null,
+                  boxShadow: [BoxShadow(color: AppColors.accent.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+                ),
+                child: Stack(children: [
+                  if (!hasImg) Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Text("🎉", style: TextStyle(fontSize: 42)),
+                    const SizedBox(height: 8),
+                    Text(b["title"] ?? "", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                    if (b["subtitle"] != null) Padding(padding: const EdgeInsets.only(top: 4, left: 16, right: 16), child: Text(b["subtitle"], textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13))),
+                  ])),
+                  if (hasImg) Positioned(bottom: 16, left: 16, right: 16, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    if (b["title"] != null) Text(b["title"], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, shadows: [Shadow(color: Colors.black54, blurRadius: 8)])),
+                    if (b["subtitle"] != null) Text(b["subtitle"], style: const TextStyle(color: Colors.white80, fontSize: 13)),
+                  ])),
+                  if (b["badge"] != null) Positioned(top: 12, right: 12, child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(20)),
+                    child: Text(b["badge"], style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                  )),
+                ]),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(_banners.length, (i) =>
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: _bannerPage == i ? 22 : 6, height: 6,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(colors: [AppColors.accent, AppColors.primary], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              image: b["image_url"] != null ? DecorationImage(image: NetworkImage(b["image_url"]), fit: BoxFit.cover) : null,
+              color: _bannerPage == i ? AppColors.accent : AppColors.border,
+              borderRadius: BorderRadius.circular(3),
             ),
-            child: b["image_url"] == null ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Text("🎉", style: TextStyle(fontSize: 40)),
-              Text(b["title"] ?? "", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-            ])) : null,
-          );
-        },
-      ),
+          ),
+        )),
+        const SizedBox(height: 4),
+      ]),
     );
   }
 
@@ -488,7 +542,22 @@ class _PedidosTabState extends State<_PedidosTab> {
   };
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startBannerTimer());
+  }
+
+  void _startBannerTimer() {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (_banners.isEmpty || !_bannerCtrl.hasClients) return;
+      final next = (_bannerPage + 1) % _banners.length;
+      _bannerCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+    });
+  }
+
+  @override
+  void dispose() { _bannerTimer?.cancel(); _bannerCtrl.dispose(); super.dispose(); }
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -588,9 +657,22 @@ class _PerfilTab extends StatefulWidget {
 class _PerfilTabState extends State<_PerfilTab> {
   Map<String, dynamic>? _user;
   List<Map<String, dynamic>> _favorites = [];
+  List<Map<String, dynamic>> _orders = [];
+  List<Map<String, dynamic>> _addresses = [];
   bool _loading = true;
   bool _showFavs = false;
   final _sb = Supabase.instance.client;
+
+  final _statusLabels = {
+    "pending":"⏳ Pendiente","accepted":"✅ Confirmado","preparing":"👨‍🍳 Preparando",
+    "ready":"🎉 Listo","assigned":"🛵 Asignado","picked_up":"📦 Recogido",
+    "on_the_way":"🚀 En camino","delivered":"🏁 Entregado","cancelled":"❌ Cancelado",
+  };
+  final _statusColors = {
+    "pending":Color(0xFFF59E0B),"accepted":Color(0xFF3B82F6),"preparing":Color(0xFFFF6B35),
+    "ready":Color(0xFF22C55E),"assigned":Color(0xFFF59E0B),"picked_up":Color(0xFF3B82F6),
+    "on_the_way":Color(0xFFFF6B35),"delivered":Color(0xFF22C55E),"cancelled":Color(0xFFEF4444),
+  };
 
   @override
   void initState() { super.initState(); _load(); }
@@ -602,9 +684,13 @@ class _PerfilTabState extends State<_PerfilTab> {
       if (authUser == null) { setState(() => _loading = false); return; }
       final u = await _sb.from("users").select().eq("auth_id", authUser.id).single();
       final favs = await _sb.from("user_favorites").select("*, stores(id,name,emoji,category,rating,delivery_time,delivery_fee,is_open)").eq("user_id", u["id"]);
+      final orders = await _sb.from("orders").select("*, stores(name,emoji), order_items(item_name,quantity)").eq("client_id", u["id"]).order("created_at", ascending: false).limit(20);
+      final addrs = await _sb.from("user_addresses").select().eq("user_id", u["id"]).order("is_default", ascending: false);
       if (mounted) setState(() {
         _user = u;
         _favorites = List<Map<String, dynamic>>.from(favs);
+        _orders = List<Map<String, dynamic>>.from(orders);
+        _addresses = List<Map<String, dynamic>>.from(addrs);
         _loading = false;
       });
     } catch (_) { if (mounted) setState(() => _loading = false); }
@@ -613,6 +699,257 @@ class _PerfilTabState extends State<_PerfilTab> {
   Future<void> _logout() async {
     await _sb.auth.signOut();
     if (mounted) context.go("/login");
+  }
+
+  String _fmt(num p) {
+    return "\$" + p.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.");
+  }
+
+  void _showOrders() {
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => DraggableScrollableSheet(expand: false, initialChildSize: 0.85, maxChildSize: 0.95,
+        builder: (ctx, ctrl) => Column(children: [
+          Container(margin: const EdgeInsets.symmetric(vertical: 12), width: 40, height: 4,
+            decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2))),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Row(children: [
+            const Text("Mis pedidos", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const Spacer(),
+            Text("${_orders.length} pedidos", style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
+          ])),
+          const Divider(height: 1),
+          Expanded(child: _orders.isEmpty
+            ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text("📦", style: TextStyle(fontSize: 48)),
+                SizedBox(height: 12),
+                Text("Sin pedidos aún", style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textLight)),
+              ]))
+            : ListView.builder(controller: ctrl, padding: const EdgeInsets.all(16),
+                itemCount: _orders.length,
+                itemBuilder: (ctx, i) {
+                  final o = _orders[i];
+                  final status = o["status"] as String? ?? "pending";
+                  final color = _statusColors[status] ?? AppColors.textLight;
+                  final isActive = !["delivered","cancelled"].contains(status);
+                  final items = (o["order_items"] as List?) ?? [];
+                  final total = (o["total"] as num?) ?? 0;
+                  return GestureDetector(
+                    onTap: () { Navigator.pop(ctx); context.push("/tracking/${o["id"]}"); },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: isActive ? color.withOpacity(0.4) : AppColors.border, width: isActive ? 2 : 1)),
+                      child: Row(children: [
+                        Text(o["stores"]?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 28)),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(o["stores"]?["name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w800)),
+                          Text(items.take(2).map((x) => x["item_name"]).join(", "),
+                            style: const TextStyle(color: AppColors.textLight, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ])),
+                        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                          Text(_fmt(total), style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary)),
+                          const SizedBox(height: 4),
+                          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                            child: Text(_statusLabels[status] ?? status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700))),
+                        ]),
+                      ]),
+                    ),
+                  );
+                }),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  void _showAddresses() {
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setModal) =>
+        DraggableScrollableSheet(expand: false, initialChildSize: 0.7, maxChildSize: 0.92,
+          builder: (ctx, ctrl) => Column(children: [
+            Container(margin: const EdgeInsets.symmetric(vertical: 12), width: 40, height: 4,
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2))),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Row(children: [
+              const Text("Mis direcciones", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const Spacer(),
+              TextButton.icon(onPressed: () => _addAddress(ctx, setModal),
+                icon: const Icon(Icons.add, size: 18), label: const Text("Agregar")),
+            ])),
+            const Divider(height: 1),
+            Expanded(child: _addresses.isEmpty
+              ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text("📍", style: TextStyle(fontSize: 48)),
+                  SizedBox(height: 12),
+                  Text("Sin direcciones guardadas", style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textLight)),
+                  SizedBox(height: 4),
+                  Text("Agrega una dirección para pedir más rápido", textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+                ]))
+              : ListView.builder(controller: ctrl, padding: const EdgeInsets.all(16),
+                  itemCount: _addresses.length,
+                  itemBuilder: (ctx, i) {
+                    final a = _addresses[i];
+                    final isDefault = a["is_default"] == true;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: isDefault ? AppColors.primary.withOpacity(0.5) : AppColors.border, width: isDefault ? 2 : 1)),
+                      child: Row(children: [
+                        Container(width: 40, height: 40,
+                          decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                          child: Icon(_labelIcon(a["label"]), color: AppColors.primary, size: 20)),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Row(children: [
+                            Text(a["label"] ?? "Dirección", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                            if (isDefault) ...[const SizedBox(width: 6),
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(6)),
+                                child: const Text("Principal", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)))],
+                          ]),
+                          const SizedBox(height: 2),
+                          Text(a["address"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
+                        ])),
+                        PopupMenuButton<String>(
+                          onSelected: (v) async {
+                            if (v == "default") {
+                              await _sb.from("user_addresses").update({"is_default": false}).eq("user_id", _user!["id"]);
+                              await _sb.from("user_addresses").update({"is_default": true}).eq("id", a["id"]);
+                            } else if (v == "delete") {
+                              await _sb.from("user_addresses").delete().eq("id", a["id"]);
+                            }
+                            final addrs = await _sb.from("user_addresses").select()
+                              .eq("user_id", _user!["id"]).order("is_default", ascending: false);
+                            if (mounted) setState(() => _addresses = List<Map<String, dynamic>>.from(addrs));
+                            setModal(() {});
+                          },
+                          itemBuilder: (_) => [
+                            if (!isDefault) const PopupMenuItem(value: "default", child: Text("Establecer como principal")),
+                            const PopupMenuItem(value: "delete", child: Text("Eliminar", style: TextStyle(color: AppColors.error))),
+                          ],
+                        ),
+                      ]),
+                    );
+                  }),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  IconData _labelIcon(String? label) {
+    if (label == "Casa") return Icons.home_outlined;
+    if (label == "Trabajo") return Icons.work_outline;
+    return Icons.location_on_outlined;
+  }
+
+  Future<void> _addAddress(BuildContext ctx, StateSetter setModal) async {
+    String label = "Casa";
+    final ctrl = TextEditingController();
+    await showDialog(context: ctx, builder: (dCtx) => StatefulBuilder(builder: (dCtx, setD) => AlertDialog(
+      title: const Text("Nueva dirección"),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        DropdownButtonFormField<String>(
+          value: label,
+          decoration: InputDecoration(labelText: "Tipo", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+          items: ["Casa","Trabajo","Otro"].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+          onChanged: (v) => setD(() => label = v!),
+        ),
+        const SizedBox(height: 12),
+        TextField(controller: ctrl, maxLines: 2,
+          decoration: InputDecoration(labelText: "Dirección completa",
+            hintText: "Ej: Calle Los Pinos 123, Ancud",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text("Cancelar")),
+        ElevatedButton(
+          onPressed: () async {
+            if (ctrl.text.trim().isEmpty) return;
+            final isEmpty = _addresses.isEmpty;
+            await _sb.from("user_addresses").insert({
+              "user_id": _user!["id"], "label": label,
+              "address": ctrl.text.trim(), "is_default": isEmpty,
+            });
+            final addrs = await _sb.from("user_addresses").select()
+              .eq("user_id", _user!["id"]).order("is_default", ascending: false);
+            if (mounted) setState(() => _addresses = List<Map<String, dynamic>>.from(addrs));
+            setModal(() {});
+            if (dCtx.mounted) Navigator.pop(dCtx);
+          },
+          child: const Text("Guardar"),
+        ),
+      ],
+    )));
+  }
+
+  void _showHelp() {
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => DraggableScrollableSheet(expand: false, initialChildSize: 0.75, maxChildSize: 0.95,
+        builder: (ctx, ctrl) => ListView(controller: ctrl, padding: const EdgeInsets.all(20), children: [
+          Container(margin: const EdgeInsets.only(bottom: 16), alignment: Alignment.center,
+            child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
+          const Text("Centro de ayuda", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+          const Text("¿En qué podemos ayudarte?", style: TextStyle(color: AppColors.textLight, fontSize: 14)),
+          const SizedBox(height: 20),
+          Container(padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [AppColors.primary, AppColors.secondary], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(16)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text("Contacto directo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: ElevatedButton.icon(onPressed: () {},
+                  icon: const Icon(Icons.chat, size: 16), label: const Text("WhatsApp", style: TextStyle(fontSize: 13)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF25D366), foregroundColor: Colors.white, minimumSize: const Size(0, 40)))),
+                const SizedBox(width: 8),
+                Expanded(child: ElevatedButton.icon(onPressed: () {},
+                  icon: const Icon(Icons.email_outlined, size: 16), label: const Text("Email", style: TextStyle(fontSize: 13)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.primary, minimumSize: const Size(0, 40)))),
+              ]),
+              const SizedBox(height: 8),
+              const Center(child: Text("soporte@godeli.cl · Lun-Vie 9:00-20:00",
+                style: TextStyle(color: Colors.white70, fontSize: 12))),
+            ])),
+          const SizedBox(height: 20),
+          const Text("Preguntas frecuentes", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          ...[
+            {"q": "¿Cuánto demora mi pedido?", "a": "El tiempo estimado depende del restaurante y la distancia. Normalmente entre 20 y 45 minutos."},
+            {"q": "¿Puedo cancelar mi pedido?", "a": "Puedes cancelar mientras el restaurante no haya aceptado. Escríbenos si necesitas ayuda."},
+            {"q": "¿Cuáles son los métodos de pago?", "a": "Aceptamos efectivo, tarjeta de crédito/débito y transferencia bancaria."},
+            {"q": "¿Qué hago si mi pedido llegó incompleto?", "a": "Contáctanos por WhatsApp o email con tu número de pedido y lo solucionamos de inmediato."},
+            {"q": "¿Cómo funciona el retiro en tienda?", "a": "Selecciona Retiro al hacer tu pedido. El restaurante te enviará un código cuando esté listo."},
+            {"q": "¿Cómo ser aliado de Go Deli?", "a": "Escríbenos a soporte@godeli.cl con los datos de tu negocio. Te contactamos en 24 horas."},
+          ].map((faq) => _faqItem(faq["q"]!, faq["a"]!)),
+          const SizedBox(height: 20),
+        ]),
+      ),
+    );
+  }
+
+  Widget _faqItem(String q, String a) {
+    return Theme(
+      data: ThemeData().copyWith(dividerColor: Colors.transparent),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          title: Text(q, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          children: [Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Text(a, style: const TextStyle(color: AppColors.textMedium, fontSize: 13, height: 1.5)))],
+        ),
+      ),
+    );
   }
 
   @override
@@ -624,43 +961,45 @@ class _PerfilTabState extends State<_PerfilTab> {
       ElevatedButton(onPressed: () => context.go("/login"), child: const Text("Iniciar sesión")),
     ]));
 
+    final delivered = _orders.where((o) => o["status"] == "delivered").length;
+    final totalSpent = _orders.where((o) => o["status"] == "delivered").fold(0.0, (s, o) => s + ((o["total"] as num?) ?? 0));
+
     return ListView(padding: const EdgeInsets.all(16), children: [
-      // Avatar
       Center(child: Column(children: [
         const SizedBox(height: 16),
-        CircleAvatar(
-          radius: 48,
-          backgroundColor: AppColors.primary,
-          child: Text((_user!["name"] as String? ?? "U")[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900)),
-        ),
+        CircleAvatar(radius: 48, backgroundColor: AppColors.primary,
+          child: Text((_user!["name"] as String? ?? "U")[0].toUpperCase(),
+            style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900))),
         const SizedBox(height: 12),
         Text(_user!["name"] ?? "", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
         Text(_user!["email"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
-        if (_user!["phone"] != null) Text(_user!["phone"], style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
-        const SizedBox(height: 24),
+        if (_user!["phone"] != null) Text(_user!["phone"], style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
+        const SizedBox(height: 20),
       ])),
 
-      // Menu items
-      _menuItem(Icons.favorite_border, "Mis favoritos (${_favorites.length})", () => setState(() => _showFavs = !_showFavs)),
+      Row(children: [
+        Expanded(child: _statCard("$delivered", "Pedidos")),
+        const SizedBox(width: 10),
+        Expanded(child: _statCard("${_favorites.length}", "Favoritos")),
+        const SizedBox(width: 10),
+        Expanded(child: _statCard(_fmt(totalSpent), "Gastado")),
+      ]),
+      const SizedBox(height: 20),
 
-      // Favoritos expandibles
+      _menuItem(Icons.favorite_border, "Mis favoritos (${_favorites.length})", () => setState(() => _showFavs = !_showFavs)),
       if (_showFavs) ...[
         const SizedBox(height: 8),
         if (_favorites.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(20),
+          Container(padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-            child: const Center(child: Text("Sin tiendas favoritas aún", style: TextStyle(color: AppColors.textLight))),
-          )
+            child: const Center(child: Text("Sin tiendas favoritas aún", style: TextStyle(color: AppColors.textLight))))
         else
           ..._favorites.map((fav) {
             final store = fav["stores"] as Map<String, dynamic>?;
             if (store == null) return const SizedBox();
             return GestureDetector(
               onTap: () => context.push("/store/${store["id"]}"),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(14),
+              child: Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
                 child: Row(children: [
                   Text(store["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 28)),
@@ -677,18 +1016,17 @@ class _PerfilTabState extends State<_PerfilTab> {
         const SizedBox(height: 8),
       ],
 
-      _menuItem(Icons.receipt_long_outlined, "Mis pedidos", () => setState(() {})),
+      _menuItem(Icons.receipt_long_outlined, "Mis pedidos ($delivered realizados)", _showOrders),
       _menuItem(Icons.notifications_outlined, "Notificaciones", () => context.push("/notifications")),
-      _menuItem(Icons.location_on_outlined, "Mis direcciones", () {}),
-      _menuItem(Icons.help_outline, "Ayuda y soporte", () {}),
+      _menuItem(Icons.location_on_outlined, "Mis direcciones (${_addresses.length})", _showAddresses),
+      _menuItem(Icons.help_outline, "Ayuda y soporte", _showHelp),
       const SizedBox(height: 24),
 
-      // Cerrar sesion
       ElevatedButton.icon(
         onPressed: _logout,
         icon: const Icon(Icons.logout),
         label: const Text("Cerrar sesión"),
-        style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+        style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, minimumSize: const Size(double.infinity, 50)),
       ),
       const SizedBox(height: 16),
       const Center(child: Text("Go Deli v1.0.0", style: TextStyle(color: AppColors.textLight, fontSize: 12))),
@@ -696,20 +1034,28 @@ class _PerfilTabState extends State<_PerfilTab> {
     ]);
   }
 
-  Widget _menuItem(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-        child: Row(children: [
-          Icon(icon, color: AppColors.primary, size: 22),
-          const SizedBox(width: 14),
-          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
-          const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textLight),
-        ]),
-      ),
-    );
-  }
+  Widget _statCard(String value, String label) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+    child: Column(children: [
+      Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary)),
+      const SizedBox(height: 4),
+      Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textLight, fontWeight: FontWeight.w600)),
+    ]),
+  );
+
+  Widget _menuItem(IconData icon, String label, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+      child: Row(children: [
+        Icon(icon, color: AppColors.primary, size: 22),
+        const SizedBox(width: 14),
+        Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
+        const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textLight),
+      ]),
+    ),
+  );
 }
