@@ -16,15 +16,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _ctrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
-    _fade  = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
-    _scale = Tween<double>(begin: 0.8, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
+    _ctrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+    _fade  = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.6, curve: Curves.easeIn)));
+    _scale = Tween<double>(begin: 0.75, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
     _ctrl.forward();
     _navigate();
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(seconds: 3));
+    await Future.delayed(const Duration(milliseconds: 2800));
     if (!mounted) return;
     final session = Supabase.instance.client.auth.currentSession;
     context.go(session != null ? "/home" : "/onboarding");
@@ -37,32 +37,83 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.secondary,
-      body: Center(
-        child: FadeTransition(
-          opacity: _fade,
-          child: ScaleTransition(
-            scale: _scale,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 100, height: 100,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 30, spreadRadius: 5)],
-                  ),
-                  child: const Center(child: Text("Go", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white))),
-                ),
-                const SizedBox(height: 24),
-                const Text("Go Deli", style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, fontFamily: "Nunito")),
-                const SizedBox(height: 8),
-                Text("Pide lo que quieras", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16)),
-              ],
+      body: Stack(children: [
+        // Fondo con gradiente
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF1A1A2E), Color(0xFF16213E), Color(0xFF0F3460)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
         ),
-      ),
+
+        // Círculos decorativos de fondo
+        Positioned(top: -80, right: -80, child: Container(
+          width: 300, height: 300,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.accent.withOpacity(0.06),
+          ),
+        )),
+        Positioned(bottom: -60, left: -60, child: Container(
+          width: 250, height: 250,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.primary.withOpacity(0.08),
+          ),
+        )),
+
+        // Contenido central
+        Center(
+          child: FadeTransition(
+            opacity: _fade,
+            child: ScaleTransition(
+              scale: _scale,
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                // Logo
+                Image.asset(
+                  "assets/images/logo.png",
+                  width: 220,
+                  filterQuality: FilterQuality.high,
+                ),
+                const SizedBox(height: 32),
+                // Tagline
+                Text(
+                  "Pide lo que quieras",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+
+        // Loading bottom
+        Positioned(
+          bottom: 60,
+          left: 0, right: 0,
+          child: FadeTransition(
+            opacity: _fade,
+            child: Column(children: [
+              SizedBox(
+                width: 32, height: 32,
+                child: CircularProgressIndicator(
+                  color: AppColors.accent,
+                  strokeWidth: 2.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text("Cargando...", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13)),
+            ]),
+          ),
+        ),
+      ]),
     );
   }
 }

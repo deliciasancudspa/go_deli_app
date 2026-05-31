@@ -145,7 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(16, 48, 16, 12),
               child: Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
-                  const Text("Go Deli", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                  Image.asset("assets/images/logo.png", height: 36, filterQuality: FilterQuality.high),
+                  const SizedBox(height: 2),
                   Text("¿Qué se te antoja hoy?", style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
                 ])),
                 Stack(children: [
