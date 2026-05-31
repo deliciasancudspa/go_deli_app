@@ -111,6 +111,17 @@ class RiderProvider extends ChangeNotifier {
     await loadActiveOrders();
   }
 
+  // Envía la ubicación GPS del repartidor a Supabase
+  Future<void> sendLocation(double lat, double lng) async {
+    if (_rider == null || riderId.isEmpty) return;
+    try {
+      await _sb.from("deliverers").update({
+        "current_lat": lat,
+        "current_lng": lng,
+      }).eq("id", riderId);
+    } catch (_) {}
+  }
+
   Future<void> signOut() async {
     await _sb.auth.signOut();
     _user = null; _rider = null; _isOnline = false;
