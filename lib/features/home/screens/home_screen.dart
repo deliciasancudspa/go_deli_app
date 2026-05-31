@@ -55,6 +55,17 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _startBannerTimer());
   }
 
+  void _startBannerTimer() {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (_banners.isEmpty || !_bannerCtrl.hasClients) return;
+      final next = (_bannerPage + 1) % _banners.length;
+      _bannerCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+    });
+  }
+
+  @override
+  void dispose() { _bannerTimer?.cancel(); _bannerCtrl.dispose(); super.dispose(); }
+
 
 
   Future<void> _load() async {
@@ -269,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ])),
                   if (hasImg) Positioned(bottom: 16, left: 16, right: 16, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                     if (b["title"] != null) Text(b["title"], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, shadows: [Shadow(color: Colors.black54, blurRadius: 8)])),
-                    if (b["subtitle"] != null) Text(b["subtitle"], style: const TextStyle(color: Colors.white80, fontSize: 13)),
+                    if (b["subtitle"] != null) Text(b["subtitle"], style: const TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
                   ])),
                   if (b["badge"] != null) Positioned(top: 12, right: 12, child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -537,7 +548,6 @@ class _PedidosTabState extends State<_PedidosTab> {
   void initState() {
     super.initState();
     _load();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startBannerTimer());
   }
 
 
