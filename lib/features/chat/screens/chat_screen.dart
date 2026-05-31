@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "dart:async";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 
@@ -17,10 +18,14 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _userId;
   bool _loading = true;
   bool _sending = false;
+  Timer? _pollTimer;
   final _sb = Supabase.instance.client;
 
   @override
   void initState() { super.initState(); _init(); }
+
+  @override
+  void dispose() { _pollTimer?.cancel(); super.dispose(); }
 
   Future<void> _init() async {
     try {
@@ -32,39 +37,31 @@ class _ChatScreenState extends State<ChatScreen> {
         .select("id, status, stores(name,emoji)")
         .eq("id", widget.orderId)
         .single();
-      final msgs = await _sb.from("chat_messages")
-        .select("*, users(name)")
-        .eq("order_id", widget.orderId)
-        .order("created_at");
-      if (mounted) setState(() {
-        _order = order;
-        _messages = List<Map<String, dynamic>>.from(msgs);
-        _loading = false;
-      });
+      if (mounted) setState(() { _order = order; _loading = false; });
+      await _loadMessages();
       _subscribeRealtime();
-      _scrollToBottom();
+      _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _loadMessages());
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   void _subscribeRealtime() {
-    _sb.channel("chat_${widget.orderId}")
+    _sb.channel("chat_client_${widget.orderId}")
       .onPostgresChanges(
         event: PostgresChangeEvent.insert,
         schema: "public",
         table: "chat_messages",
         filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: "order_id", value: widget.orderId),
         callback: (payload) async {
-          final msg = Map<String, dynamic>.from(payload.newRecord);
-          try {
-            final user = await _sb.from("users").select("name").eq("id", msg["sender_id"]).single();
-            msg["users"] = user;
-          } catch (_) {}
-          if (mounted) setState(() => _messages.add(msg));
-          _scrollToBottom();
+          await _loadMessages();
         },
       ).subscribe();
+  }
+
+  Future<void> _loadMessages() async {
+    final result = await _sb.from("chat_messages").select("*, users(name)").eq("order_id", widget.orderId).order("created_at");
+    if (mounted) { setState(() => _messages = List<Map<String, dynamic>>.from(result)); _scrollToBottom(); }
   }
 
   void _scrollToBottom() {
@@ -80,9 +77,12 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || _sending || _userId == null) return;
     setState(() => _sending = true);
     try {
+      final order = await _sb.from("orders").select("deliverer_id, deliverers(user_id)").eq("id", widget.orderId).single();
+      final receiverId = order["deliverers"]?["user_id"] ?? order["client_id"];
       await _sb.from("chat_messages").insert({
         "order_id": widget.orderId,
         "sender_id": _userId,
+        "receiver_id": receiverId,
         "message": text,
         "sender_type": "client",
       });
