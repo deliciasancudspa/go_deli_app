@@ -55,16 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _startBannerTimer());
   }
 
-  void _startBannerTimer() {
-    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (_banners.isEmpty || !_bannerCtrl.hasClients) return;
-      final next = (_bannerPage + 1) % _banners.length;
-      _bannerCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-    });
-  }
 
-  @override
-  void dispose() { _bannerTimer?.cancel(); _bannerCtrl.dispose(); super.dispose(); }
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -549,16 +540,7 @@ class _PedidosTabState extends State<_PedidosTab> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _startBannerTimer());
   }
 
-  void _startBannerTimer() {
-    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (_banners.isEmpty || !_bannerCtrl.hasClients) return;
-      final next = (_bannerPage + 1) % _banners.length;
-      _bannerCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-    });
-  }
 
-  @override
-  void dispose() { _bannerTimer?.cancel(); _bannerCtrl.dispose(); super.dispose(); }
 
   Future<void> _load() async {
     setState(() => _loading = true);
