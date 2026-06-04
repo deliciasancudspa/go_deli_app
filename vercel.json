@@ -1,7 +1,9 @@
 {
+  "outputDirectory": "admin",
   "routes": [
-    { "src": "/admin", "dest": "/admin/admin.html" },
-    { "src": "/aliados", "dest": "/admin/aliados.html" },
-    { "src": "/web", "dest": "/admin/web.html" }
+    { "src": "/aliados", "dest": "/aliados.html" },
+    { "src": "/admin", "dest": "/admin.html" },
+    { "src": "/web", "dest": "/web.html" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
