@@ -49,3 +49,5 @@ build/
 go_rider_app/build/
 *.cxx/
 .cxx/
+go_rider_app/*.apk
+*.apk
