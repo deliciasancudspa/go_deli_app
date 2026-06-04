@@ -7,6 +7,7 @@ class RiderProvider extends ChangeNotifier {
   Map<String, dynamic>? _rider;
   bool _isOnline = false;
   bool _loading = false;
+  bool _profileLoaded = false;
   List<Map<String, dynamic>> _activeOrders = [];
   List<Map<String, dynamic>> _orderHistory = [];
 
@@ -14,6 +15,8 @@ class RiderProvider extends ChangeNotifier {
   Map<String, dynamic>? get rider => _rider;
   bool get isOnline => _isOnline;
   bool get loading => _loading;
+  // True only after BOTH users and deliverers queries have completed
+  bool get profileLoaded => _profileLoaded;
   bool get isLoggedIn => _user != null;
   bool get isApproved => _rider?["status"] == "approved";
   List<Map<String, dynamic>> get activeOrders => _activeOrders;
@@ -27,6 +30,7 @@ class RiderProvider extends ChangeNotifier {
         _loadProfile(data.session!.user.id);
       } else {
         _user = null; _rider = null; _isOnline = false;
+        _profileLoaded = false;
         _activeOrders = []; _orderHistory = [];
         notifyListeners();
       }
@@ -34,6 +38,7 @@ class RiderProvider extends ChangeNotifier {
   }
 
   Future<void> _loadProfile(String authId) async {
+    _profileLoaded = false;
     try {
       final user = await _sb.from("users").select().eq("auth_id", authId).single();
       _user = user;
@@ -45,6 +50,9 @@ class RiderProvider extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
+      notifyListeners();
+    } finally {
+      _profileLoaded = true;
       notifyListeners();
     }
   }

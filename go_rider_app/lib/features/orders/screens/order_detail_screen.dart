@@ -19,8 +19,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Map<String, dynamic>? _order;
   bool _loading = true;
   bool _gpsActive = false;
+  bool _deliveryLoading = false;
   Timer? _gpsTimer;
   final _sb = Supabase.instance.client;
+  final _deliveryCodeCtrl = TextEditingController();
 
   static const _activeStatuses = ["assigned", "picked_up", "on_the_way"];
 
@@ -28,7 +30,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   void initState() { super.initState(); _load(); }
 
   @override
-  void dispose() { _stopGps(); super.dispose(); }
+  void dispose() { _stopGps(); _deliveryCodeCtrl.dispose(); super.dispose(); }
 
   Future<void> _load() async {
     try {
@@ -38,7 +40,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         .single();
       if (mounted) {
         setState(() { _order = o; _loading = false; });
-        // Iniciar GPS si el pedido está activo
         if (_activeStatuses.contains(o["status"])) _startGps();
       }
     } catch (_) { if (mounted) setState(() => _loading = false); }
@@ -53,9 +54,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         perm = await Geolocator.requestPermission();
       }
       if (perm == LocationPermission.deniedForever) return;
-
       setState(() => _gpsActive = true);
-      await _sendGps(); // envío inmediato
+      await _sendGps();
       _gpsTimer = Timer.periodic(const Duration(seconds: 8), (_) => _sendGps());
     } catch (_) {}
   }
@@ -65,9 +65,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       ).timeout(const Duration(seconds: 5));
-      if (mounted) {
-        await context.read<RiderProvider>().sendLocation(pos.latitude, pos.longitude);
-      }
+      if (mounted) await context.read<RiderProvider>().sendLocation(pos.latitude, pos.longitude);
     } catch (_) {}
   }
 
@@ -100,29 +98,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
-  void _showDeliveryConfirm(double total, String? payMethod) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: const Text("Confirmar entrega"),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text("Confirma que el pedido fue entregado al cliente."),
-        if (payMethod == "cash") ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-            child: Text("Recuerda cobrar \$${total.toStringAsFixed(0)} en efectivo.", style: const TextStyle(color: AppColors.warning, fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ]),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
-        ElevatedButton(
-          onPressed: () { Navigator.pop(ctx); _updateStatus("delivered"); },
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-          child: const Text("Confirmar"),
-        ),
-      ],
-    ));
+  Future<void> _confirmDelivery() async {
+    final entered = _deliveryCodeCtrl.text.trim().toUpperCase();
+    if (entered.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ingresa el código de 4 dígitos"), backgroundColor: AppColors.warning));
+      return;
+    }
+    setState(() => _deliveryLoading = true);
+    try {
+      final result = await _sb.from("orders").select("delivery_code").eq("id", widget.orderId).single();
+      final dbCode = (result["delivery_code"] as String?)?.toUpperCase() ?? "";
+      if (entered == dbCode) {
+        await _updateStatus("delivered");
+      } else {
+        if (mounted) {
+          setState(() => _deliveryLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Código incorrecto, intenta de nuevo"), backgroundColor: AppColors.error));
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _deliveryLoading = false);
+    }
   }
 
   @override
@@ -138,7 +134,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     final statusEmojis  = {"assigned":"🛵","picked_up":"📦","on_the_way":"🚀","delivered":"✅","cancelled":"❌"};
     final statusLabels  = {"assigned":"Ve al restaurante","picked_up":"Pedido recogido","on_the_way":"En camino al cliente","delivered":"Entregado","cancelled":"Cancelado"};
-    final statusDescs   = {"assigned":"Dirígete al restaurante y muestra el codigo de retiro","picked_up":"Lleva el pedido al cliente","on_the_way":"El cliente esta esperando su pedido","delivered":"Entrega completada","cancelled":"Pedido cancelado"};
+    final statusDescs   = {"assigned":"Dirígete al restaurante y muestra el código de retiro","picked_up":"Lleva el pedido al cliente","on_the_way":"Pide el código de entrega al cliente","delivered":"Entrega completada","cancelled":"Pedido cancelado"};
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -146,7 +142,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         title: Text("Pedido #${widget.orderId.substring(0,8).toUpperCase()}"),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/orders")),
         actions: [
-          // Indicador GPS en vivo
           if (_gpsActive) Padding(
             padding: const EdgeInsets.only(right: 14),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -170,8 +165,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             const SizedBox(height: 8),
             Text(statusLabels[status] ?? status, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
             const SizedBox(height: 4),
-            Text(statusDescs[status] ?? "", textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14)),
-            // GPS activo badge
+            Text(statusDescs[status] ?? "", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 14)),
             if (_gpsActive) ...[
               const SizedBox(height: 12),
               Container(
@@ -188,14 +182,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Código de retiro
+        // Código de retiro (visible solo cuando status == assigned)
         if (pickupCode != null && status == "assigned")
           Container(
             padding: const EdgeInsets.all(20),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.accent.withOpacity(0.4), width: 2)),
             child: Column(children: [
-              const Text("Muestra este codigo al restaurante", style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textLight, fontSize: 13)),
+              const Text("Muestra este código al restaurante", style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textLight, fontSize: 13)),
               const SizedBox(height: 8),
               Text(pickupCode, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: AppColors.accent, letterSpacing: 8)),
             ]),
@@ -242,25 +236,71 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
         const SizedBox(height: 20),
 
-        // Botones de acción
-        if (status == "assigned") ElevatedButton.icon(
-          onPressed: () => _updateStatus("picked_up"),
-          icon: const Icon(Icons.check_circle_outline),
-          label: const Text("Confirmar retiro del restaurante"),
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, minimumSize: const Size(double.infinity, 50)),
-        ),
+        // Botón de chat (visible en todos los estados activos)
+        if (_activeStatuses.contains(status)) ...[
+          OutlinedButton.icon(
+            onPressed: () => context.go("/chat/${widget.orderId}"),
+            icon: const Icon(Icons.chat_bubble_outline, size: 18),
+            label: const Text("Chat con el cliente"),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.accent,
+              side: const BorderSide(color: AppColors.accent),
+              minimumSize: const Size(double.infinity, 46),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+
+        // Acción: En camino (solo picked_up)
         if (status == "picked_up") ElevatedButton.icon(
           onPressed: () => _updateStatus("on_the_way"),
           icon: const Icon(Icons.delivery_dining),
           label: const Text("En camino al cliente"),
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, minimumSize: const Size(double.infinity, 50)),
         ),
-        if (status == "on_the_way") ElevatedButton.icon(
-          onPressed: () => _showDeliveryConfirm(total, payMethod),
-          icon: const Icon(Icons.check_circle),
-          label: const Text("Confirmar entrega"),
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, minimumSize: const Size(double.infinity, 50)),
-        ),
+
+        // Acción: Confirmar entrega con código (solo on_the_way)
+        if (status == "on_the_way") ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.success.withOpacity(0.4), width: 2)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Icon(Icons.lock_outline, color: AppColors.success, size: 18),
+                SizedBox(width: 8),
+                Text("Confirmar entrega", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.success)),
+              ]),
+              const SizedBox(height: 4),
+              const Text("Pide al cliente el código de 4 dígitos", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _deliveryCodeCtrl,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 6),
+                    decoration: const InputDecoration(
+                      hintText: "0000",
+                      counterText: "",
+                      contentPadding: EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _deliveryLoading ? null : _confirmDelivery,
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, minimumSize: const Size(100, 52)),
+                  child: _deliveryLoading
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text("Confirmar"),
+                ),
+              ]),
+            ]),
+          ),
+        ],
+
         const SizedBox(height: 20),
       ]),
     );

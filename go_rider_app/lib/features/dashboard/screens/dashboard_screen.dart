@@ -92,6 +92,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(rider.isOnline ? "En linea" : "Desconectado", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
             ])),
             GestureDetector(
+              onTap: () => context.go("/notifications"),
+              child: Container(
+                margin: const EdgeInsets.only(right: 10),
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
+                child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+              ),
+            ),
+            GestureDetector(
               onTap: () async { await rider.toggleOnline(); _loadStats(); },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),

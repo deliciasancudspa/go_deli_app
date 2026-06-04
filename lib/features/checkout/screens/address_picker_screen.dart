@@ -144,10 +144,10 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
         );
         if (mounted) setState(() => _address = best["formatted_address"] as String);
       } else {
-        if (mounted) setState(() => _address = "Lat: ${pos.latitude.toStringAsFixed(5)}, Lng: ${pos.longitude.toStringAsFixed(5)}");
+        if (mounted) setState(() => _address = "");
       }
     } catch (_) {
-      if (mounted) setState(() => _address = "Lat: ${pos.latitude.toStringAsFixed(5)}, Lng: ${pos.longitude.toStringAsFixed(5)}");
+      if (mounted) setState(() => _address = "");
     } finally {
       if (mounted) setState(() => _geocoding = false);
     }
@@ -322,13 +322,15 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
                       SizedBox(width: 8),
                       Text("Identificando dirección...", style: TextStyle(color: AppColors.textLight, fontSize: 14)),
                     ])
+                  else if (_address.isEmpty)
+                    const Text("No se pudo identificar la dirección. Mueve el mapa o busca manualmente.", style: TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.w600))
                   else
                     Text(_address, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textDark), maxLines: 3, overflow: TextOverflow.ellipsis),
                 ])),
               ]),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: _geocoding ? null : () => Navigator.pop(context, _address),
+                onPressed: (_geocoding || _address.isEmpty) ? null : () => Navigator.pop(context, _address),
                 icon: const Icon(Icons.check_circle_outline),
                 label: const Text("Confirmar esta dirección"),
                 style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 52)),

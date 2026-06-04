@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
 
@@ -25,9 +26,25 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(seconds: 3));
+    await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
+
+    // Check session directly — RiderProvider may still be loading profile
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      context.go("/login");
+      return;
+    }
+
+    // Session exists: poll until BOTH user and deliverer data are loaded (max 5s)
     final rider = context.read<RiderProvider>();
+    for (int i = 0; i < 25; i++) {
+      if (rider.profileLoaded) break;
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (!mounted) return;
+    }
+    if (!mounted) return;
+
     if (!rider.isLoggedIn) {
       context.go("/login");
     } else if (!rider.isApproved) {
