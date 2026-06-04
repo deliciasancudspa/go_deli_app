@@ -1565,11 +1565,11 @@ async function assignRider(orderId, riderId) {
   // Notificar al repartidor via tabla notifications
   try {
     await sb.from('notifications').insert({
-      user_id: authUserId,
+      title: 'Nuevo pedido asignado',
+      message: `Tienes un pedido listo para retiro. Código: ${pickupCode}. Pedido #${orderId.slice(0,8).toUpperCase()}`,
       type: 'order',
       emoji: '🛵',
-      target: riderId,
-      data: { title: 'Nuevo pedido asignado', message: `Tienes un pedido listo para retiro. Código: ${pickupCode}. Pedido #${orderId.slice(0,8).toUpperCase()}` },
+      target: riderId
     });
   } catch(e) {}
   showToast('✅ Repartidor asignado · Código: ' + pickupCode);
@@ -1602,7 +1602,13 @@ async function verifyRiderCode(orderId) {
 }
 
 async function notifyAdmin(title, message) {
-  const { error } = await sb.from('notifications').insert({ user_id: authUserId, type: 'alert', emoji: '⚠️', target: 'admin', data: { title, message } });
+  const { error } = await sb.from('notifications').insert({
+    title: title,
+    message: message,
+    type: 'alert',
+    emoji: '⚠️',
+    target: 'admin'
+  });
   if (error) console.warn('[notifyAdmin] Error al insertar notificación:', error.message);
 }
 
