@@ -1,0 +1,7 @@
+{
+  "routes": [
+    { "src": "/admin", "dest": "/admin/admin.html" },
+    { "src": "/aliados", "dest": "/admin/aliados.html" },
+    { "src": "/web", "dest": "/admin/web.html" }
+  ]
+}
