@@ -36,32 +36,39 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.secondary,
+      backgroundColor: AppColors.accent,
       body: Stack(children: [
-        // Fondo con gradiente
+        // Fondo degradado naranja → morado
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF1A1A2E), Color(0xFF16213E), Color(0xFF0F3460)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              colors: [Color(0xFFFF6B35), Color(0xFFD4526E), Color(0xFF7C3AED)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
           ),
         ),
 
         // Círculos decorativos de fondo
         Positioned(top: -80, right: -80, child: Container(
-          width: 300, height: 300,
+          width: 320, height: 320,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.accent.withOpacity(0.06),
+            color: Colors.white.withOpacity(0.06),
           ),
         )),
         Positioned(bottom: -60, left: -60, child: Container(
-          width: 250, height: 250,
+          width: 260, height: 260,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.primary.withOpacity(0.08),
+            color: Colors.white.withOpacity(0.06),
+          ),
+        )),
+        Positioned(top: 180, left: -40, child: Container(
+          width: 160, height: 160,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withOpacity(0.04),
           ),
         )),
 

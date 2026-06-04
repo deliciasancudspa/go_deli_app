@@ -15,9 +15,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _navIdx = 0;
   Map<String, dynamic> _stats = {};
   final _sb = Supabase.instance.client;
+  bool _subscribed = false;
 
   @override
-  void initState() { super.initState(); _loadStats(); _subscribeRealtime(); }
+  void initState() {
+    super.initState();
+    _loadStats();
+    _subscribeRealtime();
+    // Safety net: if riderId wasn't ready at initState, retry after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_subscribed) _subscribeRealtime();
+    });
+  }
+
+  @override
+  void dispose() {
+    final riderId = context.read<RiderProvider>().riderId;
+    if (riderId.isNotEmpty) {
+      _sb.channel("rider-orders-$riderId").unsubscribe();
+      _sb.channel("rider-notifs-$riderId").unsubscribe();
+    }
+    super.dispose();
+  }
 
   Future<void> _loadStats() async {
     final rider = context.read<RiderProvider>();
@@ -36,9 +55,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _subscribeRealtime() {
     final rider = context.read<RiderProvider>();
     if (rider.riderId.isEmpty) return;
+    if (_subscribed) return;
+    _subscribed = true;
     try {
-      _sb.channel("rider-${rider.riderId}").onPostgresChanges(event: PostgresChangeEvent.all, schema: "public", table: "orders", callback: (_) { rider.loadActiveOrders(); _loadStats(); }).subscribe();
-    } catch (_) {}
+      _sb.channel("rider-orders-${rider.riderId}").onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: "public",
+        table: "orders",
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: "deliverer_id", value: rider.riderId),
+        callback: (_) { rider.loadActiveOrders(); _loadStats(); },
+      ).subscribe();
+      _sb.channel("rider-notifs-${rider.riderId}").onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: "public",
+        table: "notifications",
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: "target", value: rider.riderId),
+        callback: (_) { rider.loadActiveOrders(); _loadStats(); },
+      ).subscribe();
+    } catch (_) { _subscribed = false; }
   }
 
   String _fmt(double n) => "\$${n.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";

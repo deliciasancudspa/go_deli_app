@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "dart:async";
 import "package:go_router/go_router.dart";
+import "../../../services/notification_service.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
@@ -23,7 +24,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final _sb = Supabase.instance.client;
   final _bannerCtrl = PageController();
   int _bannerPage = 0;
+  int _notifCount = 0;
   Timer? _bannerTimer;
+  StreamSubscription<void>? _notifSub;
 
   final _categories = [
     {"name": "Todos",            "emoji": "⭐"},
@@ -52,6 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
+    _loadNotifCount();
+    _notifSub = NotificationService().onNewNotification.listen((_) => _loadNotifCount());
     WidgetsBinding.instance.addPostFrameCallback((_) => _startBannerTimer());
   }
 
@@ -64,7 +69,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  void dispose() { _bannerTimer?.cancel(); _bannerCtrl.dispose(); super.dispose(); }
+  void dispose() { _notifSub?.cancel(); _bannerTimer?.cancel(); _bannerCtrl.dispose(); super.dispose(); }
+
+  Future<void> _loadNotifCount() async {
+    try {
+      final user = _sb.auth.currentUser;
+      if (user == null) return;
+      final u = await _sb.from("users").select("id").eq("auth_id", user.id).maybeSingle();
+      if (u == null) return;
+      final result = await _sb.from("orders")
+        .select("id")
+        .eq("client_id", u["id"])
+        .neq("status", "delivered")
+        .neq("status", "cancelled");
+      if (mounted) setState(() => _notifCount = (result as List).length);
+    } catch (_) {}
+  }
 
 
 
@@ -94,15 +114,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isMarket(String? cat) =>
     ["Supermercado","Minimarket","Carnicería","Verdulería","Botillería"].contains(cat);
 
-  String _fmt(num p) => "\$${p.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
-
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final auth = context.watch<AuthProvider>();
     return Scaffold(
       backgroundColor: AppColors.background,
       body: IndexedStack(index: _navIdx, children: [
-        _buildHome(cart),
+        _buildHome(cart, auth),
         _buildMarkets(),
         _buildServicios(),
         _buildPedidos(),
@@ -129,47 +148,73 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHome(CartProvider cart) {
+  Widget _buildHome(CartProvider cart, AuthProvider auth) {
+    final firstName = (auth.profile?["name"] as String? ?? "").split(" ").first;
     return RefreshIndicator(
       onRefresh: _load,
       color: AppColors.primary,
       child: CustomScrollView(slivers: [
         // AppBar
         SliverAppBar(
-          expandedHeight: 120,
-          floating: true,
+          expandedHeight: 100,
+          floating: false,
+          pinned: true,
+          automaticallyImplyLeading: false,
           backgroundColor: AppColors.primary,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                firstName.isNotEmpty ? "¡Hola, $firstName! 👋" : "¡Bienvenido!",
+                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900, height: 1.1),
+              ),
+              Text("¿Qué se te antoja hoy?", style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
+            ],
+          ),
+          actions: [
+            Stack(clipBehavior: Clip.none, children: [
+              IconButton(
+                onPressed: () => context.push("/cart"),
+                icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 26),
+              ),
+              if (cart.itemCount > 0) Positioned(
+                right: 4, top: 4,
+                child: Container(
+                  width: 17, height: 17,
+                  decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                  child: Center(child: Text("${cart.itemCount}", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900))),
+                ),
+              ),
+            ]),
+            Stack(clipBehavior: Clip.none, children: [
+              IconButton(
+                onPressed: () async {
+                  setState(() => _notifCount = 0);
+                  await context.push("/notifications");
+                  _loadNotifCount();
+                },
+                icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 26),
+              ),
+              if (_notifCount > 0) Positioned(
+                right: 4, top: 4,
+                child: Container(
+                  width: 17, height: 17,
+                  decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
+                  child: Center(child: Text(
+                    _notifCount > 9 ? "9+" : "$_notifCount",
+                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                  )),
+                ),
+              ),
+            ]),
+            const SizedBox(width: 4),
+          ],
           flexibleSpace: FlexibleSpaceBar(
             background: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(colors: [AppColors.primary, AppColors.secondary], begin: Alignment.topLeft, end: Alignment.bottomRight),
               ),
-              padding: const EdgeInsets.fromLTRB(16, 48, 16, 12),
-              child: Row(children: [
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
-                  Image.asset("assets/images/logo.png", height: 36, filterQuality: FilterQuality.high),
-                  const SizedBox(height: 2),
-                  Text("¿Qué se te antoja hoy?", style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
-                ])),
-                Stack(children: [
-                  IconButton(
-                    onPressed: () => context.push("/cart"),
-                    icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
-                  ),
-                  if (cart.itemCount > 0) Positioned(
-                    right: 6, top: 6,
-                    child: Container(
-                      width: 18, height: 18,
-                      decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
-                      child: Center(child: Text("${cart.itemCount}", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900))),
-                    ),
-                  ),
-                ]),
-                IconButton(
-                  onPressed: () => context.push("/notifications"),
-                  icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 28),
-                ),
-              ]),
             ),
           ),
         ),
@@ -475,24 +520,43 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _storeCard(Map<String, dynamic> store) {
+    final logoUrl = store["logo_url"] as String?;
+    final coverUrl = store["cover_url"] as String?;
     return GestureDetector(
       onTap: () => context.push("/store/${store["id"]}"),
       child: Container(
         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)]),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Container(
-              height: 110,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [AppColors.secondary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                image: store["cover_url"] != null ? DecorationImage(image: NetworkImage(store["cover_url"]), fit: BoxFit.cover) : null,
+          Stack(clipBehavior: Clip.none, children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Container(
+                height: 110,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [AppColors.secondary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  image: coverUrl != null ? DecorationImage(image: NetworkImage(coverUrl), fit: BoxFit.cover) : null,
+                ),
+                child: coverUrl == null ? Center(child: Text(store["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 40))) : null,
               ),
-              child: store["cover_url"] == null ? Center(child: Text(store["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 40))) : null,
             ),
-          ),
+            Positioned(
+              bottom: -16, left: 12,
+              child: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.surface,
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6)],
+                ),
+                child: ClipOval(child: logoUrl != null
+                  ? Image.network(logoUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Text(store["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 18))))
+                  : Center(child: Text(store["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 18)))),
+              ),
+            ),
+          ]),
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(10, 22, 10, 10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(store["name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),

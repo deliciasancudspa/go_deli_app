@@ -63,9 +63,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _sendGps() async {
     try {
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 5),
-      );
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 5));
       if (mounted) {
         await context.read<RiderProvider>().sendLocation(pos.latitude, pos.longitude);
       }

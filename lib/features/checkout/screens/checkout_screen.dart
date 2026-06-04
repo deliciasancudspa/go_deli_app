@@ -5,6 +5,7 @@ import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
 import "../../../providers/auth_provider.dart";
+import "address_picker_screen.dart";
 import "dart:math";
 
 class CheckoutScreen extends StatefulWidget {
@@ -37,11 +38,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (mounted) setState(() => _storeData = store);
   }
 
-  String _generateCode() {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    final r = Random();
-    return List.generate(6, (_) => chars[r.nextInt(chars.length)]).join();
-  }
+  String _generateCode() => (1000 + Random().nextInt(9000)).toString();
 
   String _fmt(num p) => "\$${p.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
 
@@ -72,7 +69,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 7) as num) / 100).round();
       final fixedFee   = (_storeData?["fixed_fee"] ?? 3000) as num;
       final total      = finalSub + delivFee;
-      final pickupCode = _generateCode();
+      // retiro: cliente muestra pickup_code a la tienda
+      // delivery: delivery_code lo da el cliente al rider; pickup_code lo genera el sistema al asignar rider
+      final pickupCode = _deliveryType == "pickup" ? _generateCode() : null;
       final delivCode  = _deliveryType == "delivery" ? _generateCode() : null;
 
       final u = await _sb.from("users").select("id").eq("auth_id", auth.user!.id).single();
@@ -144,14 +143,46 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (_deliveryType == "delivery") ...[
           const Text("Dirección de entrega", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _addressCtrl,
-            decoration: const InputDecoration(hintText: "Ej: Calle Principal 123, Ancud", prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.accent)),
+          GestureDetector(
+            onTap: () async {
+              final addr = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const AddressPickerScreen()));
+              if (addr != null && addr.isNotEmpty) setState(() => _addressCtrl.text = addr);
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _addressCtrl.text.isEmpty ? AppColors.border : AppColors.primary,
+                  width: _addressCtrl.text.isEmpty ? 1 : 2,
+                ),
+              ),
+              child: Row(children: [
+                Icon(
+                  _addressCtrl.text.isEmpty ? Icons.add_location_alt_outlined : Icons.location_on,
+                  color: _addressCtrl.text.isEmpty ? AppColors.textLight : AppColors.accent,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _addressCtrl.text.isEmpty
+                    ? const Text("Toca para seleccionar tu dirección", style: TextStyle(color: AppColors.textLight, fontSize: 14))
+                    : Text(_addressCtrl.text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textDark), maxLines: 2, overflow: TextOverflow.ellipsis),
+                ),
+                Icon(
+                  Icons.map_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ]),
+            ),
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: _refCtrl,
-            decoration: const InputDecoration(hintText: "Referencia (opcional)", prefixIcon: Icon(Icons.info_outline, color: AppColors.accent)),
+            decoration: const InputDecoration(hintText: "Referencia (opcional): depto, piso, portón color...", prefixIcon: Icon(Icons.info_outline, color: AppColors.accent)),
           ),
           const SizedBox(height: 20),
         ],

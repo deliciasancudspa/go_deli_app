@@ -10,6 +10,7 @@ import "providers/auth_provider.dart";
 import "providers/cart_provider.dart";
 import "providers/theme_provider.dart";
 import "providers/language_provider.dart";
+import "services/notification_service.dart";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,7 @@ void main() async {
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
   );
+  await NotificationService().init();
   runApp(const GoDeliApp());
 }
 

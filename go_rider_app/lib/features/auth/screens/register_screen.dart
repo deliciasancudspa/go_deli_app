@@ -186,7 +186,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const Text("Banco *", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.textMedium)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: _bankName,
+                    initialValue: _bankName,
                     decoration: const InputDecoration(prefixIcon: Icon(Icons.account_balance_outlined, color: AppColors.accent)),
                     items: _banks.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
                     onChanged: (v) => setState(() => _bankName = v!),
@@ -195,7 +195,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const Text("Tipo de cuenta *", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.textMedium)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: _accountType,
+                    initialValue: _accountType,
                     decoration: const InputDecoration(prefixIcon: Icon(Icons.credit_card_outlined, color: AppColors.accent)),
                     items: _accountTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                     onChanged: (v) => setState(() => _accountType = v!),

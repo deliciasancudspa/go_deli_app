@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "../services/notification_service.dart";
 
 class AuthProvider extends ChangeNotifier {
   final _sb = Supabase.instance.client;
@@ -24,6 +25,9 @@ class AuthProvider extends ChangeNotifier {
     final res = await _sb.from("users").select().eq("auth_id", _user!.id).maybeSingle();
     _profile = res;
     notifyListeners();
+    if (res != null && res["id"] != null) {
+      NotificationService().startOrderListener(res["id"] as String);
+    }
   }
 
   Future<String?> signIn(String email, String password) async {
@@ -60,6 +64,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    NotificationService().stopOrderListener();
     await _sb.auth.signOut();
     _user = null;
     _profile = null;

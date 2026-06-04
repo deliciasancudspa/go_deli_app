@@ -177,6 +177,30 @@ class _TrackingScreenState extends State<TrackingScreen> {
               ]),
             ),
 
+            // Codigo de retiro en tienda
+            if (isPickup && _order!["pickup_code"] != null && status == "ready") ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.success.withOpacity(0.4), width: 2),
+                ),
+                child: Column(children: [
+                  const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.store, color: AppColors.success, size: 20),
+                    SizedBox(width: 8),
+                    Text("Tu código de retiro", style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.success)),
+                  ]),
+                  const SizedBox(height: 6),
+                  const Text("Muéstralo en la tienda para retirar tu pedido", style: TextStyle(color: AppColors.textLight, fontSize: 12), textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  Text(_order!["pickup_code"], style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppColors.success, letterSpacing: 8)),
+                ]),
+              ),
+            ],
+
             // Codigo de entrega delivery
             if (!isPickup && _order!["delivery_code"] != null && ["on_the_way","picked_up"].contains(status)) ...[
               const SizedBox(height: 16),

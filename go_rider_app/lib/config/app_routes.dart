@@ -1,6 +1,4 @@
 import "package:go_router/go_router.dart";
-import "package:provider/provider.dart";
-import "../providers/rider_provider.dart";
 import "../features/auth/screens/splash_screen.dart";
 import "../features/auth/screens/login_screen.dart";
 import "../features/auth/screens/register_screen.dart";

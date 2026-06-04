@@ -56,8 +56,22 @@ class _StoreScreenState extends State<StoreScreen> {
     return Scaffold(backgroundColor: AppColors.background, body: CustomScrollView(slivers: [
       SliverAppBar(expandedHeight: 200, pinned: true, backgroundColor: AppColors.secondary, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => context.pop()),
         actions: [IconButton(icon: Icon(_isFav ? Icons.favorite : Icons.favorite_border, color: _isFav ? Colors.red : Colors.white), onPressed: _toggleFav), Stack(children: [IconButton(icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white), onPressed: () => context.push("/cart")), if (cart.itemCount > 0) Positioned(right: 6, top: 6, child: Container(width: 16, height: 16, decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle), child: Center(child: Text("${cart.itemCount}", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)))))])],
-        flexibleSpace: FlexibleSpaceBar(background: _store?["cover_url"] != null ? Image.network(_store!["cover_url"], fit: BoxFit.cover) : Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Center(child: Text(_store?["emoji"] ?? "X", style: const TextStyle(fontSize: 70)))))),
-      SliverToBoxAdapter(child: Container(color: AppColors.surface, padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        flexibleSpace: FlexibleSpaceBar(background: Stack(fit: StackFit.expand, children: [
+          _store?["cover_url"] != null
+            ? Image.network(_store!["cover_url"], fit: BoxFit.cover)
+            : Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Center(child: Text(_store?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 70)))),
+          Positioned(
+            bottom: -24, left: 16,
+            child: Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.surface, border: Border.all(color: Colors.white, width: 3), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8)]),
+              child: ClipOval(child: _store?["logo_url"] != null
+                ? Image.network(_store!["logo_url"], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Text(_store?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 24))))
+                : Center(child: Text(_store?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 24)))),
+            ),
+          ),
+        ]))),
+      SliverToBoxAdapter(child: Container(color: AppColors.surface, padding: const EdgeInsets.fromLTRB(16, 36, 16, 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(_store?["name"] ?? "", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 4), Text(_store?["description"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
         const SizedBox(height: 12), Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4), Text("${_store?["rating"] ?? 5.0}", style: const TextStyle(fontWeight: FontWeight.w700)), const SizedBox(width: 12), const Icon(Icons.access_time, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text("${_store?["delivery_time"] ?? "30-45"} min", style: const TextStyle(color: AppColors.textLight)), const SizedBox(width: 12), const Icon(Icons.delivery_dining, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text(_fmt(_store?["delivery_fee"] ?? 2990), style: const TextStyle(color: AppColors.textLight))]),

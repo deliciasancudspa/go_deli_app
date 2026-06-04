@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#FF6B35">
+<meta name="description" content="Go Deli - Pide lo que quieras. Delivery de comida, supermercado y más.">
+<title>Go Deli - Pide lo que quieras</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2MmFbdc9HsUxuGWgPXA0rwZqGvynrevM&libraries=places&callback=initMaps" async defer></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --primary:#FF6B35;--secondary:#1A1A2E;--accent:#FFB800;
+  --success:#22C55E;--error:#EF4444;--warning:#F59E0B;--info:#3B82F6;
+  --bg:#F8F9FA;--surface:#fff;--text:#1A1A2E;--muted:#6B7280;--border:#E5E7EB;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);}
+a{text-decoration:none;color:inherit;}
+button{cursor:pointer;font-family:inherit;}
+input,select,textarea{font-family:inherit;}
+
+/* ── NAVBAR ── */
+.navbar{background:var(--secondary);padding:0 5%;display:flex;align-items:center;height:64px;position:sticky;top:0;z-index:1000;box-shadow:0 2px 20px rgba(0,0,0,0.3);}
+.nav-logo{display:flex;align-items:center;gap:10px;margin-right:32px;}
+.nav-logo .logo-icon{width:40px;height:40px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.nav-logo span{color:#fff;font-size:20px;font-weight:900;}
+.nav-search{flex:1;max-width:480px;position:relative;}
+.nav-search input{width:100%;padding:10px 16px 10px 42px;border-radius:10px;border:none;background:rgba(255,255,255,0.1);color:#fff;font-size:14px;outline:none;}
+.nav-search input::placeholder{color:rgba(255,255,255,0.4);}
+.nav-search .search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.5);font-size:16px;}
+.nav-links{display:flex;align-items:center;gap:8px;margin-left:auto;}
+.nav-btn{padding:8px 18px;border-radius:10px;font-size:14px;font-weight:700;border:none;transition:all 0.2s;}
+.nav-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.3);}
+.nav-btn-outline:hover{border-color:#fff;}
+.nav-btn-primary{background:var(--primary);color:#fff;}
+.nav-btn-primary:hover{opacity:0.9;}
+.nav-portal{display:flex;gap:6px;margin-left:16px;padding-left:16px;border-left:1px solid rgba(255,255,255,0.15);}
+.nav-portal-btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);transition:all 0.2s;}
+.nav-portal-btn:hover{background:rgba(255,255,255,0.15);color:#fff;}
+.cart-btn{position:relative;background:var(--primary);color:#fff;border:none;width:40px;height:40px;border-radius:10px;font-size:18px;display:flex;align-items:center;justify-content:center;}
+.cart-badge{position:absolute;top:-6px;right:-6px;background:#fff;color:var(--primary);width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;}
+
+/* ── PAGES ── */
+.page{display:none;}
+.page.active{display:block;}
+
+/* ── HERO ── */
+.hero{background:linear-gradient(135deg,var(--secondary) 0%,#2d1b69 100%);padding:80px 5%;display:flex;align-items:center;gap:60px;min-height:500px;}
+.hero-content{flex:1;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(255,107,53,0.2);border:1px solid rgba(255,107,53,0.4);padding:6px 14px;border-radius:20px;color:var(--primary);font-size:13px;font-weight:700;margin-bottom:20px;}
+.hero h1{font-size:52px;font-weight:900;color:#fff;line-height:1.1;margin-bottom:16px;}
+.hero h1 span{color:var(--primary);}
+.hero p{color:rgba(255,255,255,0.7);font-size:18px;line-height:1.6;margin-bottom:32px;}
+.hero-search{display:flex;gap:12px;max-width:520px;}
+.hero-search input{flex:1;padding:16px 20px;border-radius:14px;border:none;font-size:15px;outline:none;}
+.hero-search button{padding:16px 28px;background:var(--primary);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:800;}
+.hero-stats{display:flex;gap:32px;margin-top:40px;}
+.hero-stat .value{font-size:28px;font-weight:900;color:#fff;}
+.hero-stat .label{font-size:13px;color:rgba(255,255,255,0.5);}
+.hero-image{flex:1;display:flex;align-items:center;justify-content:center;}
+.hero-image .food-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.food-card{background:rgba(255,255,255,0.1);border-radius:16px;padding:20px;text-align:center;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);}
+.food-card .emoji{font-size:36px;margin-bottom:8px;}
+.food-card p{color:rgba(255,255,255,0.8);font-size:12px;font-weight:700;}
+
+/* ── CATEGORIES ── */
+.section{padding:48px 5%;}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.section-header h2{font-size:24px;font-weight:800;}
+.section-header a{color:var(--primary);font-size:14px;font-weight:700;}
+.cat-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:12px;}
+.cat-card{background:var(--surface);border-radius:16px;padding:16px 8px;text-align:center;cursor:pointer;transition:all 0.2s;border:2px solid transparent;}
+.cat-card:hover,.cat-card.active{border-color:var(--primary);background:#FFF5F2;}
+.cat-card .cat-emoji{font-size:28px;margin-bottom:8px;}
+.cat-card p{font-size:12px;font-weight:700;color:var(--muted);}
+
+/* ── PROMO BANNER ── */
+.promo-banner{margin:0 5% 40px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:20px;padding:32px;display:flex;align-items:center;justify-content:space-between;}
+.promo-banner h3{font-size:28px;font-weight:900;color:#fff;}
+.promo-banner p{color:rgba(255,255,255,0.85);font-size:15px;margin-top:6px;}
+.promo-btn{background:#fff;color:var(--primary);padding:12px 24px;border-radius:12px;font-weight:800;border:none;font-size:14px;}
+.promo-right{font-size:80px;}
+
+/* ── STORES ── */
+.stores-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+.store-card{background:var(--surface);border-radius:20px;overflow:hidden;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 12px rgba(0,0,0,0.06);}
+.store-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,0.12);}
+.store-cover{height:160px;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:64px;}
+.store-cover img{width:100%;height:100%;object-fit:cover;}
+.store-badge{position:absolute;top:12px;left:12px;background:var(--primary);color:#fff;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;}
+.store-closed-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;letter-spacing:4px;}
+.store-logo{position:absolute;bottom:-20px;left:16px;width:48px;height:48px;border-radius:50%;border:3px solid #fff;background:var(--surface);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,0.15);}
+.store-logo img{width:100%;height:100%;object-fit:cover;}
+.store-info{padding:28px 16px 16px;}
+.store-name{font-size:16px;font-weight:800;margin-bottom:4px;}
+.store-cat{font-size:13px;color:var(--muted);margin-bottom:12px;}
+.store-meta{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--muted);}
+.store-meta .rating{color:var(--text);font-weight:700;}
+.store-meta span{display:flex;align-items:center;gap:4px;}
+.loading-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+.skeleton{background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:20px;height:260px;}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── STORE DETAIL ── */
+.store-detail-header{height:280px;position:relative;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:80px;}
+.store-detail-header img{width:100%;height:100%;object-fit:cover;}
+.store-detail-back{position:absolute;top:20px;left:20px;background:rgba(0,0,0,0.5);color:#fff;border:none;width:40px;height:40px;border-radius:50%;font-size:18px;backdrop-filter:blur(10px);}
+.store-detail-logo{position:absolute;bottom:-28px;left:5%;width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:var(--surface);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 4px 16px rgba(0,0,0,0.2);}
+.store-detail-logo img{width:100%;height:100%;object-fit:cover;}
+.store-detail-info{background:var(--surface);padding:40px 5% 24px;border-bottom:1px solid var(--border);}
+.store-detail-info h1{font-size:28px;font-weight:900;margin-bottom:6px;}
+.store-detail-info p{color:var(--muted);font-size:15px;margin-bottom:16px;}
+.store-detail-meta{display:flex;gap:24px;font-size:14px;}
+.store-detail-meta span{display:flex;align-items:center;gap:6px;color:var(--muted);}
+.store-detail-meta strong{color:var(--text);}
+.store-content{display:grid;grid-template-columns:220px 1fr;gap:0;min-height:60vh;}
+.menu-sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 0;position:sticky;top:64px;height:calc(100vh - 64px);overflow-y:auto;}
+.menu-sidebar-item{padding:12px 20px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);border-left:3px solid transparent;transition:all 0.15s;}
+.menu-sidebar-item:hover,.menu-sidebar-item.active{color:var(--primary);border-left-color:var(--primary);background:#FFF5F2;}
+.menu-main{padding:24px;}
+.menu-cat-title{font-size:20px;font-weight:800;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--border);}
+.menu-items-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px;}
+.menu-item{background:var(--surface);border-radius:16px;overflow:hidden;cursor:pointer;transition:all 0.2s;border:1px solid var(--border);display:flex;gap:0;}
+.menu-item:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1);}
+.menu-item-img{width:120px;height:120px;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:48px;}
+.menu-item-img img{width:100%;height:100%;object-fit:cover;}
+.menu-item-body{flex:1;padding:14px;}
+.menu-item-name{font-size:14px;font-weight:800;margin-bottom:4px;}
+.menu-item-desc{font-size:12px;color:var(--muted);line-height:1.4;margin-bottom:10px;}
+.menu-item-bottom{display:flex;align-items:center;justify-content:space-between;}
+.menu-item-price{font-size:16px;font-weight:900;color:var(--primary);}
+.add-btn{width:32px;height:32px;background:var(--primary);color:#fff;border:none;border-radius:50%;font-size:18px;display:flex;align-items:center;justify-content:center;}
+.qty-control{display:flex;align-items:center;gap:8px;}
+.qty-btn{width:28px;height:28px;border-radius:50%;border:none;font-size:16px;display:flex;align-items:center;justify-content:center;}
+.qty-btn-minus{background:var(--secondary);color:#fff;}
+.qty-btn-plus{background:var(--primary);color:#fff;}
+.qty-num{font-size:15px;font-weight:800;min-width:20px;text-align:center;}
+
+/* ── CART SIDEBAR ── */
+.cart-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:none;}
+.cart-overlay.open{display:block;}
+.cart-sidebar{position:fixed;right:0;top:0;bottom:0;width:400px;background:var(--surface);z-index:2001;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.3s;box-shadow:-4px 0 20px rgba(0,0,0,0.15);}
+.cart-sidebar.open{transform:translateX(0);}
+.cart-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.cart-header h3{font-size:18px;font-weight:800;}
+.cart-close{background:var(--bg);border:none;width:36px;height:36px;border-radius:50%;font-size:18px;}
+.cart-items{flex:1;overflow-y:auto;padding:16px;}
+.cart-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+.cart-item:last-child{border-bottom:none;}
+.cart-item-emoji{width:48px;height:48px;background:var(--bg);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.cart-item-info{flex:1;}
+.cart-item-name{font-size:14px;font-weight:700;}
+.cart-item-price{font-size:13px;color:var(--primary);font-weight:700;margin-top:2px;}
+.cart-footer{padding:20px 24px;border-top:1px solid var(--border);}
+.cart-total{display:flex;justify-content:space-between;font-size:17px;font-weight:900;margin-bottom:16px;}
+.cart-checkout-btn{width:100%;padding:16px;background:var(--primary);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:800;}
+.cart-empty{text-align:center;padding:60px 20px;color:var(--muted);}
+.cart-empty .cart-empty-icon{font-size:48px;margin-bottom:12px;}
+
+/* ── AUTH MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:3000;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border-radius:24px;padding:32px;width:440px;max-height:90vh;overflow-y:auto;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.modal-header h2{font-size:22px;font-weight:800;}
+.modal-close{background:var(--bg);border:none;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;}
+.form-group{margin-bottom:16px;}
+.form-group label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;outline:none;}
+.form-group input:focus,.form-group select:focus{border-color:var(--primary);}
+.btn-full{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;}
+.btn-full:hover{opacity:0.9;}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:16px 0;}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.auth-divider span{color:var(--muted);font-size:13px;}
+.auth-switch{text-align:center;margin-top:16px;font-size:14px;color:var(--muted);}
+.auth-switch a{color:var(--primary);font-weight:700;cursor:pointer;}
+.auth-error{color:var(--error);font-size:13px;margin-bottom:12px;text-align:center;}
+
+/* ── CHECKOUT ── */
+.checkout-layout{display:grid;grid-template-columns:1fr 380px;gap:32px;padding:40px 5%;}
+.checkout-card{background:var(--surface);border-radius:20px;padding:28px;border:1px solid var(--border);margin-bottom:20px;}
+.checkout-card h3{font-size:18px;font-weight:800;margin-bottom:20px;}
+.pay-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.pay-method{padding:16px;border-radius:14px;border:2px solid var(--border);cursor:pointer;text-align:center;transition:all 0.2s;}
+.pay-method:hover,.pay-method.active{border-color:var(--primary);background:#FFF5F2;}
+.pay-method .pay-icon{font-size:28px;margin-bottom:8px;}
+.pay-method p{font-size:12px;font-weight:700;color:var(--muted);}
+.pay-method.active p{color:var(--primary);}
+.order-summary-card{background:var(--surface);border-radius:20px;padding:24px;border:1px solid var(--border);position:sticky;top:100px;}
+.summary-item{display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;}
+.summary-total{display:flex;justify-content:space-between;font-size:18px;font-weight:900;padding-top:12px;margin-top:12px;border-top:2px solid var(--border);}
+.coupon-row{display:flex;gap:8px;margin-top:12px;}
+.coupon-input{flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;outline:none;}
+.coupon-input:focus{border-color:var(--primary);}
+.coupon-btn{padding:10px 18px;background:var(--secondary);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;}
+
+/* ── TRACKING ── */
+.tracking-layout{max-width:700px;margin:40px auto;padding:0 20px;}
+.tracking-header{background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:20px;padding:28px;margin-bottom:24px;text-align:center;}
+.tracking-header h2{color:#fff;font-size:22px;font-weight:900;margin-bottom:6px;}
+.tracking-header p{color:rgba(255,255,255,0.8);font-size:15px;}
+.tracking-steps{background:var(--surface);border-radius:20px;padding:24px;border:1px solid var(--border);}
+.tracking-step{display:flex;gap:16px;margin-bottom:8px;}
+.step-indicator{display:flex;flex-direction:column;align-items:center;}
+.step-dot{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:all 0.3s;}
+.step-dot.done{background:var(--primary);color:#fff;}
+.step-dot.current{background:var(--primary);color:#fff;box-shadow:0 0 0 6px rgba(255,107,53,0.2);}
+.step-dot.pending{background:var(--border);color:var(--muted);}
+.step-line{flex:1;width:2px;background:var(--border);margin:4px 0;}
+.step-line.done{background:var(--primary);}
+.step-content{flex:1;padding-bottom:20px;}
+.step-title{font-size:15px;font-weight:700;}
+.step-desc{font-size:13px;color:var(--muted);margin-top:2px;}
+.pickup-code{background:var(--bg);border-radius:16px;padding:20px;text-align:center;margin-top:16px;border:2px dashed var(--primary);}
+.pickup-code p{color:var(--muted);font-size:13px;margin-bottom:8px;}
+.pickup-code span{font-size:36px;font-weight:900;color:var(--primary);letter-spacing:8px;}
+
+/* ── PROFILE PAGE ── */
+.profile-layout{max-width:900px;margin:40px auto;padding:0 20px;display:grid;grid-template-columns:280px 1fr;gap:24px;}
+.profile-card{background:var(--surface);border-radius:20px;padding:24px;border:1px solid var(--border);}
+.profile-avatar{width:80px;height:80px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:900;margin:0 auto 16px;}
+.profile-name{text-align:center;font-size:20px;font-weight:800;margin-bottom:4px;}
+.profile-email{text-align:center;color:var(--muted);font-size:14px;margin-bottom:20px;}
+.profile-menu-item{display:flex;align-items:center;gap:10px;padding:12px;border-radius:12px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);transition:all 0.15s;}
+.profile-menu-item:hover,.profile-menu-item.active{background:var(--bg);color:var(--primary);}
+.profile-menu-icon{font-size:18px;width:24px;text-align:center;}
+
+/* ── PORTAL ALIADOS ── */
+.portal-hero{background:linear-gradient(135deg,#1A1A2E,#2d1b69);padding:80px 5%;text-align:center;}
+.portal-hero h1{font-size:48px;font-weight:900;color:#fff;margin-bottom:16px;}
+.portal-hero p{color:rgba(255,255,255,0.7);font-size:18px;max-width:600px;margin:0 auto 40px;}
+.portal-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;padding:60px 5%;max-width:1100px;margin:0 auto;}
+.portal-feature{background:var(--surface);border-radius:20px;padding:32px;text-align:center;border:1px solid var(--border);}
+.portal-feature .feat-icon{font-size:48px;margin-bottom:16px;}
+.portal-feature h3{font-size:18px;font-weight:800;margin-bottom:10px;}
+.portal-feature p{color:var(--muted);font-size:14px;line-height:1.6;}
+.portal-cta{background:var(--bg);padding:60px 5%;text-align:center;}
+.portal-cta h2{font-size:32px;font-weight:900;margin-bottom:12px;}
+.portal-cta p{color:var(--muted);font-size:16px;margin-bottom:32px;}
+.portal-btns{display:flex;gap:16px;justify-content:center;}
+.btn-large{padding:16px 32px;border-radius:14px;font-size:16px;font-weight:800;border:none;cursor:pointer;transition:all 0.2s;}
+.btn-primary-large{background:var(--primary);color:#fff;}
+.btn-outline-large{background:transparent;color:var(--primary);border:2px solid var(--primary);}
+.btn-primary-large:hover,.btn-outline-large:hover{opacity:0.85;}
+.commission-table{max-width:600px;margin:0 auto;background:var(--surface);border-radius:20px;overflow:hidden;border:1px solid var(--border);}
+.commission-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 24px;border-bottom:1px solid var(--border);font-size:14px;}
+.commission-row:last-child{border-bottom:none;font-weight:900;font-size:17px;}
+.commission-row span:last-child{color:var(--primary);font-weight:700;}
+
+/* ── PORTAL REPARTIDOR ── */
+.rider-hero{background:linear-gradient(135deg,#0F1923,#1A2636);padding:80px 5%;display:flex;align-items:center;gap:60px;}
+.rider-hero-content{flex:1;}
+.rider-hero h1{font-size:48px;font-weight:900;color:#fff;margin-bottom:16px;line-height:1.1;}
+.rider-hero p{color:rgba(255,255,255,0.7);font-size:17px;line-height:1.6;margin-bottom:32px;}
+.rider-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:60px 5%;}
+.rider-stat{background:var(--surface);border-radius:20px;padding:28px;text-align:center;border:1px solid var(--border);}
+.rider-stat .stat-val{font-size:36px;font-weight:900;color:var(--primary);margin-bottom:8px;}
+.rider-stat p{color:var(--muted);font-size:14px;}
+.rider-steps{padding:60px 5%;}
+.rider-steps h2{font-size:32px;font-weight:900;text-align:center;margin-bottom:48px;}
+.steps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;}
+.step-card{text-align:center;}
+.step-num{width:56px;height:56px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;margin:0 auto 16px;}
+.step-card h3{font-size:16px;font-weight:800;margin-bottom:8px;}
+.step-card p{color:var(--muted);font-size:13px;line-height:1.5;}
+.rider-form-section{background:var(--bg);padding:60px 5%;}
+.rider-form-section h2{font-size:32px;font-weight:900;text-align:center;margin-bottom:8px;}
+.rider-form-section p{color:var(--muted);text-align:center;font-size:16px;margin-bottom:40px;}
+.rider-form{max-width:600px;margin:0 auto;background:var(--surface);border-radius:24px;padding:32px;border:1px solid var(--border);}
+.app-badges{display:flex;gap:16px;justify-content:center;margin-top:32px;}
+.app-badge{background:var(--secondary);color:#fff;padding:14px 24px;border-radius:14px;display:flex;align-items:center;gap:12px;font-weight:700;font-size:14px;cursor:pointer;}
+.app-badge .badge-icon{font-size:24px;}
+
+/* ── FOOTER ── */
+.footer{background:var(--secondary);padding:60px 5% 30px;}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px;}
+.footer-brand .logo{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.footer-brand .logo-icon{width:40px;height:40px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.footer-brand .logo span{color:#fff;font-size:20px;font-weight:900;}
+.footer-brand p{color:rgba(255,255,255,0.5);font-size:14px;line-height:1.6;}
+.footer-col h4{color:#fff;font-size:14px;font-weight:800;margin-bottom:16px;}
+.footer-col a{display:block;color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:10px;cursor:pointer;transition:color 0.2s;}
+.footer-col a:hover{color:#fff;}
+.footer-bottom{border-top:1px solid rgba(255,255,255,0.08);padding-top:24px;display:flex;justify-content:space-between;align-items:center;}
+.footer-bottom p{color:rgba(255,255,255,0.4);font-size:13px;}
+
+/* ── CÓDIGO DE PEDIDO ── */
+.code-box { background:linear-gradient(135deg,var(--secondary),#2d1b69); border-radius:20px; padding:32px; text-align:center; margin:24px auto; max-width:420px; }
+.code-box p { color:rgba(255,255,255,0.7); font-size:14px; margin-bottom:12px; }
+.code-num { font-size:52px; font-weight:900; color:#fff; letter-spacing:14px; font-family:monospace; display:block; }
+.code-label { font-size:12px; color:rgba(255,255,255,0.5); margin-top:8px; text-transform:uppercase; letter-spacing:1px; }
+
+/* ── MAPA DIRECCIÓN ── */
+.map-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:4000; align-items:center; justify-content:center; }
+.map-modal-overlay.open { display:flex; }
+.map-modal { background:var(--surface); border-radius:24px; padding:28px; width:640px; max-width:95vw; }
+.map-container { width:100%; height:320px; border-radius:14px; overflow:hidden; margin:14px 0; position:relative; background:var(--bg); }
+#address-map { width:100%; height:100%; }
+.map-pin-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-100%); font-size:32px; pointer-events:none; z-index:10; }
+
+/* ── TRACKING MAP + CHAT ── */
+.tracking-map-wrap { height:280px; border-radius:16px; overflow:hidden; border:1px solid var(--border); margin-top:16px; }
+#tracking-map { width:100%; height:100%; }
+.chat-box { background:var(--surface); border-radius:16px; padding:20px; border:1px solid var(--border); margin-top:16px; }
+.chat-msgs { height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:12px; padding-right:4px; }
+.chat-msg { max-width:72%; padding:8px 14px; border-radius:14px; font-size:13px; line-height:1.4; }
+.chat-msg.mine { background:var(--primary); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
+.chat-msg.theirs { background:var(--bg); color:var(--text); align-self:flex-start; border-bottom-left-radius:4px; }
+.chat-input-row { display:flex; gap:8px; }
+.chat-input-row input { flex:1; padding:10px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:14px; outline:none; }
+.chat-input-row input:focus { border-color:var(--primary); }
+.chat-send-btn { padding:10px 20px; background:var(--primary); color:#fff; border:none; border-radius:10px; font-weight:700; cursor:pointer; }
+
+/* ── ORDER TYPE ── */
+.order-type-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:4px; }
+.order-type-card { border:2px solid var(--border); border-radius:14px; padding:18px; text-align:center; cursor:pointer; transition:all 0.2s; }
+.order-type-card:hover { border-color:var(--primary); }
+.order-type-card.active { border-color:var(--primary); background:#FFF5F2; }
+.order-type-card .ot-icon { font-size:32px; margin-bottom:8px; }
+.order-type-card .ot-label { font-weight:800; font-size:15px; }
+.order-type-card .ot-sub { font-size:12px; color:var(--muted); margin-top:3px; }
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--secondary);color:#fff;padding:14px 20px;border-radius:14px;font-size:14px;font-weight:600;z-index:9999;transform:translateY(100px);opacity:0;transition:all 0.3s;max-width:320px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-left:4px solid var(--success);}
+.toast.error{border-left:4px solid var(--error);}
+
+/* ── ORDERS HISTORY ── */
+.orders-section{max-width:800px;margin:40px auto;padding:0 20px;}
+.order-card{background:var(--surface);border-radius:16px;padding:20px;border:1px solid var(--border);margin-bottom:16px;cursor:pointer;transition:all 0.2s;}
+.order-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);}
+.order-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.badge-green{background:#DCFCE7;color:#166534;}
+.badge-yellow{background:#FEF3C7;color:#92400E;}
+.badge-red{background:#FEE2E2;color:#991B1B;}
+.badge-blue{background:#DBEAFE;color:#1E40AF;}
+.badge-orange{background:#FFEDD5;color:#9A3412;}
+.badge-gray{background:#F3F4F6;color:#374151;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .hero{flex-direction:column;padding:48px 5%;}
+  .hero h1{font-size:36px;}
+  .hero-image{display:none;}
+  .cat-grid{grid-template-columns:repeat(5,1fr);}
+  .stores-grid{grid-template-columns:repeat(2,1fr);}
+  .store-content{grid-template-columns:1fr;}
+  .menu-sidebar{display:none;}
+  .menu-items-grid{grid-template-columns:1fr;}
+  .checkout-layout{grid-template-columns:1fr;}
+  .portal-cards{grid-template-columns:1fr;}
+  .steps-grid{grid-template-columns:repeat(2,1fr);}
+  .rider-hero{flex-direction:column;}
+  .footer-grid{grid-template-columns:1fr 1fr;}
+  .cart-sidebar{width:100%;}
+  .profile-layout{grid-template-columns:1fr;}
+  .rider-stats{grid-template-columns:1fr;}
+  .nav-portal{display:none;}
+  .navbar{padding:0 4%;}
+}
+@media(max-width:600px){
+  .cat-grid{grid-template-columns:repeat(3,1fr);}
+  .stores-grid{grid-template-columns:1fr;}
+  .pay-methods{grid-template-columns:1fr;}
+  .hero-stats{flex-direction:column;gap:16px;}
+  .steps-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ NAVBAR ══ -->
+<nav class="navbar">
+  <div class="nav-logo" onclick="showPage('home')" style="cursor:pointer">
+    <div class="logo-icon">🛵</div>
+    <span>Go Deli</span>
+  </div>
+  <div class="nav-search">
+    <span class="search-icon">🔍</span>
+    <input type="text" placeholder="Buscar tiendas, productos..." id="nav-search-input" oninput="handleNavSearch(this.value)">
+  </div>
+  <div class="nav-links">
+    <div id="auth-buttons">
+      <button class="nav-btn nav-btn-outline" onclick="openAuthModal('login')">Iniciar sesión</button>
+      <button class="nav-btn nav-btn-primary" onclick="openAuthModal('register')">Registrarse</button>
+    </div>
+    <div id="user-menu" style="display:none">
+      <button class="nav-btn nav-btn-outline" onclick="showPage('profile')" id="nav-user-name">Mi cuenta</button>
+      <button class="nav-btn nav-btn-outline" onclick="doLogout()">Salir</button>
+    </div>
+    <button class="cart-btn" onclick="toggleCart()">
+      🛒<span class="cart-badge" id="cart-badge" style="display:none">0</span>
+    </button>
+  </div>
+  <div class="nav-portal">
+    <button class="nav-portal-btn" onclick="showPage('servicios')">🔧 Go Servicios</button>
+    <button class="nav-portal-btn" onclick="showPage('aliados')">🏪 Aliados</button>
+    <button class="nav-portal-btn" onclick="showPage('repartidor')">🛵 Repartidores</button>
+  </div>
+</nav>
+
+<!-- ══ PÁGINAS ══ -->
+
+<!-- HOME -->
+<div id="page-home" class="page active">
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">🛵 Delivery en tu ciudad</div>
+      <h1>Pide lo que <span>quieras</span>, cuando quieras</h1>
+      <p>Restaurantes, supermercados, farmacias y más. Entregamos en minutos directamente en tu puerta.</p>
+      <div class="hero-search">
+        <input type="text" placeholder="¿Qué se te antoja hoy?" id="hero-search" oninput="handleNavSearch(this.value)">
+        <button onclick="showPage('search')">Buscar</button>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="value">50+</div><div class="label">Restaurantes</div></div>
+        <div class="hero-stat"><div class="value">30min</div><div class="label">Tiempo promedio</div></div>
+        <div class="hero-stat"><div class="value">4.8⭐</div><div class="label">Calificación</div></div>
+      </div>
+    </div>
+    <div class="hero-image">
+      <div class="food-grid">
+        <div class="food-card"><div class="emoji">🍔</div><p>Hamburguesas</p></div>
+        <div class="food-card"><div class="emoji">🍣</div><p>Sushi</p></div>
+        <div class="food-card"><div class="emoji">🍕</div><p>Pizza</p></div>
+        <div class="food-card"><div class="emoji">🥩</div><p>Carnes</p></div>
+        <div class="food-card"><div class="emoji">🛒</div><p>Super</p></div>
+        <div class="food-card"><div class="emoji">💊</div><p>Farmacia</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Categorias -->
+  <div class="section">
+    <div class="section-header">
+      <h2>¿Qué se te antoja?</h2>
+    </div>
+    <div class="cat-grid" id="cat-grid">
+      <div class="cat-card active" onclick="filterByCategory('Todos',this)"><div class="cat-emoji">⭐</div><p>Todos</p></div>
+      <div class="cat-card" onclick="filterByCategory('Hamburguesas',this)"><div class="cat-emoji">🍔</div><p>Hamburguesas</p></div>
+      <div class="cat-card" onclick="filterByCategory('Sushi',this)"><div class="cat-emoji">🍣</div><p>Sushi</p></div>
+      <div class="cat-card" onclick="filterByCategory('Pizza',this)"><div class="cat-emoji">🍕</div><p>Pizza</p></div>
+      <div class="cat-card" onclick="filterByCategory('Carnes',this)"><div class="cat-emoji">🥩</div><p>Carnes</p></div>
+      <div class="cat-card" onclick="filterByCategory('Bebidas',this)"><div class="cat-emoji">🥤</div><p>Bebidas</p></div>
+      <div class="cat-card" onclick="filterByCategory('Postres',this)"><div class="cat-emoji">🍰</div><p>Postres</p></div>
+      <div class="cat-card" onclick="filterByCategory('Supermercado',this)"><div class="cat-emoji">🛒</div><p>Super</p></div>
+      <div class="cat-card" onclick="filterByCategory('Farmacia',this)"><div class="cat-emoji">💊</div><p>Farmacia</p></div>
+      <div class="cat-card" onclick="showPage('servicios')" style="border:2px solid var(--accent);background:#FFFBEB"><div class="cat-emoji">🔧</div><p style="color:var(--accent)">Servicios</p></div>
+    </div>
+  </div>
+
+  <!-- Banners publicitarios desde Admin (hasta 4) -->
+  <div id="ad-banners-container" style="margin:0 5% 24px;display:none">
+    <p style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:6px">Publicidad</p>
+    <div id="ad-banners-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px"></div>
+  </div>
+
+  <!-- Banner promo -->
+  <div class="promo-banner">
+    <div>
+      <h3>🎉 Oferta de bienvenida</h3>
+      <p>30% de descuento en tu primer pedido. Usa el código <strong>BIENVENIDO</strong></p>
+    </div>
+    <button class="promo-btn" onclick="openAuthModal('register')">Pedir ahora</button>
+    <div class="promo-right">🛵</div>
+  </div>
+
+  <!-- Tiendas -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Tiendas cerca de ti</h2>
+      <a onclick="showPage('search')">Ver todas →</a>
+    </div>
+    <div id="stores-grid" class="stores-grid">
+      <div class="loading-grid">
+        <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SEARCH -->
+<div id="page-search" class="page">
+  <div class="section">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+      <button onclick="showPage('home');document.getElementById('nav-search-input').value=''" style="background:var(--bg);border:1.5px solid var(--border);padding:8px 16px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">← Volver</button>
+      <h2 style="font-size:20px;font-weight:800" id="search-title">Resultados de búsqueda</h2>
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap" id="search-filters">
+        <button class="cat-card active" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="setSearchFilter('all',this)">Todos</button>
+        <button class="cat-card" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="setSearchFilter('open',this)">Abiertos</button>
+        <button class="cat-card" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="setSearchFilter('fast',this)">Rapido</button>
+        <button class="cat-card" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="setSearchFilter('cheap',this)">Envio barato</button>
+        <button class="cat-card" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="setSearchFilter('rated',this)">Mejor rating</button>
+      </div>
+      <p id="search-results-count" style="color:var(--muted);font-size:14px"></p>
+    </div>
+    <div id="search-grid" class="stores-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STORE DETAIL -->
+<div id="page-store" class="page">
+  <div id="store-detail-content"></div>
+</div>
+
+<!-- CHECKOUT -->
+<div id="page-checkout" class="page">
+  <div class="checkout-layout">
+    <div>
+      <!-- Tipo de entrega -->
+      <div class="checkout-card">
+        <h3>📦 Tipo de entrega</h3>
+        <div class="order-type-grid">
+          <div class="order-type-card active" id="ot-delivery" onclick="setOrderType('delivery')">
+            <div class="ot-icon">🛵</div>
+            <div class="ot-label">Delivery</div>
+            <div class="ot-sub">Entrega a domicilio</div>
+          </div>
+          <div class="order-type-card" id="ot-pickup" onclick="setOrderType('pickup')">
+            <div class="ot-icon">🏪</div>
+            <div class="ot-label">Retiro en tienda</div>
+            <div class="ot-sub">Retiras tú mismo</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dirección (solo delivery) -->
+      <div class="checkout-card" id="address-card">
+        <h3>📍 Dirección de entrega</h3>
+        <!-- Campo solo-lectura: se llena exclusivamente desde el mapa -->
+        <div onclick="openAddressMap()" id="address-display" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg);border:2px dashed var(--border);border-radius:12px;cursor:pointer;margin-bottom:12px;transition:border-color 0.2s">
+          <span id="address-icon" style="font-size:20px">📍</span>
+          <span id="address-text" style="flex:1;font-size:14px;color:var(--muted);font-weight:600">Toca para seleccionar tu dirección en el mapa</span>
+          <span style="font-size:18px">🗺️</span>
+        </div>
+        <!-- Input oculto para guardar el valor en placeOrder -->
+        <input type="hidden" id="checkout-address">
+        <div class="form-group">
+          <label>Referencia (opcional)</label>
+          <input type="text" id="checkout-ref" placeholder="Ej: Depto 4B, portón verde">
+        </div>
+      </div>
+
+      <!-- Info retiro (solo pickup) -->
+      <div class="checkout-card" id="pickup-info-card" style="display:none">
+        <h3>🏪 Información de retiro</h3>
+        <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:12px">
+          <p style="font-weight:800;font-size:15px" id="checkout-store-name">-</p>
+          <p style="color:var(--muted);font-size:13px;margin-top:4px" id="checkout-store-addr">-</p>
+        </div>
+        <div style="background:#FEF3C7;border-radius:12px;padding:14px;display:flex;gap:10px;align-items:flex-start">
+          <span>⚠️</span>
+          <div>
+            <p style="font-size:13px;font-weight:700;color:#92400E">Efectivo no disponible para retiro</p>
+            <p style="font-size:12px;color:#92400E;margin-top:2px">El pago debe ser con tarjeta o transferencia.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Método de pago -->
+      <div class="checkout-card">
+        <h3>💳 Método de pago</h3>
+        <div class="pay-methods" id="pay-methods-grid">
+          <div class="pay-method active" id="pay-cash" onclick="selectPayment('cash',this)"><div class="pay-icon">💵</div><p>Efectivo</p></div>
+          <div class="pay-method" onclick="selectPayment('card',this)"><div class="pay-icon">💳</div><p>Tarjeta</p></div>
+          <div class="pay-method" onclick="selectPayment('transfer',this)"><div class="pay-icon">📱</div><p>Transferencia</p></div>
+        </div>
+      </div>
+
+      <!-- Cupón -->
+      <div class="checkout-card">
+        <h3>🎟️ Cupón de descuento</h3>
+        <div class="coupon-row">
+          <input class="coupon-input" type="text" id="coupon-input" placeholder="Ej: BIENVENIDO" style="text-transform:uppercase">
+          <button class="coupon-btn" onclick="applyCoupon()">Aplicar</button>
+        </div>
+        <p id="coupon-msg" style="font-size:13px;margin-top:8px"></p>
+      </div>
+    </div>
+
+    <!-- Resumen -->
+    <div>
+      <div class="order-summary-card">
+        <h3 style="font-size:18px;font-weight:800;margin-bottom:20px">Resumen del pedido</h3>
+        <div id="checkout-items"></div>
+        <div id="checkout-totals"></div>
+        <button class="cart-checkout-btn" style="margin-top:16px" onclick="placeOrder()" id="place-order-btn">Confirmar pedido</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MAPA DIRECCIÓN -->
+<div class="map-modal-overlay" id="address-map-modal">
+  <div class="map-modal">
+    <div class="modal-header" style="margin-bottom:12px">
+      <h2 style="font-size:18px;font-weight:800">📍 Selecciona tu dirección</h2>
+      <button class="modal-close" onclick="closeAddressMap()">✕</button>
+    </div>
+    <input type="text" id="map-search-input" placeholder="Busca tu dirección..."
+      style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;outline:none;margin-bottom:10px">
+    <div class="map-container">
+      <div id="address-map"></div>
+      <div class="map-pin-center">📍</div>
+    </div>
+    <p id="map-selected-text" style="color:var(--muted);font-size:13px;margin-bottom:14px;min-height:18px">Mueve el mapa para elegir tu punto exacto</p>
+    <button class="btn-full" onclick="confirmMapAddress()">✓ Confirmar esta dirección</button>
+  </div>
+</div>
+
+<!-- ORDER SUCCESS -->
+<div id="page-success" class="page">
+  <div id="success-content" style="max-width:560px;margin:0 auto;padding:48px 20px;text-align:center">
+    <!-- Renderizado dinámicamente por showOrderSuccess() -->
+  </div>
+</div>
+
+<!-- TRACKING -->
+<div id="page-tracking" class="page">
+  <div class="tracking-layout">
+    <div id="tracking-content">
+      <div style="text-align:center;padding:60px"><div class="spinner" style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto"></div></div>
+    </div>
+    <!-- Mapa rider (visible cuando on_the_way) -->
+    <div id="tracking-map-wrap" class="tracking-map-wrap" style="display:none">
+      <div id="tracking-map"></div>
+    </div>
+    <!-- Chat (visible cuando picked_up o on_the_way) -->
+    <div id="tracking-chat-wrap" class="chat-box" style="display:none">
+      <p style="font-weight:800;font-size:15px;margin-bottom:14px">💬 Chat con el repartidor</p>
+      <div class="chat-msgs" id="tracking-chat-msgs"></div>
+      <div class="chat-input-row">
+        <input type="text" id="tracking-chat-input" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter') sendTrackingMessage()">
+        <button class="chat-send-btn" onclick="sendTrackingMessage()">Enviar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ORDERS -->
+<div id="page-orders" class="page">
+  <div class="orders-section">
+    <h2 style="font-size:24px;font-weight:800;margin-bottom:24px">Mis pedidos</h2>
+    <div id="orders-list"></div>
+  </div>
+</div>
+
+<!-- PROFILE -->
+<div id="page-profile" class="page">
+  <div class="profile-layout">
+    <div>
+      <div class="profile-card">
+        <div class="profile-avatar" id="profile-avatar">U</div>
+        <div class="profile-name" id="profile-name">-</div>
+        <div class="profile-email" id="profile-email">-</div>
+        <div class="profile-menu-item active" onclick="showProfileTab('orders')"><span class="profile-menu-icon">📦</span>Mis pedidos</div>
+        <div class="profile-menu-item" onclick="showProfileTab('addresses')"><span class="profile-menu-icon">📍</span>Mis direcciones</div>
+        <div class="profile-menu-item" onclick="showProfileTab('payments')"><span class="profile-menu-icon">💳</span>Métodos de pago</div>
+        <div class="profile-menu-item" onclick="showProfileTab('coupons')"><span class="profile-menu-icon">🎟️</span>Mis cupones</div>
+        <div class="profile-menu-item" onclick="doLogout()"><span class="profile-menu-icon">⏻</span>Cerrar sesión</div>
+      </div>
+    </div>
+    <div class="profile-card" id="profile-tab-content">
+      <div id="orders-list-profile"></div>
+    </div>
+  </div>
+</div>
+
+<!-- GO SERVICIOS -->
+<div id="page-servicios" class="page">
+  <div style="background:linear-gradient(135deg,#1A1A2E,#2d1b69);padding:60px 5%;text-align:center">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,184,0,0.2);border:1px solid rgba(255,184,0,0.4);padding:6px 16px;border-radius:20px;color:var(--accent);font-size:13px;font-weight:700;margin-bottom:20px">🔧 Go Servicios</div>
+    <h1 style="font-size:40px;font-weight:900;color:#fff;margin-bottom:14px">Servicios a domicilio en tu ciudad</h1>
+    <p style="color:rgba(255,255,255,0.7);font-size:16px;max-width:600px;margin:0 auto">Encuentra empresas de servicios verificadas. Vulcanización, electricidad, plomería, y más — directamente a tu puerta.</p>
+  </div>
+
+  <!-- Filtros de categoria -->
+  <div style="background:#fff;padding:20px 5%;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
+    <button class="cat-card active" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="filterServicios('todos',this)">Todos</button>
+    <button class="cat-card" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="filterServicios('Automotriz',this)">🚗 Automotriz</button>
+    <button class="cat-card" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="filterServicios('Hogar',this)">🏠 Hogar</button>
+    <button class="cat-card" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="filterServicios('Tecnologia',this)">💻 Tecnología</button>
+    <button class="cat-card" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="filterServicios('Belleza',this)">💅 Belleza</button>
+    <button class="cat-card" style="padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700" onclick="filterServicios('Otro',this)">⭐ Otros</button>
+  </div>
+
+  <div style="padding:32px 5%">
+    <div id="servicios-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+      <div style="text-align:center;padding:60px;grid-column:1/-1;color:var(--muted)">
+        <div style="font-size:48px;margin-bottom:12px">🔧</div>
+        <p style="font-weight:600">Cargando servicios...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA para empresas -->
+  <div style="background:var(--bg);padding:60px 5%;text-align:center;border-top:1px solid var(--border)">
+    <h2 style="font-size:28px;font-weight:900;margin-bottom:12px">¿Tienes una empresa de servicios?</h2>
+    <div style="display:inline-flex;align-items:center;gap:16px;background:#FFF5F2;border-radius:14px;padding:16px 24px;margin-bottom:16px">
+      <div style="text-align:center"><p style="color:var(--muted);font-size:12px;text-decoration:line-through">$50.000/mes</p><p style="color:var(--primary);font-weight:900;font-size:24px">$20.000/mes</p><p style="color:var(--muted);font-size:11px">Primeros 3 meses</p></div>
+      <div style="width:1px;height:48px;background:var(--border)"></div>
+      <div style="text-align:left"><p style="font-weight:800;font-size:14px">🎁 Promoción de lanzamiento</p><p style="color:var(--muted);font-size:13px">Sin comisiones por servicio.<br>Pago mensual fijo.</p></div>
+    </div>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:32px">Tus clientes te contactan directamente por WhatsApp. Sin intermediarios.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn-large btn-primary-large" onclick="showServiciosForm()">Registrar mi empresa</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SERVICIO DETALLE -->
+<div class="modal-overlay" id="servicio-modal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <h2 id="serv-modal-title">Empresa</h2>
+      <button class="modal-close" onclick="closeServicioModal()">✕</button>
+    </div>
+    <div id="serv-modal-content"></div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRO SERVICIOS -->
+<div class="modal-overlay" id="servicios-register-modal">
+  <div class="modal" style="width:540px">
+    <div class="modal-header">
+      <h2>Registrar empresa de servicios</h2>
+      <button class="modal-close" onclick="document.getElementById('servicios-register-modal').classList.remove('open')">✕</button>
+    </div>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:20px">Completa el formulario. Revisaremos tu solicitud en 48 horas hábiles.</p>
+    <div class="form-group"><label>Nombre de la empresa *</label><input type="text" id="srv-empresa" placeholder="Ej: Vulcanización John"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label>Categoría *</label>
+        <select id="srv-cat">
+          <option value="">Selecciona...</option>
+          <option>Automotriz</option><option>Hogar</option><option>Tecnologia</option>
+          <option>Belleza</option><option>Salud</option><option>Educacion</option><option>Otro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Ciudad *</label>
+        <select id="srv-city">
+          <option value="">Selecciona...</option>
+          <option>Ancud</option><option>Castro</option><option>Puerto Montt</option><option>Otra</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>Descripción de la empresa *</label><textarea id="srv-desc" rows="3" placeholder="Describe tu empresa y los servicios que ofreces..."></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label>Teléfono / WhatsApp *</label><input type="tel" id="srv-phone" placeholder="+56 9 xxxx xxxx"></div>
+      <div class="form-group"><label>Email de contacto *</label><input type="email" id="srv-email" placeholder="empresa@email.com"></div>
+    </div>
+    <div class="form-group"><label>Servicios que ofreces *</label><textarea id="srv-servicios" rows="3" placeholder="Ej: Vulcanización a domicilio, Pulido de focos, Grabado de patentes"></textarea></div>
+    <div class="form-group"><label>Zona de cobertura</label><input type="text" id="srv-zona" placeholder="Ej: Ancud y alrededores"></div>
+    <p id="srv-error" style="color:var(--error);font-size:13px;display:none;margin-bottom:12px"></p>
+    <div style="background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:12px;padding:16px;margin-bottom:16px;text-align:center">
+      <p style="color:#fff;font-weight:800;font-size:15px">🎁 Promoción nuevos aliados</p>
+      <p style="color:rgba(255,255,255,0.9);font-size:13px">Primeros 3 meses a <strong>$20.000/mes</strong> — luego $50.000/mes</p>
+    </div>
+    <button class="btn-full" onclick="submitServiciosForm()">Enviar solicitud — $20.000 primer mes</button>
+    <p style="text-align:center;color:var(--muted);font-size:12px;margin-top:12px">Te contactaremos para confirmar y coordinar el pago</p>
+  </div>
+</div>
+
+<!-- PORTAL ALIADOS -->
+<div id="page-aliados" class="page">
+  <div class="portal-hero">
+    <h1>Haz crecer tu negocio con Go Deli</h1>
+    <p>Únete a nuestra red de restaurantes y tiendas. Llega a más clientes sin esfuerzo.</p>
+    <div style="display:flex;gap:16px;justify-content:center">
+      <button class="btn-large btn-primary-large" onclick="openAliados()">Acceder al panel</button>
+      <button class="btn-large btn-outline-large" style="color:#fff;border-color:rgba(255,255,255,0.4)" onclick="openAliadosRegister()">Registrar mi restaurante</button>
+    </div>
+  </div>
+  <div class="portal-cards">
+    <div class="portal-feature"><div class="feat-icon">📦</div><h3>Pedidos en tiempo real</h3><p>Recibe notificaciones sonoras instantáneas con cada nuevo pedido. Acepta o rechaza con un clic.</p></div>
+    <div class="portal-feature"><div class="feat-icon">💰</div><h3>Pago al día hábil siguiente</h3><p>Deposito automático el día hábil siguiente a tu cuenta bancaria registrada.</p></div>
+    <div class="portal-feature"><div class="feat-icon">📊</div><h3>Reportes de ventas</h3><p>Dashboard completo con ventas diarias, semanales y mensuales. Conoce tus productos más vendidos.</p></div>
+    <div class="portal-feature"><div class="feat-icon">🍽️</div><h3>Gestión de menú</h3><p>Administra categorías, productos, precios y disponibilidad en tiempo real.</p></div>
+    <div class="portal-feature"><div class="feat-icon">🎯</div><h3>Promociones</h3><p>Crea ofertas y descuentos para atraer más clientes y aumentar tus ventas.</p></div>
+    <div class="portal-feature"><div class="feat-icon">🛵</div><h3>Red de repartidores</h3><p>Nosotros gestionamos la logística. Tú solo prepara los pedidos.</p></div>
+  </div>
+  <div class="portal-cta">
+    <h2>¿Cuánto cobra Go Deli?</h2>
+    <p>Comisión simple y transparente. Sin costos fijos mensuales.</p>
+    <div class="commission-table" style="margin-bottom:24px">
+      <div class="commission-row" style="background:#FFF5F2;font-weight:700"><span>Plan</span><span>Comisión</span><span style="color:var(--muted);font-size:12px">Depósito</span></div>
+      <div class="commission-row"><span>⚡ Diario</span><span>20%</span><span style="color:var(--muted);font-size:12px">Día hábil siguiente</span></div>
+      <div class="commission-row"><span>📅 Semanal</span><span>12%</span><span style="color:var(--muted);font-size:12px">Lunes → día hábil sig.</span></div>
+      <div class="commission-row" style="background:#F0FDF4"><span>🏆 Quincenal</span><span style="color:var(--success)">7%</span><span style="color:var(--muted);font-size:12px">Días 15 y 30 → día hábil sig.</span></div>
+      <div class="commission-row"><span>Tarifa fija por pedido</span><span colspan="2">$3.000 CLP (todos los planes)</span></div>
+      <div class="commission-row"><span>Costo mensual</span><span colspan="2">$0 CLP</span></div>
+      <div class="commission-row"><span>Activación</span><span colspan="2">$0 CLP</span></div>
+    </div>
+    <div style="background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:16px;padding:20px;margin-bottom:32px;text-align:left;max-width:600px;margin-left:auto;margin-right:auto">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <span style="font-size:28px">🎁</span>
+        <div>
+          <p style="color:#fff;font-weight:800;font-size:16px">Promo nuevos aliados</p>
+          <p style="color:rgba(255,255,255,0.85);font-size:14px">7% de comisión en plan semanal durante tus primeros 6 meses en Go Deli</p>
+        </div>
+      </div>
+    </div>
+    <div class="portal-btns">
+      <button class="btn-large btn-primary-large" onclick="openAliados()">Acceder al panel de restaurante</button>
+      <button class="btn-large btn-outline-large" onclick="openAliadosRegister()">Registrar mi restaurante gratis</button>
+    </div>
+  </div>
+</div>
+
+<!-- PORTAL REPARTIDOR -->
+<div id="page-repartidor" class="page">
+  <div class="rider-hero">
+    <div class="rider-hero-content">
+      <div class="hero-badge" style="margin-bottom:20px">🛵 Únete al equipo Go Deli</div>
+      <h1>Gana dinero <span style="color:var(--primary)">manejando</span> en tu ciudad</h1>
+      <p>Sé tu propio jefe. Trabaja cuando quieras, donde quieras. Gana más con cada entrega.</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <button class="btn-large btn-primary-large" onclick="scrollToRiderForm()">Quiero ser repartidor</button>
+      </div>
+    </div>
+    <div style="flex:1;text-align:center;font-size:160px">🛵</div>
+  </div>
+  <div class="rider-stats">
+    <div class="rider-stat"><div class="stat-val">$800K+</div><p>Ganancia mensual promedio</p></div>
+    <div class="rider-stat"><div class="stat-val">Flexible</div><p>Elige tus horarios</p></div>
+    <div class="rider-stat"><div class="stat-val">Diario</div><p>Pago por tus ganancias</p></div>
+  </div>
+  <div class="rider-steps">
+    <h2>¿Cómo funciona?</h2>
+    <div class="steps-grid">
+      <div class="step-card"><div class="step-num">1</div><h3>Regístrate</h3><p>Completa el formulario con tus datos y documentos requeridos.</p></div>
+      <div class="step-card"><div class="step-num">2</div><h3>Aprobación</h3><p>Revisamos tu solicitud en 24-48 horas hábiles.</p></div>
+      <div class="step-card"><div class="step-num">3</div><h3>Descarga la app</h3><p>Instala Go Deli Rider en tu smartphone Android.</p></div>
+      <div class="step-card"><div class="step-num">4</div><h3>¡Empieza!</h3><p>Activa tu modo online y comienza a recibir pedidos.</p></div>
+    </div>
+  </div>
+  <div class="rider-form-section" id="rider-form-section">
+    <h2>Inscríbete ahora</h2>
+    <p>Completa el formulario y nos ponemos en contacto contigo</p>
+    <div class="rider-form" id="rider-form-content">
+      <div class="form-group"><label>Nombre completo *</label><input type="text" id="rider-name" placeholder="Tu nombre"></div>
+      <div class="form-group"><label>RUT *</label><input type="text" id="rider-rut" placeholder="12.345.678-9"></div>
+      <div class="form-group"><label>Teléfono *</label><input type="tel" id="rider-phone" placeholder="+56 9 xxxx xxxx"></div>
+      <div class="form-group"><label>Email *</label><input type="email" id="rider-email" placeholder="tu@email.com"></div>
+      <div class="form-group"><label>Ciudad *</label>
+        <select id="rider-city">
+          <option value="">Selecciona...</option>
+          <option>Ancud</option><option>Castro</option><option>Puerto Montt</option>
+          <option>Osorno</option><option>Valdivia</option><option>Otra</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Tipo de vehículo *</label>
+        <select id="rider-vehicle">
+          <option value="">Selecciona...</option>
+          <option>Moto</option><option>Bicicleta</option><option>Auto</option><option>A pie</option>
+        </select>
+      </div>
+      <div class="form-group"><label>¿Tienes licencia de conducir?</label>
+        <select id="rider-license">
+          <option value="yes">Sí</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <p id="rider-form-error" style="color:var(--error);font-size:13px;display:none;margin-bottom:12px"></p>
+      <button class="btn-full" onclick="submitRiderForm()">Enviar solicitud</button>
+    </div>
+    <div style="text-align:center;margin-top:32px">
+      <p style="color:var(--muted);font-size:14px;margin-bottom:16px">¿Ya estás aprobado? Descarga la app:</p>
+      <div class="app-badges">
+        <div class="app-badge"><span class="badge-icon">🤖</span><div><div style="font-size:10px;opacity:0.7">Disponible en</div><div>Google Play</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CART SIDEBAR -->
+<div class="cart-overlay" id="cart-overlay" onclick="toggleCart()"></div>
+<div class="cart-sidebar" id="cart-sidebar">
+  <div class="cart-header">
+    <h3>Tu carrito 🛒</h3>
+    <button class="cart-close" onclick="toggleCart()">✕</button>
+  </div>
+  <div class="cart-items" id="cart-items-list"></div>
+  <div class="cart-footer" id="cart-footer" style="display:none">
+    <div class="cart-total">
+      <span>Total</span>
+      <span id="cart-total-amount">$0</span>
+    </div>
+    <button class="cart-checkout-btn" onclick="goToCheckout()">Ir a pagar</button>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="auth-modal-title">Iniciar sesión</h2>
+      <button class="modal-close" onclick="closeAuthModal()">✕</button>
+    </div>
+    <div id="auth-error" class="auth-error" style="display:none"></div>
+    <div id="auth-login-form">
+      <div class="form-group"><label>Correo electrónico</label><input type="email" id="auth-email" placeholder="tu@email.com"></div>
+      <div class="form-group"><label>Contraseña</label><input type="password" id="auth-pass" placeholder="••••••••"></div>
+      <button class="btn-full" onclick="doLogin()">Entrar</button>
+      <div class="auth-divider"><span>o</span></div>
+      <div class="auth-switch">¿No tienes cuenta? <a onclick="switchAuthMode('register')">Regístrate gratis</a></div>
+    </div>
+    <div id="auth-register-form" style="display:none">
+      <div class="form-group"><label>Nombre completo</label><input type="text" id="auth-name" placeholder="Tu nombre"></div>
+      <div class="form-group"><label>Correo electrónico</label><input type="email" id="auth-email-r" placeholder="tu@email.com"></div>
+      <div class="form-group"><label>Teléfono (opcional)</label><input type="tel" id="auth-phone" placeholder="+56 9 xxxx xxxx"></div>
+      <div class="form-group"><label>Contraseña</label><input type="password" id="auth-pass-r" placeholder="Mínimo 8 caracteres"></div>
+      <button class="btn-full" onclick="doRegister()">Crear cuenta</button>
+      <div class="auth-switch" style="margin-top:16px">¿Ya tienes cuenta? <a onclick="switchAuthMode('login')">Inicia sesión</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- FOOTER -->
+<footer class="footer" id="main-footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="logo">
+        <div class="logo-icon">🛵</div>
+        <span>Go Deli</span>
+      </div>
+      <p>La plataforma de delivery que conecta clientes con los mejores restaurantes y tiendas de tu ciudad.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Empresa</h4>
+      <a>Acerca de Go Deli</a>
+      <a>Blog</a>
+      <a>Trabaja con nosotros</a>
+      <a>Prensa</a>
+    </div>
+    <div class="footer-col">
+      <h4>Portales</h4>
+      <a onclick="showPage('aliados')">Go Deli Aliados</a>
+      <a onclick="showPage('repartidor')">Go Deli Rider</a>
+      <a>Empresas</a>
+    </div>
+    <div class="footer-col">
+      <h4>Ayuda</h4>
+      <a>Centro de ayuda</a>
+      <a>Términos y condiciones</a>
+      <a>Privacidad</a>
+      <a>Contáctanos</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2025 Go Deli. Todos los derechos reservados.</p>
+    <p>📧 soporte@godeli.cl</p>
+  </div>
+</footer>
+
+<script>
+const SUPA_URL = 'https://yxseolcaububyifhksud.supabase.co';
+const SUPA_KEY = 'sb_publishable_wc8oyi80Iu2RPgJr-9zS4g_DJ3l-3nV';
+const { createClient } = supabase;
+const sb = createClient(SUPA_URL, SUPA_KEY);
+
+// STATE
+let currentUser = null, userProfile = null;
+let cart = [], cartStoreId = null, cartStoreName = '';
+let allStores = [], currentCat = 'Todos', searchFilter = 'all';
+let selectedPayment = 'cash', couponDiscount = 0, couponCode = '';
+let currentOrderId = null, currentOrderType = 'delivery';
+let addressMap = null, geocoder = null;
+let trackingMap = null, riderMarker = null;
+let trackingOrderId = null, trackingUserId = null;
+let chatChannel = null, trackingChannel = null;
+
+const STATUS_LABELS = { pending:'⏳ Pendiente', accepted:'✅ Aceptado', preparing:'👨‍🍳 Preparando', ready:'🎉 Listo', assigned:'🛵 Asignado', picked_up:'📍 Recogido', on_the_way:'🚀 En camino', delivered:'🎊 Entregado', cancelled:'❌ Cancelado' };
+const STATUS_BADGE = { pending:'badge-yellow', accepted:'badge-blue', preparing:'badge-orange', ready:'badge-green', on_the_way:'badge-orange', delivered:'badge-green', cancelled:'badge-red' };
+
+function fmtCLP(n) { return '$' + Math.round(n||0).toLocaleString('es-CL'); }
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ── PAGES ─────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  window.scrollTo(0,0);
+  // Mostrar footer solo en paginas principales
+  const footerPages = ['home','aliados','repartidor','search'];
+  document.getElementById('main-footer').style.display = footerPages.includes(name) ? 'block' : 'none';
+  if (name==='home') { loadStores(); loadAdBanner(); }
+  if (name==='servicios') loadServicios();
+  if (name==='orders') loadOrders();
+  if (name==='profile') loadProfile();
+  if (name==='checkout') renderCheckout();
+  if (name==='search') renderSearchResults();
+}
+
+// ── AUTH ──────────────────────────────────────────────────
+function openAuthModal(mode) {
+  document.getElementById('auth-modal').classList.add('open');
+  switchAuthMode(mode);
+}
+function closeAuthModal() { document.getElementById('auth-modal').classList.remove('open'); }
+function switchAuthMode(mode) {
+  document.getElementById('auth-modal-title').textContent = mode==='login' ? 'Iniciar sesión' : 'Crear cuenta';
+  document.getElementById('auth-login-form').style.display = mode==='login' ? 'block' : 'none';
+  document.getElementById('auth-register-form').style.display = mode==='register' ? 'block' : 'none';
+  document.getElementById('auth-error').style.display = 'none';
+}
+async function doLogin() {
+  const email = document.getElementById('auth-email').value;
+  const pass  = document.getElementById('auth-pass').value;
+  const err   = document.getElementById('auth-error');
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    await loadUserProfile(data.user.id);
+    closeAuthModal(); updateAuthUI();
+    showToast('Bienvenido de vuelta!');
+  } catch(e) { err.textContent = 'Email o contraseña incorrectos'; err.style.display='block'; }
+}
+async function doRegister() {
+  const name  = document.getElementById('auth-name').value;
+  const email = document.getElementById('auth-email-r').value;
+  const phone = document.getElementById('auth-phone').value;
+  const pass  = document.getElementById('auth-pass-r').value;
+  const err   = document.getElementById('auth-error');
+  if (!name||!email||!pass) { err.textContent='Completa todos los campos'; err.style.display='block'; return; }
+  try {
+    const { data, error } = await sb.auth.signUp({ email, password: pass });
+    if (error) throw error;
+    await sb.from('users').insert({ auth_id: data.user.id, email, name, phone, role: 'client' });
+    await loadUserProfile(data.user.id);
+    closeAuthModal(); updateAuthUI();
+    showToast('Cuenta creada! Bienvenido a Go Deli!');
+  } catch(e) { err.textContent = e.message; err.style.display='block'; }
+}
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null; userProfile = null;
+  updateAuthUI();
+  showPage('home');
+  showToast('Sesión cerrada');
+}
+async function loadUserProfile(authId) {
+  const { data } = await sb.from('users').select('*').eq('auth_id', authId).single();
+  userProfile = data;
+  currentUser = authId;
+}
+function updateAuthUI() {
+  if (userProfile) {
+    document.getElementById('auth-buttons').style.display = 'none';
+    document.getElementById('user-menu').style.display = 'flex';
+    document.getElementById('nav-user-name').textContent = userProfile.name?.split(' ')[0] || 'Mi cuenta';
+  } else {
+    document.getElementById('auth-buttons').style.display = 'flex';
+    document.getElementById('user-menu').style.display = 'none';
+  }
+}
+
+// ── STORES ────────────────────────────────────────────────
+async function loadStores() {
+  const { data } = await sb.from('stores').select('*').eq('status','approved').eq('is_active',true);
+  allStores = data || [];
+  renderStores(allStores);
+}
+
+function renderStores(stores) {
+  const grid = document.getElementById('stores-grid');
+  if (!stores.length) {
+    grid.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px">Sin tiendas disponibles</p>';
+    return;
+  }
+  grid.innerHTML = stores.map(s => `
+    <div class="store-card" onclick="openStore('${s.id}')">
+      <div class="store-cover">
+        ${s.cover_url ? `<img src="${s.cover_url}" alt="${s.name}" onerror="this.style.display='none'">` : s.emoji||'🍽️'}
+        ${!s.is_open ? '<div class="store-closed-overlay">CERRADO</div>' : ''}
+        ${s.badge ? `<div class="store-badge">${s.badge}</div>` : ''}
+        <div class="store-logo">${s.logo_url ? `<img src="${s.logo_url}" alt="${s.name}" onerror="this.parentElement.textContent='${s.emoji||'🍽️'}'">` : s.emoji||'🍽️'}</div>
+      </div>
+      <div class="store-info">
+        <div class="store-name">${s.name}</div>
+        <div class="store-cat">${s.category||''}</div>
+        <div class="store-meta">
+          <span>⭐ <strong class="rating">${s.rating||5.0}</strong></span>
+          <span>🕐 ${s.delivery_time||'30-45'} min</span>
+          <span>🛵 ${fmtCLP(s.delivery_fee||1990)}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function filterByCategory(cat, el) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const filtered = cat==='Todos' ? allStores : allStores.filter(s => s.category===cat);
+  renderStores(filtered);
+}
+
+// ── SEARCH ────────────────────────────────────────────────
+let searchQuery = '';
+function handleNavSearch(q) {
+  searchQuery = q;
+  if (q.length > 0) {
+    // Cambiar pagina sin hacer scroll ni perder focus
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-search').classList.add('active');
+    document.getElementById('main-footer').style.display = 'block';
+    const title = document.getElementById('search-title');
+    if (title) title.textContent = 'Resultados para "' + q + '"';
+    renderSearchResults();
+    // Mantener el foco en el input
+    setTimeout(() => {
+      const input = document.getElementById('nav-search-input');
+      if (input) { input.focus(); input.setSelectionRange(q.length, q.length); }
+    }, 10);
+  } else {
+    showPage('home');
+    document.getElementById('nav-search-input').value = '';
+  }
+}
+function setSearchFilter(filter, el) {
+  searchFilter = filter;
+  document.querySelectorAll('#search-filters button').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderSearchResults();
+}
+function renderSearchResults() {
+  let results = [...allStores];
+  if (searchQuery) results = results.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || (s.category||'').toLowerCase().includes(searchQuery.toLowerCase()));
+  if (searchFilter==='open') results = results.filter(s => s.is_open);
+  if (searchFilter==='cheap') results = [...results].sort((a,b) => (a.delivery_fee||0)-(b.delivery_fee||0));
+  if (searchFilter==='fast') results = [...results].sort((a,b) => (a.delivery_time||'').localeCompare(b.delivery_time||''));
+  if (searchFilter==='rated') results = [...results].sort((a,b) => (b.rating||0)-(a.rating||0));
+  const grid = document.getElementById('search-grid');
+  const count = document.getElementById('search-results-count');
+  count.textContent = `${results.length} resultado${results.length!==1?'s':''}${searchQuery?' para "'+searchQuery+'"':''}`;
+  grid.innerHTML = results.length ? results.map(s => `
+    <div class="store-card" onclick="openStore('${s.id}')">
+      <div class="store-cover">
+        ${s.cover_url?`<img src="${s.cover_url}" onerror="this.style.display='none'">`:s.emoji||'🍽️'}
+        ${!s.is_open?'<div class="store-closed-overlay">CERRADO</div>':''}
+        <div class="store-logo">${s.logo_url?`<img src="${s.logo_url}" alt="${s.name}" onerror="this.parentElement.textContent='${s.emoji||'🍽️'}'">`:s.emoji||'🍽️'}</div>
+      </div>
+      <div class="store-info">
+        <div class="store-name">${s.name}</div>
+        <div class="store-cat">${s.category||''}</div>
+        <div class="store-meta"><span>⭐ ${s.rating||5.0}</span><span>🕐 ${s.delivery_time||'30-45'} min</span><span>🛵 ${fmtCLP(s.delivery_fee||1990)}</span></div>
+      </div>
+    </div>`).join('') : '<p style="color:var(--muted);text-align:center;padding:40px;grid-column:1/-1">Sin resultados</p>';
+}
+
+// ── STORE DETAIL ──────────────────────────────────────────
+async function openStore(storeId) {
+  showPage('store');
+  document.getElementById('store-detail-content').innerHTML = '<div style="text-align:center;padding:80px"><div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto"></div></div>';
+  const [storeRes, catsRes, itemsRes] = await Promise.all([
+    sb.from('stores').select('*').eq('id', storeId).single(),
+    sb.from('menu_categories').select('*').eq('store_id', storeId).eq('is_visible', true).order('sort_order'),
+    sb.from('menu_items').select('*').eq('store_id', storeId).eq('is_available', true).order('sort_order'),
+  ]);
+  const store = storeRes.data;
+  const cats  = catsRes.data || [];
+  const items = itemsRes.data || [];
+  if (!store) return;
+  let menuHTML = '';
+  if (cats.length) {
+    cats.forEach(cat => {
+      const catItems = items.filter(i => i.category_id === cat.id);
+      if (!catItems.length) return;
+      menuHTML += `<div class="menu-cat-title" id="cat-${cat.id}">${cat.name}</div><div class="menu-items-grid">`;
+      catItems.forEach(item => { menuHTML += renderMenuItem(item, store); });
+      menuHTML += '</div>';
+    });
+  } else {
+    menuHTML = '<div class="menu-items-grid">' + items.map(i => renderMenuItem(i, store)).join('') + '</div>';
+  }
+  const sidebarHTML = cats.map(c => `<div class="menu-sidebar-item" onclick="scrollToCategory('${c.id}')">${c.name}</div>`).join('');
+  document.getElementById('store-detail-content').innerHTML = `
+    <div class="store-detail-header">
+      ${store.cover_url ? `<img src="${store.cover_url}" alt="${store.name}" onerror="this.style.display='none'">` : store.emoji||'🍽️'}
+      <button class="store-detail-back" onclick="history.back()">←</button>
+      <div class="store-detail-logo">${store.logo_url ? `<img src="${store.logo_url}" alt="${store.name}" onerror="this.parentElement.textContent='${store.emoji||'🍽️'}'">` : store.emoji||'🍽️'}</div>
+    </div>
+    <div class="store-detail-info">
+      <h1>${store.name}</h1>
+      <p>${store.description||''}</p>
+      <div class="store-detail-meta">
+        <span>⭐ <strong>${store.rating||5.0}</strong></span>
+        <span>🕐 <strong>${store.delivery_time||'30-45'} min</strong></span>
+        <span>🛵 <strong>${fmtCLP(store.delivery_fee||1990)}</strong></span>
+        <span>${store.is_open ? '✅ Abierto' : '❌ Cerrado'}</span>
+      </div>
+    </div>
+    <div class="store-content">
+      ${cats.length ? `<div class="menu-sidebar">${sidebarHTML}</div>` : ''}
+      <div class="menu-main">${menuHTML}</div>
+    </div>`;
+}
+
+function renderMenuItem(item, store) {
+  const qty = cart.filter(c => c.id===item.id).reduce((s,c) => s+c.qty, 0);
+  return `<div class="menu-item">
+    <div class="menu-item-img">${item.image_url ? `<img src="${item.image_url}" alt="${item.name}" onerror="this.parentElement.textContent='${item.emoji||'🍽️'}'">` : item.emoji||'🍽️'}</div>
+    <div class="menu-item-body">
+      <div class="menu-item-name">${item.name} ${item.is_popular?'⭐':''}</div>
+      <div class="menu-item-desc">${item.description||''}</div>
+      <div class="menu-item-bottom">
+        <div class="menu-item-price">${fmtCLP(item.price)}</div>
+        ${qty > 0 ? `
+          <div class="qty-control">
+            <button class="qty-btn qty-btn-minus" onclick="removeFromCart('${item.id}','${store.id}','${store.name}');refreshStoreItems('${store.id}')">-</button>
+            <span class="qty-num">${qty}</span>
+            <button class="qty-btn qty-btn-plus" onclick="addToCart('${item.id}','${store.id}','${store.name}','${item.name}',${item.price},'${item.emoji||'🍽️'}');refreshStoreItems('${store.id}')">+</button>
+          </div>` : `
+          <button class="add-btn" onclick="addToCart('${item.id}','${store.id}','${store.name}','${item.name}',${item.price},'${item.emoji||'🍽️'}');refreshStoreItems('${store.id}')">+</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function scrollToCategory(catId) {
+  const el = document.getElementById('cat-'+catId);
+  if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+  document.querySelectorAll('.menu-sidebar-item').forEach(i => i.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+async function refreshStoreItems(storeId) {
+  // Recarga los items del store para actualizar cantidades
+  const [storeRes, itemsRes] = await Promise.all([
+    sb.from('stores').select('*').eq('id', storeId).single(),
+    sb.from('menu_items').select('*').eq('store_id', storeId).eq('is_available', true).order('sort_order'),
+  ]);
+  const store = storeRes.data;
+  const items = itemsRes.data || [];
+  document.querySelectorAll('.menu-item').forEach((el, idx) => {
+    const item = items[idx];
+    if (!item) return;
+    const qty = cart.filter(c => c.id===item.id).reduce((s,c) => s+c.qty, 0);
+    const bottom = el.querySelector('.menu-item-bottom');
+    if (!bottom) return;
+    const price = bottom.querySelector('.menu-item-price').outerHTML;
+    bottom.innerHTML = price + (qty > 0 ? `
+      <div class="qty-control">
+        <button class="qty-btn qty-btn-minus" onclick="removeFromCart('${item.id}','${store.id}','${store.name}');refreshStoreItems('${store.id}')">-</button>
+        <span class="qty-num">${qty}</span>
+        <button class="qty-btn qty-btn-plus" onclick="addToCart('${item.id}','${store.id}','${store.name}','${item.name}',${item.price},'${item.emoji||'🍽️'}');refreshStoreItems('${store.id}')">+</button>
+      </div>` : `<button class="add-btn" onclick="addToCart('${item.id}','${store.id}','${store.name}','${item.name}',${item.price},'${item.emoji||'🍽️'}');refreshStoreItems('${store.id}')">+</button>`);
+  });
+}
+
+// ── CART ──────────────────────────────────────────────────
+function addToCart(id, storeId, storeName, name, price, emoji) {
+  if (cartStoreId && cartStoreId !== storeId) {
+    if (!confirm('Tu carrito tiene productos de otro restaurante. ¿Vaciarlo y agregar este?')) return;
+    cart = []; cartStoreId = null;
+  }
+  cartStoreId = storeId; cartStoreName = storeName;
+  const existing = cart.find(c => c.id===id);
+  if (existing) { existing.qty++; } else { cart.push({ id, name, price, emoji, qty:1 }); }
+  updateCartUI();
+}
+
+function removeFromCart(id) {
+  const idx = cart.findIndex(c => c.id===id);
+  if (idx >= 0) {
+    if (cart[idx].qty > 1) { cart[idx].qty--; } else { cart.splice(idx,1); }
+  }
+  if (!cart.length) { cartStoreId = null; cartStoreName = ''; }
+  updateCartUI();
+}
+
+function updateCartUI() {
+  const total = cart.reduce((s,c) => s+c.price*c.qty, 0);
+  const count = cart.reduce((s,c) => s+c.qty, 0);
+  const badge = document.getElementById('cart-badge');
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'flex' : 'none';
+  const itemsList = document.getElementById('cart-items-list');
+  const footer = document.getElementById('cart-footer');
+  if (!cart.length) {
+    itemsList.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div><p>Tu carrito está vacío</p></div>';
+    footer.style.display = 'none';
+    return;
+  }
+  itemsList.innerHTML = cart.map(c => `
+    <div class="cart-item">
+      <div class="cart-item-emoji">${c.emoji}</div>
+      <div class="cart-item-info">
+        <div class="cart-item-name">${c.name}</div>
+        <div class="cart-item-price">${fmtCLP(c.price * c.qty)}</div>
+      </div>
+      <div class="qty-control">
+        <button class="qty-btn qty-btn-minus" onclick="removeFromCart('${c.id}')">-</button>
+        <span class="qty-num">${c.qty}</span>
+        <button class="qty-btn qty-btn-plus" onclick="addToCart('${c.id}','${cartStoreId}','${cartStoreName}','${c.name}',${c.price},'${c.emoji}')">+</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('cart-total-amount').textContent = fmtCLP(total);
+  footer.style.display = 'block';
+}
+
+function toggleCart() {
+  document.getElementById('cart-sidebar').classList.toggle('open');
+  document.getElementById('cart-overlay').classList.toggle('open');
+  updateCartUI();
+}
+
+function goToCheckout() {
+  if (!userProfile) { toggleCart(); openAuthModal('login'); return; }
+  toggleCart();
+  showPage('checkout');
+}
+
+// ── ORDER TYPE ────────────────────────────────────────────
+function setOrderType(type) {
+  currentOrderType = type;
+  document.getElementById('ot-delivery').classList.toggle('active', type === 'delivery');
+  document.getElementById('ot-pickup').classList.toggle('active', type === 'pickup');
+  document.getElementById('address-card').style.display    = type === 'delivery' ? 'block' : 'none';
+  document.getElementById('pickup-info-card').style.display = type === 'pickup'   ? 'block' : 'none';
+  // Efectivo solo para delivery
+  const cashBtn = document.getElementById('pay-cash');
+  if (cashBtn) {
+    cashBtn.style.opacity = type === 'pickup' ? '0.4' : '1';
+    cashBtn.style.pointerEvents = type === 'pickup' ? 'none' : 'auto';
+    if (type === 'pickup' && selectedPayment === 'cash') {
+      selectedPayment = 'card';
+      document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('active'));
+      cashBtn.nextElementSibling?.classList.add('active');
+    }
+  }
+  // Mostrar dirección de la tienda para retiro
+  if (type === 'pickup') {
+    const store = allStores.find(s => s.id === cartStoreId);
+    if (store) {
+      document.getElementById('checkout-store-name').textContent = `${store.emoji || '🏪'} ${store.name}`;
+      document.getElementById('checkout-store-addr').textContent = store.address || 'Dirección no disponible';
+    }
+  }
+  renderCheckoutTotals();
+}
+
+// ── CHECKOUT ──────────────────────────────────────────────
+function selectPayment(method, el) {
+  selectedPayment = method;
+  document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('active'));
+  el.classList.add('active');
+}
+
+async function applyCoupon() {
+  const code = document.getElementById('coupon-input').value.trim().toUpperCase();
+  const msg = document.getElementById('coupon-msg');
+  if (code === 'BIENVENIDO') {
+    couponDiscount = 0.10; couponCode = code;
+    msg.style.color = 'var(--success)';
+    msg.textContent = '✅ Cupón aplicado: 10% de descuento';
+    renderCheckoutTotals();
+  } else {
+    msg.style.color = 'var(--error)';
+    msg.textContent = '❌ Cupón inválido';
+  }
+}
+
+function resetAddressDisplay() {
+  document.getElementById('checkout-address').value = '';
+  document.getElementById('address-icon').textContent = '📍';
+  document.getElementById('address-text').textContent = 'Toca para seleccionar tu dirección en el mapa';
+  document.getElementById('address-text').style.color = 'var(--muted)';
+  document.getElementById('address-text').style.fontWeight = '600';
+  const display = document.getElementById('address-display');
+  display.style.borderStyle = 'dashed';
+  display.style.borderColor = 'var(--border)';
+}
+
+function renderCheckout() {
+  currentOrderType = 'delivery';
+  document.getElementById('ot-delivery').classList.add('active');
+  document.getElementById('ot-pickup').classList.remove('active');
+  document.getElementById('address-card').style.display = 'block';
+  document.getElementById('pickup-info-card').style.display = 'none';
+  document.getElementById('pay-cash').style.opacity = '1';
+  document.getElementById('pay-cash').style.pointerEvents = 'auto';
+  resetAddressDisplay();
+  document.getElementById('checkout-items').innerHTML = cart.map(c => `
+    <div class="summary-item"><span>${c.qty}x ${c.name}</span><span>${fmtCLP(c.price*c.qty)}</span></div>`).join('');
+  renderCheckoutTotals();
+}
+
+function renderCheckoutTotals() {
+  const subtotal    = cart.reduce((s,c) => s+c.price*c.qty, 0);
+  const store       = allStores.find(s => s.id === cartStoreId);
+  const deliveryFee = currentOrderType === 'delivery' ? (store?.delivery_fee || 1990) : 0;
+  const discount    = Math.round(subtotal * couponDiscount);
+  const total       = subtotal - discount + deliveryFee;
+  document.getElementById('checkout-totals').innerHTML = `
+    <div class="summary-item"><span>Subtotal</span><span>${fmtCLP(subtotal)}</span></div>
+    ${discount > 0 ? `<div class="summary-item" style="color:var(--success)"><span>Descuento</span><span>-${fmtCLP(discount)}</span></div>` : ''}
+    ${currentOrderType === 'delivery' ? `<div class="summary-item"><span>Envío</span><span>${fmtCLP(deliveryFee)}</span></div>` : '<div class="summary-item" style="color:var(--success)"><span>Envío</span><span>Gratis (retiro)</span></div>'}
+    <div class="summary-total"><span>Total</span><span style="color:var(--primary)">${fmtCLP(total)}</span></div>`;
+  document.getElementById('place-order-btn').textContent = `Confirmar pedido · ${fmtCLP(total)}`;
+}
+
+function genCode() { return (Math.floor(Math.random() * 9000) + 1000).toString(); }
+
+async function placeOrder() {
+  const isDelivery = currentOrderType === 'delivery';
+  const address = isDelivery ? document.getElementById('checkout-address').value.trim() : null;
+  if (isDelivery && !address) { showToast('Ingresa tu dirección de entrega', 'error'); return; }
+  if (!cart.length) { showToast('Tu carrito está vacío', 'error'); return; }
+  const btn = document.getElementById('place-order-btn');
+  btn.textContent = 'Procesando...'; btn.disabled = true;
+  try {
+    const store       = allStores.find(s => s.id === cartStoreId);
+    const deliveryFee = isDelivery ? (store?.delivery_fee || 1990) : 0;
+    const fixedFee    = store?.fixed_fee || 3000;
+    const commPct     = store?.commission_pct || 7;
+    const subtotal    = cart.reduce((s,c) => s+c.price*c.qty, 0);
+    const discount    = Math.round(subtotal * couponDiscount);
+    const finalSub    = subtotal - discount;
+    const platformFee = Math.round(finalSub * commPct / 100);
+    const total       = finalSub + deliveryFee;
+    // Códigos: retiro → pickup_code para mostrar al cliente; delivery → delivery_code para dar al rider
+    const pickupCode   = !isDelivery ? genCode() : null;
+    const deliveryCode = isDelivery  ? genCode() : null;
+    const u = await sb.from('users').select('id').eq('auth_id', currentUser).single();
+    const order = await sb.from('orders').insert({
+      client_id: u.data.id, store_id: cartStoreId,
+      order_type: currentOrderType,
+      subtotal: finalSub, delivery_fee: deliveryFee,
+      platform_fee: platformFee, fixed_fee: fixedFee,
+      total, delivery_address: address,
+      delivery_reference: document.getElementById('checkout-ref')?.value.trim() || null,
+      payment_method: selectedPayment, status: 'pending',
+      coupon_code: couponCode || null, discount: discount || 0,
+      pickup_code: pickupCode,
+      delivery_code: deliveryCode,
+    }).select().single();
+    await sb.from('order_items').insert(cart.map(c => ({
+      order_id: order.data.id, menu_item_id: c.id,
+      item_name: c.name, item_price: c.price,
+      quantity: c.qty, subtotal: c.price * c.qty,
+    })));
+    currentOrderId = order.data.id;
+    cart = []; cartStoreId = null; couponDiscount = 0; couponCode = '';
+    updateCartUI();
+    showOrderSuccess(order.data, store);
+  } catch(e) {
+    showToast('Error al procesar el pedido: ' + e.message, 'error');
+    btn.textContent = 'Confirmar pedido'; btn.disabled = false;
+  }
+}
+
+function showOrderSuccess(order, store) {
+  showPage('success');
+  const isDelivery = order.order_type === 'delivery';
+  const code = isDelivery ? order.delivery_code : order.pickup_code;
+  const codeLabel = isDelivery
+    ? 'Muestra este código al repartidor cuando llegue con tu pedido'
+    : 'Muestra este código en la tienda al retirar tu pedido';
+  const codeTitle = isDelivery ? '🔐 Tu código de entrega' : '🎫 Tu código de retiro';
+  document.getElementById('success-content').innerHTML = `
+    <div style="width:100px;height:100px;background:var(--success);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:48px">✅</div>
+    <h1 style="font-size:28px;font-weight:900;margin-bottom:10px">¡Pedido confirmado!</h1>
+    <p style="color:var(--muted);font-size:15px;margin-bottom:24px">
+      ${isDelivery ? 'Tu pedido está siendo preparado. Te notificaremos cuando el repartidor esté en camino.' : ('Dirígete a <strong>' + (store?.name || 'la tienda') + '</strong> para retirar tu pedido.')}
+    </p>
+    <div class="code-box">
+      <p>${codeTitle}</p>
+      <span class="code-num">${code}</span>
+      <p class="code-label">${codeLabel}</p>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:24px">Guarda este código. Lo necesitarás para confirmar la ${isDelivery ? 'entrega' : 'recepción'}.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn-large btn-primary-large" onclick="loadTracking('${order.id}')">📦 Seguir pedido</button>
+      <button class="btn-large btn-outline-large" onclick="showPage('home')">Seguir comprando</button>
+    </div>`;
+}
+
+// ── TRACKING ──────────────────────────────────────────────
+async function loadTracking(orderId) {
+  showPage('tracking');
+  trackingOrderId = orderId;
+  document.getElementById('tracking-map-wrap').style.display = 'none';
+  document.getElementById('tracking-chat-wrap').style.display = 'none';
+
+  const { data: o } = await sb.from('orders')
+    .select('*, stores(name,emoji,address), deliverers(current_lat,current_lng,users(name,phone))')
+    .eq('id', orderId).single();
+  if (!o) return;
+
+  const isRetiro = o.order_type === 'pickup';
+  const steps = isRetiro ? [
+    { key:'pending',   label:'Pedido recibido',   desc:'Esperando confirmación de la tienda' },
+    { key:'accepted',  label:'Confirmado',         desc:'Dirígete a la tienda a retirar' },
+    { key:'delivered', label:'Retirado ✅',         desc:'¡Gracias por tu pedido!' },
+  ] : [
+    { key:'pending',   label:'Pedido recibido',   desc:'Esperando confirmación de la tienda' },
+    { key:'accepted',  label:'Confirmado',         desc:'La tienda está preparando tu pedido' },
+    { key:'assigned',  label:'Repartidor asignado',desc:'Un repartidor va en camino al restaurante' },
+    { key:'picked_up', label:'Recogido',           desc:'El repartidor tiene tu pedido' },
+    { key:'on_the_way',label:'En camino 🚀',        desc:'Tu pedido está llegando' },
+    { key:'delivered', label:'Entregado ✅',         desc:'¡Buen provecho!' },
+  ];
+  const statusOrder = ['pending','accepted','preparing','ready','assigned','picked_up','on_the_way','delivered'];
+  const cur = statusOrder.indexOf(o.status);
+
+  const code = isRetiro ? o.pickup_code : o.delivery_code;
+  const codeHtml = code ? `
+    <div class="code-box" style="margin:16px 0">
+      <p>${isRetiro ? '🎫 Tu código de retiro' : '🔐 Tu código de entrega'}</p>
+      <span class="code-num">${code}</span>
+      <p class="code-label">${isRetiro ? 'Muéstralo en tienda al retirar' : 'Dáselo al repartidor cuando llegue'}</p>
+    </div>` : '';
+
+  document.getElementById('tracking-content').innerHTML = `
+    <div class="tracking-header">
+      <h2>${o.stores?.emoji||'🍽️'} ${o.stores?.name||''}</h2>
+      <p>${STATUS_LABELS[o.status]||o.status}</p>
+    </div>
+    ${codeHtml}
+    <div class="tracking-steps">
+      ${steps.map((s,i) => {
+        const si = statusOrder.indexOf(s.key);
+        const done = si <= cur, curr = si === cur, last = i === steps.length-1;
+        return `<div class="tracking-step">
+          <div class="step-indicator">
+            <div class="step-dot ${done?'done':curr?'current':'pending'}">${done?'✓':i+1}</div>
+            ${!last?`<div class="step-line ${done?'done':''}"></div>`:''}
+          </div>
+          <div class="step-content">
+            <div class="step-title" style="color:${curr?'var(--primary)':done?'var(--text)':'var(--muted)'}">${s.label}</div>
+            <div class="step-desc">${s.desc}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:12px;margin-top:20px">
+      <button class="btn-large btn-outline-large" style="flex:1" onclick="showPage('orders')">Mis pedidos</button>
+      <button class="btn-large btn-primary-large" style="flex:1" onclick="showPage('home')">Seguir comprando</button>
+    </div>`;
+
+  // Mapa en tiempo real (solo delivery, cuando hay rider en camino)
+  if (!isRetiro && ['picked_up','on_the_way'].includes(o.status)) {
+    const lat = o.deliverers?.current_lat;
+    const lng = o.deliverers?.current_lng;
+    document.getElementById('tracking-map-wrap').style.display = 'block';
+    if (lat && lng && typeof google !== 'undefined') initTrackingMap(lat, lng);
+  }
+
+  // Chat (solo delivery, cuando picked_up o on_the_way)
+  if (!isRetiro && ['picked_up','on_the_way'].includes(o.status)) {
+    document.getElementById('tracking-chat-wrap').style.display = 'block';
+    if (userProfile) {
+      const u = await sb.from('users').select('id').eq('auth_id', currentUser).single();
+      trackingUserId = u.data?.id;
+    }
+    loadTrackingChat(orderId);
+    subscribeTrackingChat(orderId);
+  }
+
+  // Realtime: actualizar tracking automáticamente
+  if (trackingChannel) { try { trackingChannel.unsubscribe(); } catch(_){} }
+  trackingChannel = sb.channel('web-tracking-'+orderId)
+    .onPostgresChanges({ event:'UPDATE', schema:'public', table:'orders', filter:'id=eq.'+orderId },
+      (p) => {
+        const s = p.new.status;
+        loadTracking(orderId);
+        // Actualizar posición rider en mapa
+        if (['picked_up','on_the_way'].includes(s)) {
+          const lat = p.new.current_lat || o.deliverers?.current_lat;
+          const lng = p.new.current_lng || o.deliverers?.current_lng;
+          if (lat && lng) updateRiderMarker(lat, lng);
+        }
+      })
+    .subscribe();
+}
+
+function initTrackingMap(lat, lng) {
+  if (typeof google === 'undefined') return;
+  const el = document.getElementById('tracking-map');
+  trackingMap = new google.maps.Map(el, { center:{lat,lng}, zoom:15, disableDefaultUI:true, zoomControl:true });
+  riderMarker = new google.maps.Marker({
+    position:{lat,lng}, map:trackingMap,
+    title:'Tu repartidor',
+    label:{ text:'🛵', fontSize:'24px' }
+  });
+}
+
+function updateRiderMarker(lat, lng) {
+  if (!trackingMap) { initTrackingMap(lat, lng); return; }
+  const pos = new google.maps.LatLng(lat, lng);
+  riderMarker?.setPosition(pos);
+  trackingMap.panTo(pos);
+}
+
+// ── CHAT TRACKING ─────────────────────────────────────────
+async function loadTrackingChat(orderId) {
+  const { data } = await sb.from('chat_messages').select('*, users(name)').eq('order_id', orderId).order('created_at');
+  const msgs = data || [];
+  const box = document.getElementById('tracking-chat-msgs');
+  box.innerHTML = msgs.length === 0
+    ? '<p style="text-align:center;color:var(--muted);font-size:13px;padding:20px 0">Sin mensajes aún</p>'
+    : msgs.map(m => {
+        const mine = m.sender_id === trackingUserId;
+        return `<div class="chat-msg ${mine?'mine':'theirs'}">${m.message}</div>`;
+      }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function subscribeTrackingChat(orderId) {
+  if (chatChannel) { try { chatChannel.unsubscribe(); } catch(_){} }
+  chatChannel = sb.channel('web-chat-'+orderId)
+    .onPostgresChanges({ event:'INSERT', schema:'public', table:'chat_messages',
+      filter:'order_id=eq.'+orderId }, () => loadTrackingChat(orderId))
+    .subscribe();
+}
+
+async function sendTrackingMessage() {
+  const input = document.getElementById('tracking-chat-input');
+  const text = input.value.trim();
+  if (!text || !trackingUserId || !trackingOrderId) return;
+  input.value = '';
+  try {
+    const { data: order } = await sb.from('orders').select('deliverer_id').eq('id', trackingOrderId).single();
+    const { data: rider } = await sb.from('deliverers').select('user_id').eq('id', order.deliverer_id).single();
+    await sb.from('chat_messages').insert({
+      order_id: trackingOrderId,
+      sender_id: trackingUserId,
+      receiver_id: rider?.user_id,
+      message: text,
+      sender_type: 'client',
+    });
+    loadTrackingChat(trackingOrderId);
+  } catch(e) { showToast('Error al enviar: '+e.message, 'error'); }
+}
+
+// ── ORDERS ────────────────────────────────────────────────
+async function loadOrders() {
+  if (!userProfile) { showToast('Inicia sesión para ver tus pedidos','error'); return; }
+  const u = await sb.from('users').select('id').eq('auth_id', currentUser).single();
+  const { data } = await sb.from('orders').select('*, stores(name,emoji), order_items(item_name,quantity,subtotal)').eq('client_id', u.data.id).order('created_at',{ascending:false});
+  const orders = data||[];
+  const list = document.getElementById('orders-list');
+  if (!orders.length) { list.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted)"><div style="font-size:48px;margin-bottom:16px">📦</div><p>Aún no tienes pedidos</p></div>'; return; }
+  list.innerHTML = orders.map(o => `
+    <div class="order-card" onclick="loadTracking('${o.id}')">
+      <div class="order-card-header">
+        <div>
+          <div style="font-size:18px;font-weight:800">${o.stores?.emoji||'🍽️'} ${o.stores?.name||''}</div>
+          <div style="color:var(--muted);font-size:13px;margin-top:4px">${(o.order_items||[]).slice(0,2).map(i=>i.item_name).join(', ')}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:900;color:var(--primary)">${fmtCLP(o.total)}</div>
+          <span class="badge ${STATUS_BADGE[o.status]||'badge-gray'}" style="margin-top:6px">${STATUS_LABELS[o.status]||o.status}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── PROFILE ───────────────────────────────────────────────
+function loadProfile() {
+  if (!userProfile) { openAuthModal('login'); return; }
+  document.getElementById('profile-avatar').textContent = (userProfile.name||'U')[0].toUpperCase();
+  document.getElementById('profile-name').textContent = userProfile.name||'';
+  document.getElementById('profile-email').textContent = userProfile.email||'';
+  showProfileTab('orders');
+}
+
+function showProfileTab(tab) {
+  document.querySelectorAll('.profile-menu-item').forEach(i => i.classList.remove('active'));
+  if (tab==='orders') loadOrders();
+}
+
+// ── MAPA DIRECCIÓN ────────────────────────────────────────
+function initMaps() {
+  geocoder = new google.maps.Geocoder();
+}
+
+function openAddressMap() {
+  document.getElementById('address-map-modal').classList.add('open');
+  document.getElementById('map-selected-text').textContent = 'Mueve el mapa para elegir tu punto exacto';
+  document.getElementById('map-search-input').value = '';
+  setTimeout(async () => {
+    if (typeof google === 'undefined') return;
+    // Intentar usar geolocalización real
+    let center = { lat: -41.8695, lng: -73.8303 };
+    try {
+      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
+      center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    } catch (_) {}
+    if (addressMap) {
+      // Mapa ya creado: solo recentrar (no usamos Marker — el pin es CSS)
+      addressMap.setCenter(center);
+      reverseGeocode(center.lat, center.lng);
+      return;
+    }
+    addressMap = new google.maps.Map(document.getElementById('address-map'), {
+      center, zoom: 16, disableDefaultUI: true, zoomControl: true,
+      gestureHandling: 'greedy',
+    });
+    // No usamos google.maps.Marker (removido en v3.57+) — el pin visual es .map-pin-center CSS
+    // Autocomplete con Places
+    const input = document.getElementById('map-search-input');
+    const ac = new google.maps.places.Autocomplete(input, { componentRestrictions:{ country:'cl' } });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (place.geometry) {
+        addressMap.panTo(place.geometry.location);
+        addressMap.setZoom(17);
+      }
+    });
+    // Reverse geocode solo cuando el mapa termina de moverse (idle)
+    addressMap.addListener('idle', () => {
+      const c = addressMap.getCenter();
+      reverseGeocode(c.lat(), c.lng());
+    });
+    reverseGeocode(center.lat, center.lng);
+  }, 200);
+}
+
+function reverseGeocode(lat, lng) {
+  if (!geocoder) return;
+  document.getElementById('map-selected-text').textContent = 'Identificando dirección...';
+  geocoder.geocode({ location:{ lat, lng } }, (results, status) => {
+    if (status === 'OK' && results[0]) {
+      document.getElementById('map-selected-text').textContent = '📍 ' + results[0].formatted_address;
+    } else {
+      document.getElementById('map-selected-text').textContent = `📍 Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}`;
+    }
+  });
+}
+
+function closeAddressMap() {
+  document.getElementById('address-map-modal').classList.remove('open');
+}
+
+function confirmMapAddress() {
+  const raw = document.getElementById('map-selected-text').textContent;
+  const text = raw.replace('📍 ', '').replace('Identificando dirección...', '').trim();
+  if (text && text !== 'Mueve el mapa para elegir tu punto exacto') {
+    document.getElementById('checkout-address').value = text;
+    // Actualizar el display visual
+    const display = document.getElementById('address-display');
+    document.getElementById('address-icon').textContent = '✅';
+    document.getElementById('address-text').textContent = text;
+    document.getElementById('address-text').style.color = 'var(--text)';
+    document.getElementById('address-text').style.fontWeight = '700';
+    display.style.borderStyle = 'solid';
+    display.style.borderColor = 'var(--success, #22c55e)';
+    closeAddressMap();
+    renderCheckoutTotals();
+  } else {
+    showToast('Mueve el mapa para seleccionar tu dirección', 'error');
+  }
+}
+
+// ── PORTALES ──────────────────────────────────────────────
+function openAliados() { window.open('aliados.html', '_blank'); }
+function openAliadosRegister() { window.open('aliados.html', '_blank'); }
+function scrollToRiderForm() {
+  document.getElementById('rider-form-section').scrollIntoView({ behavior:'smooth' });
+}
+
+async function submitRiderForm() {
+  const name    = document.getElementById('rider-name').value;
+  const rut     = document.getElementById('rider-rut').value;
+  const phone   = document.getElementById('rider-phone').value;
+  const email   = document.getElementById('rider-email').value;
+  const city    = document.getElementById('rider-city').value;
+  const vehicle = document.getElementById('rider-vehicle').value;
+  const err     = document.getElementById('rider-form-error');
+  if (!name||!rut||!phone||!email||!city||!vehicle) {
+    err.textContent = 'Completa todos los campos obligatorios';
+    err.style.display = 'block'; return;
+  }
+  try {
+    if (currentUser) {
+      await sb.from('notifications').insert({
+        user_id: currentUser,
+        type: 'alert', emoji: '🛵', target: 'admin',
+        data: { title: '🛵 Nueva solicitud de repartidor', message: `${name} · ${vehicle} · ${city} · ${phone} · ${email}` }
+      });
+    }
+    document.getElementById('rider-form-content').innerHTML = `
+      <div style="text-align:center;padding:40px">
+        <div style="font-size:60px;margin-bottom:16px">🎉</div>
+        <h3 style="font-size:22px;font-weight:800;margin-bottom:12px">¡Solicitud enviada!</h3>
+        <p style="color:var(--muted);font-size:15px;margin-bottom:24px">Revisaremos tu solicitud en 24-48 horas hábiles y te contactaremos al email <strong>${email}</strong>.</p>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:16px">¿Ya fuiste aprobado? Descarga la app y regístrate directamente:</p>
+        <div class="app-badges" style="justify-content:center">
+          <div class="app-badge" style="background:linear-gradient(135deg,var(--primary),var(--accent))">
+            <span class="badge-icon">🤖</span>
+            <div><div style="font-size:10px;opacity:0.8">Disponible en</div><div>Google Play — Go Rider</div></div>
+          </div>
+        </div>
+      </div>`;
+    showToast('¡Solicitud enviada! Te contactaremos pronto.');
+  } catch(e) {
+    err.textContent = 'Error al enviar: '+e.message;
+    err.style.display = 'block';
+  }
+}
+
+// ── GO SERVICIOS ──────────────────────────────────────────
+let allServicios = [], serviciosFiltradas = [];
+
+async function loadServicios() {
+  try {
+    const { data } = await sb.from('service_providers').select('*').eq('status','approved').eq('is_active',true);
+    allServicios = data || [];
+    serviciosFiltradas = [...allServicios];
+    renderServicios();
+  } catch(e) {
+    document.getElementById('servicios-grid').innerHTML = '<div style="text-align:center;padding:60px;grid-column:1/-1;color:var(--muted)"><div style="font-size:48px;margin-bottom:12px">🔧</div><p>Próximamente disponible</p></div>';
+  }
+}
+
+function filterServicios(cat, el) {
+  document.querySelectorAll('#page-servicios .cat-card').forEach(b => b.classList.remove('active'));
+  if(el) el.classList.add('active');
+  serviciosFiltradas = cat==='todos' ? [...allServicios] : allServicios.filter(s => s.category===cat);
+  renderServicios();
+}
+
+function renderServicios() {
+  const grid = document.getElementById('servicios-grid');
+  if (!serviciosFiltradas.length) {
+    grid.innerHTML = '<div style="text-align:center;padding:60px;grid-column:1/-1;color:var(--muted)"><div style="font-size:48px;margin-bottom:12px">🔍</div><p style="font-weight:600">Sin servicios en esta categoría</p></div>';
+    return;
+  }
+  grid.innerHTML = serviciosFiltradas.map(s => `
+    <div onclick="openServicio('${s.id}')" style="background:#fff;border-radius:20px;overflow:hidden;cursor:pointer;transition:all 0.2s;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.05)" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.12)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+      <!-- Foto de empresa -->
+      <div style="height:140px;background:linear-gradient(135deg,var(--secondary),#2d1b69);position:relative;display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden">
+        ${s.photo_url ? `<img src="${s.photo_url}" alt="${s.name}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">` : s.emoji||'🔧'}
+        <div style="position:absolute;bottom:10px;left:12px;background:rgba(0,0,0,0.6);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;color:#fff">${s.category||''}</div>
+      </div>
+      <div style="padding:18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:44px;height:44px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${s.emoji||'🔧'}</div>
+          <div>
+            <div style="font-size:15px;font-weight:800">${s.name}</div>
+            <div style="font-size:12px;color:var(--muted)">📍 ${s.city||''}</div>
+          </div>
+        </div>
+        <p style="color:var(--muted);font-size:13px;line-height:1.5;margin-bottom:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${s.description||''}</p>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="background:#DCFCE7;color:#166534;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700">✓ Verificado</span>
+          <button style="background:var(--primary);color:#fff;border:none;padding:8px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Me interesa →</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openServicio(id) {
+  const s = allServicios.find(x => x.id===id);
+  if (!s) return;
+  const servicios = (s.services||s.servicios||'').split(',').map(x=>x.trim()).filter(Boolean);
+  const waPhone = (s.phone||s.whatsapp||'').replace(/[^0-9]/g,'');
+  const waLink = `https://wa.me/${waPhone}?text=Hola%20${encodeURIComponent(s.name)}%2C%20vi%20su%20empresa%20en%20Go%20Deli%20y%20me%20interesa%20su%20servicio`;
+  document.getElementById('serv-modal-title').textContent = s.name;
+  document.getElementById('serv-modal-content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:32px">${s.emoji||'🔧'}</div>
+      <div>
+        <div style="font-size:18px;font-weight:800">${s.name}</div>
+        <div style="color:var(--muted);font-size:13px">${s.category||''} • ${s.city||''}</div>
+        <span style="background:#DCFCE7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-top:4px;display:inline-block">✓ Empresa verificada por Go Deli</span>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:20px">${s.description||''}</p>
+    ${servicios.length ? `
+      <div style="margin-bottom:20px">
+        <p style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">Servicios disponibles</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${servicios.map(sv => `<span style="background:var(--bg);border:1px solid var(--border);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600">✓ ${sv}</span>`).join('')}
+        </div>
+      </div>` : ''}
+    ${s.coverage||s.zona ? `<p style="color:var(--muted);font-size:13px;margin-bottom:16px">📍 Cobertura: ${s.coverage||s.zona}</p>` : ''}
+    <div style="border-top:1px solid var(--border);padding-top:16px">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Contacta directamente con la empresa:</p>
+      <a href="${waLink}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#25D366;color:#fff;padding:14px;border-radius:14px;font-weight:800;font-size:16px;text-decoration:none">
+        <span style="font-size:24px">📱</span> Contactar por WhatsApp
+      </a>
+      ${s.phone ? `<p style="text-align:center;color:var(--muted);font-size:13px;margin-top:10px">📞 ${s.phone}</p>` : ''}
+    </div>`;
+  document.getElementById('servicio-modal').classList.add('open');
+}
+
+function closeServicioModal() { document.getElementById('servicio-modal').classList.remove('open'); }
+
+function showServiciosForm() { document.getElementById('servicios-register-modal').classList.add('open'); }
+
+async function submitServiciosForm() {
+  const empresa = document.getElementById('srv-empresa').value;
+  const phone   = document.getElementById('srv-phone').value;
+  const email   = document.getElementById('srv-email').value;
+  const cat     = document.getElementById('srv-cat').value;
+  const city    = document.getElementById('srv-city').value;
+  const desc    = document.getElementById('srv-desc').value;
+  const servs   = document.getElementById('srv-servicios').value;
+  const zona    = document.getElementById('srv-zona').value;
+  const err     = document.getElementById('srv-error');
+  if (!empresa||!phone||!email||!cat||!city||!desc||!servs) {
+    err.textContent = 'Completa todos los campos obligatorios'; err.style.display='block'; return;
+  }
+  try {
+    await sb.from('service_providers').insert({
+      name: empresa, phone, email, category: cat, city,
+      description: desc, services: servs, coverage: zona,
+      status: 'pending', is_active: false, subscription_fee: 50000,
+    });
+    document.getElementById('servicios-register-modal').classList.remove('open');
+    showToast('Solicitud enviada! Te contactaremos en 48 horas.');
+  } catch(e) {
+    err.textContent = 'Error: ' + e.message; err.style.display = 'block';
+  }
+}
+
+// ── BANNER PUBLICITARIO ────────────────────────────────────
+async function loadAdBanner() {
+  try {
+    const { data } = await sb.from('banners').select('*').eq('is_active', true).eq('banner_type', 'web_home').order('sort_order').limit(4);
+    const container = document.getElementById('ad-banners-container');
+    const grid = document.getElementById('ad-banners-grid');
+    if (!data || !data.length) return;
+    const withImages = data.filter(b => b.image_url);
+    if (!withImages.length) return;
+    // Ajustar columnas segun cantidad
+    if (withImages.length === 1) grid.style.gridTemplateColumns = '1fr';
+    else if (withImages.length === 2) grid.style.gridTemplateColumns = 'repeat(2,1fr)';
+    else if (withImages.length === 3) grid.style.gridTemplateColumns = 'repeat(3,1fr)';
+    else grid.style.gridTemplateColumns = 'repeat(2,1fr)';
+    grid.innerHTML = withImages.map(b => `
+      <a href="${b.link_url||'#'}" target="_blank" style="display:block;border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.2s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform=''">
+        <img src="${b.image_url}" alt="${b.title||'Publicidad'}" style="width:100%;height:100px;object-fit:cover;display:block" onerror="this.parentElement.parentElement.style.display='none'">
+      </a>`).join('');
+    container.style.display = 'block';
+  } catch(_) {}
+}
+
+// ── INIT ──────────────────────────────────────────────────
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    await loadUserProfile(session.user.id);
+    updateAuthUI();
+  }
+  await loadStores();
+  await loadAdBanner();
+})();
+</script>
+</body>
+</html>

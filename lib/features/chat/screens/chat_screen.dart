@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "dart:async";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
 
 class ChatScreen extends StatefulWidget {
@@ -34,7 +35,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final u = await _sb.from("users").select("id,name").eq("auth_id", user.id).single();
       _userId = u["id"] as String;
       final order = await _sb.from("orders")
-        .select("id, status, stores(name,emoji)")
+        .select("id, status, client_id, deliverer_id, stores(name,emoji), deliverers(id, user_id, users(name,phone))")
         .eq("id", widget.orderId)
         .single();
       if (mounted) setState(() { _order = order; _loading = false; });
@@ -119,7 +120,10 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           if (riderPhone != null) IconButton(
             icon: const Icon(Icons.phone_outlined),
-            onPressed: () {},
+            onPressed: () async {
+              final uri = Uri.parse("tel:$riderPhone");
+              if (await canLaunchUrl(uri)) launchUrl(uri);
+            },
             tooltip: "Llamar al repartidor",
           ),
         ],
