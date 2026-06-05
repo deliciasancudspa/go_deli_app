@@ -183,7 +183,7 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/order/${widget.orderId}")),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("Chat con $clientName", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           if (storeName.isNotEmpty) Text("$storeEmoji $storeName", style: const TextStyle(fontSize: 11, color: Colors.white70)),

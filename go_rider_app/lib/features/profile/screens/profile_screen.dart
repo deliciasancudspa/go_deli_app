@@ -1,8 +1,13 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
+import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
+
+// Admin WhatsApp number — update as needed
+const _adminWhatsApp = "56XXXXXXXXX";
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -13,7 +18,10 @@ class ProfileScreen extends StatelessWidget {
     final bankList = rider.rider?["deliverer_bank_info"];
     final bank = (bankList is List && bankList.isNotEmpty) ? bankList[0] as Map<String, dynamic> : null;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) { if (!didPop) context.go("/dashboard"); },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text("Mi perfil"), leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/dashboard"))),
       body: ListView(padding: const EdgeInsets.all(16), children: [
@@ -42,6 +50,40 @@ class ProfileScreen extends StatelessWidget {
           _row("Titular", bank["account_holder"] ?? "-"),
           _row("RUT", bank["rut"] ?? "-"),
         ] : [const Padding(padding: EdgeInsets.all(8), child: Text("Sin datos bancarios", style: TextStyle(color: AppColors.textLight)))]),
+        const SizedBox(height: 12),
+        _card("Contactar Admin", [
+          _rowButton(
+            label: "Mensaje directo",
+            icon: Icons.chat_bubble_outline,
+            onTap: () async {
+              try {
+                final admin = await Supabase.instance.client
+                    .from("users")
+                    .select("id")
+                    .eq("role", "admin")
+                    .limit(1)
+                    .single();
+                if (context.mounted) context.push("/chat-admin/${admin["id"]}");
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("No se pudo conectar con el admin"), backgroundColor: AppColors.error),
+                  );
+                }
+              }
+            },
+          ),
+          _rowButton(
+            label: "WhatsApp",
+            icon: Icons.chat_outlined,
+            onTap: () async {
+              final uri = Uri.parse("https://wa.me/$_adminWhatsApp");
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+          ),
+        ]),
         const SizedBox(height: 24),
         ElevatedButton.icon(
           onPressed: () async { await rider.signOut(); if (context.mounted) context.go("/login"); },
@@ -52,6 +94,7 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 32),
         const Text("Go Rider v1.0.0", textAlign: TextAlign.center, style: TextStyle(color: AppColors.textLight, fontSize: 12)),
       ]),
+      ),
     );
   }
 
@@ -72,4 +115,19 @@ class ProfileScreen extends StatelessWidget {
       Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
     ]),
   );
+
+  Widget _rowButton({required String label, required IconData icon, required VoidCallback onTap}) =>
+    InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(children: [
+          Icon(icon, color: AppColors.accent, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+          const Icon(Icons.chevron_right, color: AppColors.textLight, size: 18),
+        ]),
+      ),
+    );
 }

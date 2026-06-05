@@ -48,7 +48,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
     final cashReceived = _orders.where((o) => o["payment_method"] == "cash").fold(0.0, (s, o) => s + (o["total"] as num));
     final toDeposit = totalEarned - cashReceived;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) { if (!didPop) context.go("/dashboard"); },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text("Mis ganancias"), leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/dashboard"))),
       body: _loading
@@ -96,6 +99,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                 )),
             ]),
           ),
+      ),
     );
   }
 

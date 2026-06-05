@@ -4,6 +4,7 @@ import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/services/notification_service.dart";
 import "../../../providers/rider_provider.dart";
 
 class DashboardScreen extends StatefulWidget {
@@ -15,26 +16,40 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic> _stats = {};
   final _sb = Supabase.instance.client;
-  bool _subscribed = false;
+  bool _ordersSubscribed = false;
+  bool _chatSubscribed = false;
+  String _subscribedRiderId = "";
+  String _subscribedUserId = "";
+  RiderProvider? _riderRef;  // direct reference for addListener/removeListener
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await NotificationService.requestPermission();
+      _riderRef = context.read<RiderProvider>();
+      _riderRef!.addListener(_onRiderUpdate);
+      _loadStats();
+      _subscribeRealtime();  // try immediately in case already loaded
+    });
+  }
+
+  // Called every time RiderProvider notifies (e.g., when profile finishes loading)
+  void _onRiderUpdate() {
+    if (!mounted) return;
     _loadStats();
     _subscribeRealtime();
-    // Safety net: if riderId wasn't ready at initState, retry after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_subscribed) _subscribeRealtime();
-    });
   }
 
   @override
   void dispose() {
-    final riderId = context.read<RiderProvider>().riderId;
-    if (riderId.isNotEmpty) {
-      _sb.channel("rider-orders-$riderId").unsubscribe();
-      _sb.channel("rider-notifs-$riderId").unsubscribe();
+    _riderRef?.removeListener(_onRiderUpdate);
+    if (_subscribedRiderId.isNotEmpty) {
+      _sb.channel("rider-orders-$_subscribedRiderId").unsubscribe();
+      _sb.channel("rider-notifs-$_subscribedRiderId").unsubscribe();
     }
+    if (_subscribedUserId.isNotEmpty) _sb.channel("rider-chat-$_subscribedUserId").unsubscribe();
     super.dispose();
   }
 
@@ -54,25 +69,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _subscribeRealtime() {
     final rider = context.read<RiderProvider>();
-    if (rider.riderId.isEmpty) return;
-    if (_subscribed) return;
-    _subscribed = true;
-    try {
-      _sb.channel("rider-orders-${rider.riderId}").onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: "public",
-        table: "orders",
-        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: "deliverer_id", value: rider.riderId),
-        callback: (_) { rider.loadActiveOrders(); _loadStats(); },
-      ).subscribe();
-      _sb.channel("rider-notifs-${rider.riderId}").onPostgresChanges(
-        event: PostgresChangeEvent.insert,
-        schema: "public",
-        table: "notifications",
-        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: "target", value: rider.riderId),
-        callback: (_) { rider.loadActiveOrders(); _loadStats(); },
-      ).subscribe();
-    } catch (_) { _subscribed = false; }
+
+    // Orders + notifications: set up once when riderId is available
+    if (!_ordersSubscribed && rider.riderId.isNotEmpty) {
+      _ordersSubscribed = true;
+      _subscribedRiderId = rider.riderId;
+      final riderId = rider.riderId;
+      try {
+        // Orders subscription keeps server-side filter (performance)
+        _sb.channel("rider-orders-$riderId").onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: "public",
+          table: "orders",
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: "deliverer_id", value: riderId),
+          callback: (payload) {
+            if (!mounted) return;
+            context.read<RiderProvider>().loadActiveOrders();
+            _loadStats();
+            final rec = payload.newRecord;
+            if (rec["status"] == "assigned") {
+              NotificationService.show(title: "🛵 Nuevo pedido asignado", body: "Tienes un nuevo pedido. Revisa los detalles.");
+            }
+          },
+        ).subscribe();
+        // Notifications: no server-side filter to avoid silent Realtime filter failures.
+        // Filter client-side in callback.
+        _sb.channel("rider-notifs-$riderId").onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: "public",
+          table: "notifications",
+          callback: (payload) {
+            if (!mounted) return;
+            final rec = payload.newRecord;
+            if ((rec["target"] as String?) != riderId) return;  // client-side filter
+            context.read<RiderProvider>().loadActiveOrders();
+            _loadStats();
+            final emoji = rec["emoji"] as String? ?? "";
+            final title = rec["title"] as String? ?? "Go Rider";
+            final msg   = rec["message"] as String? ?? "";
+            NotificationService.show(title: "$emoji $title", body: msg);
+          },
+        ).subscribe();
+      } catch (_) { _ordersSubscribed = false; _subscribedRiderId = ""; }
+    }
+
+    // Chat: receiver_id stores users.id — set up separately when user loads
+    if (!_chatSubscribed) {
+      final userId = rider.user?["id"] as String? ?? "";
+      if (userId.isNotEmpty) {
+        _chatSubscribed = true;
+        _subscribedUserId = userId;
+        try {
+          // Chat: no server-side filter — filter client-side
+          _sb.channel("rider-chat-$userId").onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: "public",
+            table: "chat_messages",
+            callback: (payload) {
+              if (!mounted) return;
+              final rec = payload.newRecord;
+              if ((rec["receiver_id"] as String?) != userId) return;  // client-side filter
+              final sender = rec["sender_type"] as String? ?? "cliente";
+              NotificationService.show(title: "💬 Mensaje de $sender", body: rec["message"] as String? ?? "");
+            },
+          ).subscribe();
+        } catch (_) { _chatSubscribed = false; _subscribedUserId = ""; }
+      }
+    }
   }
 
   String _fmt(double n) => "\$${n.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
@@ -110,7 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(rider.isOnline ? "En linea" : "Desconectado", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
             ])),
             GestureDetector(
-              onTap: () => context.go("/notifications"),
+              onTap: () => context.push("/notifications"),
               child: Container(
                 margin: const EdgeInsets.only(right: 10),
                 padding: const EdgeInsets.all(8),
@@ -188,7 +251,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final statusLabels = {"assigned": "Ve al restaurante", "picked_up": "Lleva al cliente", "on_the_way": "En camino"};
     final color = statusColors[o["status"]] ?? AppColors.textLight;
     return GestureDetector(
-      onTap: () => context.go("/order/${o["id"]}"),
+      onTap: () => context.push("/order/${o["id"]}"),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -211,7 +274,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text("\$${((o["total"] as num?) ?? 0).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accent)),
           ]),
           const SizedBox(height: 10),
-          SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => context.go("/order/${o["id"]}"), child: const Text("Ver detalles"))),
+          SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => context.push("/order/${o["id"]}"), child: const Text("Ver detalles"))),
         ]),
       ),
     );

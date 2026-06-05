@@ -5,6 +5,7 @@ import "package:provider/provider.dart";
 import "config/app_config.dart";
 import "config/app_routes.dart";
 import "core/theme/app_theme.dart";
+import "core/services/notification_service.dart";
 import "providers/rider_provider.dart";
 
 void main() async {
@@ -14,6 +15,7 @@ void main() async {
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
   );
+  await NotificationService.init();
   runApp(const GoRiderApp());
 }
 

@@ -102,6 +102,60 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
+  Future<void> _showReturnDialog(String reason) async {
+    final label = reason == "not_found" ? "Cliente no localizado" : "Cliente rechazó el pedido";
+    final note = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _ReturnDialogSheet(label: label),
+    );
+    if (note != null && mounted) {
+      await _processReturn(reason, note, label);
+    }
+  }
+
+  Future<void> _processReturn(String reason, String note, String reasonLabel) async {
+    // Read sync values before any await to avoid context-after-dispose issues
+    final riderName = context.read<RiderProvider>().riderName;
+    final codigo = widget.orderId.substring(0, 8).toUpperCase();
+    final storeId = _order?["store_id"] as String?;
+    try {
+      final noteText = note.isEmpty ? reasonLabel : note;
+
+      await _sb.from("orders").update({
+        "status": "returned",
+        "return_reason": reason,
+        "return_note": note.isEmpty ? null : note,
+        "returned_at": DateTime.now().toIso8601String(),
+      }).eq("id", widget.orderId);
+
+      if (storeId != null) {
+        await _sb.from("notifications").insert({
+          "target": storeId,
+          "title": "Pedido devuelto",
+          "message": "El pedido #$codigo fue devuelto. Nota: $noteText",
+          "emoji": "↩️",
+        });
+      }
+
+      await _sb.from("notifications").insert({
+        "target": "admin",
+        "title": "Pedido devuelto",
+        "message": "Pedido #$codigo devuelto por $riderName. Razón: $reasonLabel. Nota: ${note.isEmpty ? "-" : note}",
+        "emoji": "⚠️",
+      });
+
+      _stopGps();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Devolución registrada"), backgroundColor: AppColors.warning));
+        context.go("/dashboard");
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: AppColors.error));
+    }
+  }
+
   Future<void> _confirmDelivery() async {
     final entered = _deliveryCodeCtrl.text.trim().toUpperCase();
     if (entered.length != 4) {
@@ -144,7 +198,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text("Pedido #${widget.orderId.substring(0,8).toUpperCase()}"),
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/orders")),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
         actions: [
           if (_gpsActive) Padding(
             padding: const EdgeInsets.only(right: 14),
@@ -246,7 +300,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         // Botón de chat (visible en todos los estados activos)
         if (_activeStatuses.contains(status)) ...[
           OutlinedButton.icon(
-            onPressed: () => context.go("/chat/${widget.orderId}"),
+            onPressed: () => context.push("/chat/${widget.orderId}"),
             icon: const Icon(Icons.chat_bubble_outline, size: 18),
             label: const Text("Chat con el cliente"),
             style: OutlinedButton.styleFrom(
@@ -255,6 +309,34 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               minimumSize: const Size(double.infinity, 46),
             ),
           ),
+          const SizedBox(height: 10),
+        ],
+
+        // Botones devolución (solo cuando el rider ya tiene el pedido)
+        if (status == "picked_up" || status == "on_the_way") ...[
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () => _showReturnDialog("not_found"),
+              icon: const Icon(Icons.person_off_outlined, size: 16),
+              label: const Text("No localizado", overflow: TextOverflow.ellipsis),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.warning,
+                side: const BorderSide(color: AppColors.warning),
+                minimumSize: const Size(0, 44),
+              ),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () => _showReturnDialog("rejected"),
+              icon: const Icon(Icons.block, size: 16),
+              label: const Text("Pedido rechazado", overflow: TextOverflow.ellipsis),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: const BorderSide(color: AppColors.error),
+                minimumSize: const Size(0, 44),
+              ),
+            )),
+          ]),
           const SizedBox(height: 10),
         ],
 
@@ -313,7 +395,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _infoCard(String title, String emoji, String name, String subtitle, String? phone, String? address, {double? lat, double? lng}) => Container(
+  Widget _infoCard(String title, String emoji, String name, String subtitle, String? phone, String? address, {double? lat, double? lng}) =>
+    Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -344,4 +427,60 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       ]),
     ]),
   );
+}
+
+// Bottom sheet for return note — manages TextEditingController via StatefulWidget lifecycle
+class _ReturnDialogSheet extends StatefulWidget {
+  final String label;
+  const _ReturnDialogSheet({required this.label});
+  @override
+  State<_ReturnDialogSheet> createState() => _ReturnDialogSheetState();
+}
+
+class _ReturnDialogSheetState extends State<_ReturnDialogSheet> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        left: 24, right: 24, top: 24,
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text("Devolver pedido", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        Text(widget.label, style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _ctrl,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: "Nota de devolución (opcional)...",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: ElevatedButton(
+            onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text("Confirmar"),
+          )),
+        ]),
+        const SizedBox(height: 8),
+      ]),
+    );
+  }
 }

@@ -19,7 +19,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final rider = context.watch<RiderProvider>();
     final STATUS = {"pending":"Pendiente","accepted":"Aceptado","preparing":"Preparando","ready":"Listo","assigned":"Asignado","picked_up":"Recogido","on_the_way":"En camino","delivered":"Entregado","cancelled":"Cancelado"};
     final COLORS = {"assigned":AppColors.warning,"picked_up":AppColors.info,"on_the_way":AppColors.accent,"delivered":AppColors.success,"cancelled":AppColors.error};
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go("/dashboard");
+      },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text("Mis pedidos"), leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/dashboard"))),
       body: RefreshIndicator(
@@ -34,7 +39,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 final o = rider.orderHistory[i];
                 final color = COLORS[o["status"]] ?? AppColors.textLight;
                 return GestureDetector(
-                  onTap: () { if (["assigned","picked_up","on_the_way"].contains(o["status"])) context.go("/order/${o["id"]}"); },
+                  onTap: () { if (["assigned","picked_up","on_the_way"].contains(o["status"])) context.push("/order/${o["id"]}"); },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
@@ -52,6 +57,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 );
               },
             ),
+        ),
       ),
     );
   }

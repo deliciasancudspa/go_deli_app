@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
@@ -84,6 +85,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text("Ofertas de pedidos"),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: () { setState(() => _loading = true); _load(); }),
         ],
