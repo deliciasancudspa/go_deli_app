@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -12,7 +13,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _navIdx = 0;
   Map<String, dynamic> _stats = {};
   final _sb = Supabase.instance.client;
   bool _subscribed = false;
@@ -77,10 +77,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _fmt(double n) => "\$${n.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
 
+  Future<void> _confirmExit(BuildContext ctx) async {
+    final shouldExit = await showDialog<bool>(
+      context: ctx,
+      builder: (dCtx) => AlertDialog(
+        title: const Text("Salir de Go Rider"),
+        content: const Text("¿Deseas salir de la aplicación?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text("Cancelar")),
+          TextButton(onPressed: () => Navigator.pop(dCtx, true),  child: const Text("Salir")),
+        ],
+      ),
+    );
+    if (shouldExit == true) SystemNavigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final rider = context.watch<RiderProvider>();
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) { if (!didPop) _confirmExit(context); },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(child: Column(children: [
         Container(color: AppColors.primary, padding: const EdgeInsets.all(20), child: Column(children: [
@@ -151,15 +169,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ]),
         )),
       ])),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _navIdx,
-        onTap: (i) { setState(() => _navIdx = i); switch(i) { case 1: context.go("/orders"); break; case 2: context.go("/earnings"); break; case 3: context.go("/profile"); break; } },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: "Inicio"),
-          BottomNavigationBarItem(icon: Icon(Icons.delivery_dining_outlined), activeIcon: Icon(Icons.delivery_dining), label: "Pedidos"),
-          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), activeIcon: Icon(Icons.account_balance_wallet), label: "Ganancias"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: "Perfil"),
-        ],
       ),
     );
   }

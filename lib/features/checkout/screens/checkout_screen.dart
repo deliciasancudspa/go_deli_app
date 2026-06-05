@@ -2,11 +2,13 @@ import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "package:image_picker/image_picker.dart";
+import "dart:typed_data";
+import "dart:math";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
 import "../../../providers/auth_provider.dart";
 import "address_picker_screen.dart";
-import "dart:math";
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -25,8 +27,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? _couponMsg;
   bool _couponValid    = false;
   bool _loading        = false;
+  double? _deliveryLat;
+  double? _deliveryLng;
   Map<String, dynamic>? _storeData;
+  bool _needsPrescription = false;
+  Uint8List? _prescriptionBytes;
+  String _prescriptionFileName = "";
   final _sb = Supabase.instance.client;
+  final _imagePicker = ImagePicker();
 
   @override
   void initState() { super.initState(); _loadStore(); }
@@ -35,7 +43,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = context.read<CartProvider>();
     if (cart.currentStoreId == null) return;
     final store = await _sb.from("stores").select().eq("id", cart.currentStoreId!).single();
-    if (mounted) setState(() => _storeData = store);
+    bool needsRx = false;
+    if (store["category"] == "Farmacia" && cart.items.isNotEmpty) {
+      final ids = cart.items.map((i) => i.id).toList();
+      final menuItems = await _sb.from("menu_items")
+        .select("id, requires_prescription")
+        .inFilter("id", ids);
+      needsRx = List<Map<String, dynamic>>.from(menuItems)
+        .any((m) => m["requires_prescription"] == true);
+    }
+    if (mounted) setState(() { _storeData = store; _needsPrescription = needsRx; });
   }
 
   String _generateCode() => (1000 + Random().nextInt(9000)).toString();
@@ -53,9 +70,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<void> _pickPrescription(ImageSource source) async {
+    try {
+      final xfile = await _imagePicker.pickImage(source: source, imageQuality: 85, maxWidth: 1920);
+      if (xfile == null) return;
+      final bytes = await xfile.readAsBytes();
+      setState(() {
+        _prescriptionBytes = bytes;
+        _prescriptionFileName = xfile.name;
+      });
+    } catch (_) {}
+  }
+
   Future<void> _placeOrder() async {
     if (_deliveryType == "delivery" && _addressCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ingresa tu dirección de entrega"), backgroundColor: AppColors.error));
+      return;
+    }
+    if (_needsPrescription && _prescriptionBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Debes subir la receta médica para continuar"), backgroundColor: AppColors.error));
       return;
     }
     setState(() => _loading = true);
@@ -75,6 +108,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final delivCode  = _deliveryType == "delivery" ? _generateCode() : null;
 
       final u = await _sb.from("users").select("id").eq("auth_id", auth.user!.id).single();
+
+      String? prescriptionUrl;
+      if (_prescriptionBytes != null) {
+        final ext = _prescriptionFileName.contains(".") ? _prescriptionFileName.split(".").last : "jpg";
+        final path = "${u["id"]}/${DateTime.now().millisecondsSinceEpoch}.$ext";
+        await _sb.storage.from("prescriptions").uploadBinary(path, _prescriptionBytes!,
+          fileOptions: FileOptions(contentType: "image/$ext", upsert: false));
+        prescriptionUrl = _sb.storage.from("prescriptions").getPublicUrl(path);
+      }
+
       final order = await _sb.from("orders").insert({
         "client_id": u["id"],
         "store_id": cart.currentStoreId,
@@ -84,6 +127,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "fixed_fee": fixedFee,
         "total": total,
         "delivery_address": _deliveryType == "delivery" ? _addressCtrl.text.trim() : null,
+        "delivery_lat": _deliveryType == "delivery" ? _deliveryLat : null,
+        "delivery_lng": _deliveryType == "delivery" ? _deliveryLng : null,
         "delivery_reference": _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
         "payment_method": _payMethod,
         "order_type": _deliveryType,
@@ -92,6 +137,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "discount": discAmt,
         "pickup_code": pickupCode,
         "delivery_code": delivCode,
+        "prescription_url": prescriptionUrl,
       }).select().single();
 
       await _sb.from("order_items").insert(cart.items.map((item) => {
@@ -145,8 +191,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(height: 12),
           GestureDetector(
             onTap: () async {
-              final addr = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const AddressPickerScreen()));
-              if (addr != null && addr.isNotEmpty) setState(() => _addressCtrl.text = addr);
+              final result = await Navigator.push<Map<String, dynamic>>(context, MaterialPageRoute(builder: (_) => const AddressPickerScreen()));
+              if (result != null && (result["address"] as String).isNotEmpty) {
+                setState(() {
+                  _addressCtrl.text = result["address"] as String;
+                  _deliveryLat = result["lat"] as double?;
+                  _deliveryLng = result["lng"] as double?;
+                });
+              }
             },
             child: Container(
               width: double.infinity,
@@ -253,6 +305,57 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ]),
           ]),
         ),
+        // Receta médica (solo farmacias con productos que lo requieren)
+        if (_needsPrescription) ...[
+          const SizedBox(height: 20),
+          const Text("Receta médica", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.warning.withOpacity(0.4))),
+            child: Row(children: [
+              const Icon(Icons.info_outline, color: AppColors.warning, size: 18),
+              const SizedBox(width: 8),
+              const Expanded(child: Text("Este pedido incluye productos que requieren receta médica.", style: TextStyle(color: AppColors.warning, fontSize: 13, fontWeight: FontWeight.w600))),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          if (_prescriptionBytes != null) ...[
+            Container(
+              height: 160,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.success, width: 2),
+                image: DecorationImage(image: MemoryImage(_prescriptionBytes!), fit: BoxFit.cover),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(children: [
+              const Icon(Icons.check_circle, color: AppColors.success, size: 18),
+              const SizedBox(width: 6),
+              Expanded(child: Text(_prescriptionFileName, style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis)),
+              TextButton(onPressed: () => setState(() { _prescriptionBytes = null; _prescriptionFileName = ""; }), child: const Text("Cambiar")),
+            ]),
+          ] else ...[
+            Row(children: [
+              Expanded(child: OutlinedButton.icon(
+                onPressed: () => _pickPrescription(ImageSource.camera),
+                icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                label: const Text("Tomar foto"),
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: const BorderSide(color: AppColors.accent)),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: OutlinedButton.icon(
+                onPressed: () => _pickPrescription(ImageSource.gallery),
+                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                label: const Text("Galería"),
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: const BorderSide(color: AppColors.accent)),
+              )),
+            ]),
+          ],
+        ],
+
         const SizedBox(height: 24),
 
         ElevatedButton(

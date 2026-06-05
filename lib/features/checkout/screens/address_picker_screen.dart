@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:google_maps_flutter/google_maps_flutter.dart";
 import "package:geolocator/geolocator.dart";
+import "package:geocoding/geocoding.dart";
 import "package:dio/dio.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../config/app_config.dart";
@@ -127,22 +128,12 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
     if (!mounted) return;
     setState(() { _geocoding = true; _center = pos; });
     try {
-      final res = await _dio.get(
-        "https://maps.googleapis.com/maps/api/geocode/json",
-        queryParameters: {
-          "latlng": "${pos.latitude},${pos.longitude}",
-          "key": AppConfig.googleMapsApiKey,
-          "language": "es",
-          "region": "cl",
-        },
-      );
-      final results = res.data["results"] as List?;
-      if (results != null && results.isNotEmpty) {
-        final best = results.firstWhere(
-          (r) => (r["types"] as List).contains("street_address"),
-          orElse: () => results[0],
-        );
-        if (mounted) setState(() => _address = best["formatted_address"] as String);
+      final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      if (placemarks.isNotEmpty) {
+        final p = placemarks.first;
+        final parts = [p.street, p.locality, p.administrativeArea]
+          .where((s) => s != null && s!.isNotEmpty).cast<String>().toList();
+        if (mounted) setState(() => _address = parts.join(", "));
       } else {
         if (mounted) setState(() => _address = "");
       }
@@ -330,7 +321,11 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
               ]),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: (_geocoding || _address.isEmpty) ? null : () => Navigator.pop(context, _address),
+                onPressed: (_geocoding || _address.isEmpty) ? null : () => Navigator.pop(context, {
+                  "address": _address,
+                  "lat": _center.latitude,
+                  "lng": _center.longitude,
+                }),
                 icon: const Icon(Icons.check_circle_outline),
                 label: const Text("Confirmar esta dirección"),
                 style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 52)),

@@ -1,5 +1,8 @@
 import "package:flutter/material.dart";
 import "dart:async";
+import "dart:math" as math;
+import "dart:typed_data";
+import "package:audioplayers/audioplayers.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -15,24 +18,32 @@ class RiderChatScreen extends StatefulWidget {
 }
 
 class _RiderChatScreenState extends State<RiderChatScreen> {
-  final _msgCtrl = TextEditingController();
-  final _scroll  = ScrollController();
+  final _msgCtrl     = TextEditingController();
+  final _scroll      = ScrollController();
+  final _sb          = Supabase.instance.client;
+  final _audioPlayer = AudioPlayer();
   List<Map<String, dynamic>> _messages = [];
   Map<String, dynamic>? _order;
   String? _userId;
-  bool _loading = true;
-  bool _sending = false;
+  bool _loading  = true;
+  bool _sending  = false;
+  int  _prevMsgCount = 0;
   Timer? _pollTimer;
   RealtimeChannel? _channel;
-  final _sb = Supabase.instance.client;
+  late final Uint8List _beepWav;
 
   @override
-  void initState() { super.initState(); _init(); }
+  void initState() {
+    super.initState();
+    _beepWav = _buildBeepWav();
+    _init();
+  }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
     _channel?.unsubscribe();
+    _audioPlayer.dispose();
     _msgCtrl.dispose();
     _scroll.dispose();
     super.dispose();
@@ -43,7 +54,6 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
       final rider = context.read<RiderProvider>();
       _userId = rider.rider?["user_id"] as String?;
       if (_userId == null) {
-        // Fallback: get user_id from auth
         final user = _sb.auth.currentUser;
         if (user != null) {
           final u = await _sb.from("users").select("id").eq("auth_id", user.id).single();
@@ -77,21 +87,27 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
   Future<void> _loadMessages() async {
     try {
       final result = await _sb.from("chat_messages")
-        .select("*, users(name)")
+        .select("*, users!chat_messages_sender_id_fkey(name)")
         .eq("order_id", widget.orderId)
-        .order("created_at");
-      if (mounted) {
-        setState(() => _messages = List<Map<String, dynamic>>.from(result));
-        _scrollToBottom();
+        .order("created_at", ascending: false);
+      if (!mounted) return;
+      final newList = List<Map<String, dynamic>>.from(result);
+      // Sonido cuando llega mensaje del cliente (índice 0 = más nuevo)
+      if (newList.length > _prevMsgCount && _prevMsgCount > 0) {
+        final newest = newList.first;
+        if (newest["sender_id"] != _userId) {
+          _audioPlayer.play(BytesSource(_beepWav));
+        }
       }
+      _prevMsgCount = newList.length;
+      setState(() => _messages = newList);
+      _scrollToBottom();
     } catch (_) {}
   }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-      }
+      if (_scroll.hasClients) _scroll.jumpTo(0);
     });
   }
 
@@ -110,19 +126,51 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
       });
       _msgCtrl.clear();
       await _loadMessages();
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Error al enviar: $e"),
+        backgroundColor: Colors.red[900],
+      ));
+    }
     if (mounted) setState(() => _sending = false);
   }
 
   String _timeStr(String? d) {
     if (d == null) return "";
-    final date = DateTime.parse(d).toLocal();
-    return "${date.hour.toString().padLeft(2, "0")}:${date.minute.toString().padLeft(2, "0")}";
+    final dt = DateTime.parse(d).toLocal();
+    return "${dt.hour.toString().padLeft(2, "0")}:${dt.minute.toString().padLeft(2, "0")}";
   }
 
   Future<void> _call(String phone) async {
     final uri = Uri.parse("tel:$phone");
     if (await canLaunchUrl(uri)) launchUrl(uri);
+  }
+
+  static Uint8List _buildBeepWav() {
+    const sampleRate = 22050;
+    const freq       = 880.0;
+    const numSamples = sampleRate * 150 ~/ 1000;
+    final d = ByteData(44 + numSamples * 2);
+    d..setUint8(0,0x52)..setUint8(1,0x49)..setUint8(2,0x46)..setUint8(3,0x46);
+    d.setUint32(4, 36 + numSamples * 2, Endian.little);
+    d..setUint8(8,0x57)..setUint8(9,0x41)..setUint8(10,0x56)..setUint8(11,0x45);
+    d..setUint8(12,0x66)..setUint8(13,0x6d)..setUint8(14,0x74)..setUint8(15,0x20);
+    d.setUint32(16, 16, Endian.little);
+    d.setUint16(20, 1, Endian.little);
+    d.setUint16(22, 1, Endian.little);
+    d.setUint32(24, sampleRate, Endian.little);
+    d.setUint32(28, sampleRate * 2, Endian.little);
+    d.setUint16(32, 2, Endian.little);
+    d.setUint16(34, 16, Endian.little);
+    d..setUint8(36,0x64)..setUint8(37,0x61)..setUint8(38,0x74)..setUint8(39,0x61);
+    d.setUint32(40, numSamples * 2, Endian.little);
+    for (int i = 0; i < numSamples; i++) {
+      final t   = i / sampleRate;
+      final env = math.exp(-t * 20);
+      final s   = (math.sin(2 * math.pi * freq * t) * env * 28000).round().clamp(-32768, 32767);
+      d.setInt16(44 + i * 2, s, Endian.little);
+    }
+    return d.buffer.asUint8List();
   }
 
   @override
@@ -144,7 +192,6 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
           if (clientPhone != null) IconButton(
             icon: const Icon(Icons.phone_outlined),
             onPressed: () => _call(clientPhone),
-            tooltip: "Llamar al cliente",
           ),
         ],
       ),
@@ -162,13 +209,15 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
                   ]))
                 : ListView.builder(
                     controller: _scroll,
+                    reverse: true,
                     padding: const EdgeInsets.all(16),
                     itemCount: _messages.length,
                     itemBuilder: (_, i) {
-                      final m = _messages[i];
-                      final isMe = m["sender_id"] == _userId;
-                      final prev = i > 0 ? _messages[i - 1] : null;
-                      final showName = !isMe && (prev == null || prev["sender_id"] != m["sender_id"]);
+                      // Lista ordered newest-first; reverse:true pone i=0 en el fondo
+                      final m     = _messages[i];
+                      final isMe  = m["sender_id"] == _userId;
+                      final above = (i + 1 < _messages.length) ? _messages[i + 1] : null;
+                      final showName = !isMe && (above == null || above["sender_id"] != m["sender_id"]);
                       return Column(crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start, children: [
                         if (showName) Padding(
                           padding: const EdgeInsets.only(left: 4, bottom: 4, top: 8),
@@ -201,8 +250,6 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
                     },
                   ),
             ),
-
-            // Input
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(

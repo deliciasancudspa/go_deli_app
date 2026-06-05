@@ -81,9 +81,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
-  Future<void> _openMaps(String? address) async {
-    if (address == null) return;
-    final uri = Uri.parse("https://maps.google.com/?q=${Uri.encodeComponent(address)}");
+  Future<void> _openMaps(String? address, {double? lat, double? lng}) async {
+    if (address == null && lat == null) return;
+    final q = (lat != null && lng != null)
+      ? "$lat,$lng"
+      : Uri.encodeComponent(address ?? "");
+    if (q.isEmpty) return;
+    final uri = Uri.parse("https://maps.google.com/?q=$q");
     if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -197,7 +201,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
         _infoCard("Restaurante", _order!["stores"]?["emoji"] ?? "🍽️", _order!["stores"]?["name"] ?? "", _order!["stores"]?["address"] ?? "", _order!["stores"]?["phone"], _order!["stores"]?["address"]),
         const SizedBox(height: 12),
-        _infoCard("Cliente", "👤", _order!["users"]?["name"] ?? "Cliente", _order!["delivery_address"] ?? "", _order!["users"]?["phone"], _order!["delivery_address"]),
+        _infoCard("Cliente", "👤", _order!["users"]?["name"] ?? "Cliente", _order!["delivery_address"] ?? "", _order!["users"]?["phone"], _order!["delivery_address"],
+          lat: (_order!["delivery_lat"] as num?)?.toDouble(),
+          lng: (_order!["delivery_lng"] as num?)?.toDouble(),
+        ),
         const SizedBox(height: 12),
 
         // Productos
@@ -306,7 +313,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _infoCard(String title, String emoji, String name, String subtitle, String? phone, String? address) => Container(
+  Widget _infoCard(String title, String emoji, String name, String subtitle, String? phone, String? address, {double? lat, double? lng}) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -330,7 +337,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         )),
         if (phone != null && address != null) const SizedBox(width: 8),
         if (address != null) Expanded(child: ElevatedButton.icon(
-          onPressed: () => _openMaps(address),
+          onPressed: () => _openMaps(address, lat: lat, lng: lng),
           icon: const Icon(Icons.map_outlined, size: 16),
           label: const Text("Ver mapa"),
         )),
