@@ -51,3 +51,6 @@ go_rider_app/build/
 .cxx/
 go_rider_app/*.apk
 *.apk
+
+# Supabase CLI
+supabase/.temp/
