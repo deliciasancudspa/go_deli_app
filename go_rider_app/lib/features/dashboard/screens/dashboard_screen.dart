@@ -13,37 +13,65 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   Map<String, dynamic> _stats = {};
   final _sb = Supabase.instance.client;
   bool _ordersSubscribed = false;
   bool _chatSubscribed = false;
   String _subscribedRiderId = "";
   String _subscribedUserId = "";
-  RiderProvider? _riderRef;  // direct reference for addListener/removeListener
+  RiderProvider? _riderRef;
+  int _unreadNotifCount = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await NotificationService.requestPermission();
       _riderRef = context.read<RiderProvider>();
       _riderRef!.addListener(_onRiderUpdate);
       _loadStats();
-      _subscribeRealtime();  // try immediately in case already loaded
+      _loadUnreadCount();
+      _subscribeRealtime();
     });
   }
 
-  // Called every time RiderProvider notifies (e.g., when profile finishes loading)
+  // Reconnect Realtime channels every time the app comes back to foreground
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _resubscribeAll();
+      _loadUnreadCount();
+    }
+  }
+
+  void _resubscribeAll() {
+    if (_subscribedRiderId.isNotEmpty) {
+      _sb.channel("rider-orders-$_subscribedRiderId").unsubscribe();
+      _sb.channel("rider-notifs-$_subscribedRiderId").unsubscribe();
+    }
+    if (_subscribedUserId.isNotEmpty) {
+      _sb.channel("rider-chat-$_subscribedUserId").unsubscribe();
+    }
+    _ordersSubscribed = false;
+    _chatSubscribed = false;
+    _subscribedRiderId = "";
+    _subscribedUserId = "";
+    _subscribeRealtime();
+  }
+
   void _onRiderUpdate() {
     if (!mounted) return;
     _loadStats();
+    _loadUnreadCount();
     _subscribeRealtime();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _riderRef?.removeListener(_onRiderUpdate);
     if (_subscribedRiderId.isNotEmpty) {
       _sb.channel("rider-orders-$_subscribedRiderId").unsubscribe();
@@ -51,6 +79,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     if (_subscribedUserId.isNotEmpty) _sb.channel("rider-chat-$_subscribedUserId").unsubscribe();
     super.dispose();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    final rider = context.read<RiderProvider>();
+    if (rider.riderId.isEmpty) return;
+    try {
+      final data = await _sb.from("notifications")
+          .select("id")
+          .eq("type", "order_offer")
+          .eq("target", rider.riderId)
+          .eq("is_read", false);
+      if (mounted) setState(() => _unreadNotifCount = (data as List).length);
+    } catch (_) {}
   }
 
   Future<void> _loadStats() async {
@@ -104,6 +145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if ((rec["target"] as String?) != riderId) return;  // client-side filter
             context.read<RiderProvider>().loadActiveOrders();
             _loadStats();
+            _loadUnreadCount();
             final emoji = rec["emoji"] as String? ?? "";
             final title = rec["title"] as String? ?? "Go Rider";
             final msg   = rec["message"] as String? ?? "";
@@ -173,12 +215,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(rider.isOnline ? "En linea" : "Desconectado", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
             ])),
             GestureDetector(
-              onTap: () => context.push("/notifications"),
+              onTap: () async {
+                await context.push("/notifications");
+                if (mounted) _loadUnreadCount();
+              },
               child: Container(
                 margin: const EdgeInsets.only(right: 10),
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
-                child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                child: Stack(clipBehavior: Clip.none, children: [
+                  const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                  if (_unreadNotifCount > 0)
+                    Positioned(
+                      right: -2, top: -2,
+                      child: Container(
+                        width: 9, height: 9,
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.primary, width: 1.5),
+                        ),
+                      ),
+                    ),
+                ]),
               ),
             ),
             GestureDetector(

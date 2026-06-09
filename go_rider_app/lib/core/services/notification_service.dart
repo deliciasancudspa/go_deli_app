@@ -1,3 +1,4 @@
+import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 
 class NotificationService {
@@ -5,15 +6,19 @@ class NotificationService {
   static bool _initialized = false;
   static bool _permissionRequested = false;
 
-  static const _channelId = "go_rider_channel";
+  static const _channelId   = "go_rider_channel";
   static const _channelName = "Go Rider Notificaciones";
   static int _idCounter = 0;
 
   static Future<void> init() async {
     if (_initialized) return;
     const androidSettings = AndroidInitializationSettings("@mipmap/ic_launcher");
-    await _plugin.initialize(const InitializationSettings(android: androidSettings));
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await _plugin.initialize(
+      const InitializationSettings(android: androidSettings),
+      onDidReceiveNotificationResponse: _onTap,
+    );
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.createNotificationChannel(const AndroidNotificationChannel(
       _channelId,
       _channelName,
@@ -23,15 +28,40 @@ class NotificationService {
       enableVibration: true,
     ));
     _initialized = true;
+
+    // Listen to FCM messages while app is in foreground — show as local notification
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      final n = message.notification;
+      if (n != null) {
+        await show(title: n.title ?? "Go Rider", body: n.body ?? "", payload: "notifications");
+      }
+    });
   }
 
-  // Call this from a visible screen (Activity in foreground) so the dialog appears
+  // Called when the user taps a local notification — navigate to /notifications
+  static void _onTap(NotificationResponse response) {
+    if (response.payload == "notifications") {
+      navigatorKey?.currentState?.pushNamed("/notifications");
+    }
+  }
+
+  // Assign this in main.dart if you want tap-navigation to work
+  static dynamic navigatorKey;
+
   static Future<void> requestPermission() async {
     if (_permissionRequested) return;
     _permissionRequested = true;
     if (!_initialized) await init();
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    // Request Android 13+ permission
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
+    // Request FCM permission (iOS + Android 13+)
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
   }
 
   static Future<void> show({

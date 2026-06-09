@@ -1,4 +1,6 @@
+import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/material.dart";
+import "package:google_sign_in/google_sign_in.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../services/notification_service.dart";
 
@@ -27,7 +29,19 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     if (res != null && res["id"] != null) {
       NotificationService().startOrderListener(res["id"] as String);
+      _saveFcmToken(res["id"] as String);
     }
+  }
+
+  void _saveFcmToken(String userId) async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) return;
+      await _sb.from("users").update({"fcm_token": token}).eq("id", userId);
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        _sb.from("users").update({"fcm_token": newToken}).eq("id", userId);
+      });
+    } catch (_) {}
   }
 
   Future<String?> signIn(String email, String password) async {
@@ -42,9 +56,27 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> signUp(String email, String password, String name, String phone) async {
+  Future<String?> signUp({
+    required String email,
+    required String password,
+    required String name,
+    required String phone,
+    required String nationality,
+    required String nationalId,
+    required String nationalIdType,
+    required String region,
+    required String city,
+  }) async {
     try {
       _loading = true; notifyListeners();
+
+      // Uniqueness check before creating auth user
+      final existing = await _sb.from("users").select("id")
+          .eq("national_id", nationalId)
+          .limit(1)
+          .maybeSingle();
+      if (existing != null) return "duplicate_national_id";
+
       final res = await _sb.auth.signUp(email: email, password: password);
       if (res.user != null) {
         await _sb.from("users").insert({
@@ -52,9 +84,100 @@ class AuthProvider extends ChangeNotifier {
           "email": email,
           "name": name,
           "phone": phone,
+          "nationality": nationality,
+          "national_id": nationalId,
+          "national_id_type": nationalIdType,
+          "region": region,
+          "city": city,
           "role": "client",
         });
       }
+      return null;
+    } catch (e) {
+      return e.toString();
+    } finally {
+      _loading = false; notifyListeners();
+    }
+  }
+
+  // Returns: null = existing user (go home), "needs_profile_completion" = new user,
+  //          "cancelled" = user cancelled, other string = error
+  Future<String?> signInWithGoogle() async {
+    try {
+      _loading = true; notifyListeners();
+      final googleSignIn = GoogleSignIn(
+        // iOS: client ID registrado en Google Cloud Console
+        clientId: '453209088911-j7jbj8i4hs3mhiumhp6279412gj7sgu6.apps.googleusercontent.com',
+        // Web Client ID — configurado en Supabase Dashboard → Authentication → Providers → Google
+        serverClientId: '453209088911-kl6ktv1lo8tiug32g9rfj9rbfhkpen6s.apps.googleusercontent.com',
+      );
+      final account = await googleSignIn.signIn();
+      if (account == null) return "cancelled";
+
+      final auth = await account.authentication;
+      if (auth.idToken == null) return "No se pudo obtener el token de Google";
+
+      final res = await _sb.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: auth.idToken!,
+        accessToken: auth.accessToken,
+      );
+
+      if (res.user == null) return "Error al autenticar con Google";
+
+      _user = res.user;
+      final existing = await _sb.from("users").select("id")
+          .eq("auth_id", res.user!.id)
+          .limit(1)
+          .maybeSingle();
+
+      if (existing != null) {
+        await loadProfile();
+        return null; // already has profile → go home
+      }
+      return "needs_profile_completion";
+    } catch (e) {
+      return e.toString();
+    } finally {
+      _loading = false; notifyListeners();
+    }
+  }
+
+  Future<String?> completeGoogleProfile({
+    required String phone,
+    required String nationality,
+    required String nationalId,
+    required String nationalIdType,
+    required String region,
+    required String city,
+  }) async {
+    try {
+      _loading = true; notifyListeners();
+      if (_user == null) return "No hay sesión activa";
+
+      final existing = await _sb.from("users").select("id")
+          .eq("national_id", nationalId)
+          .limit(1)
+          .maybeSingle();
+      if (existing != null) return "duplicate_national_id";
+
+      final meta = _user!.userMetadata;
+      final name = (meta?["full_name"] ?? meta?["name"] ?? "").toString();
+      final email = _user!.email ?? "";
+
+      await _sb.from("users").insert({
+        "auth_id": _user!.id,
+        "email": email,
+        "name": name,
+        "phone": phone,
+        "nationality": nationality,
+        "national_id": nationalId,
+        "national_id_type": nationalIdType,
+        "region": region,
+        "city": city,
+        "role": "client",
+      });
+      await loadProfile();
       return null;
     } catch (e) {
       return e.toString();

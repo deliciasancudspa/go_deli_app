@@ -14,6 +14,13 @@ class AppColors {
   static const Color textMedium = Color(0xFF374151);
   static const Color textLight  = Color(0xFF9CA3AF);
   static const Color border     = Color(0xFFE5E7EB);
+
+  // Home screen palette
+  static const Color homeDark       = Color(0xFF1A0033);
+  static const Color homeOrange     = Color(0xFFFF6B00);
+  static const Color homePurple     = Color(0xFF9E00FF);
+  static const Color homeBackground = Color(0xFFF5F0FF);
+  static const Color homeCardBorder = Color(0x229E00FF);
 }
 
 class AppTheme {

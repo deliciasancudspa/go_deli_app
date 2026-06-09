@@ -132,7 +132,7 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
         final parts = [p.street, p.locality, p.administrativeArea]
-          .where((s) => s != null && s!.isNotEmpty).cast<String>().toList();
+          .where((s) => s != null && s.isNotEmpty).cast<String>().toList();
         if (mounted) setState(() => _address = parts.join(", "));
       } else {
         if (mounted) setState(() => _address = "");

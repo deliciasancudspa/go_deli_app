@@ -3,12 +3,19 @@ import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:image_picker/image_picker.dart";
+import "package:geolocator/geolocator.dart";
 import "dart:typed_data";
 import "dart:math";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
 import "../../../providers/auth_provider.dart";
 import "address_picker_screen.dart";
+
+const _kBaseDist  = 2000.0;  // metros gratis
+const _kBaseFee   = 2000.0;  // fee base al rider
+const _kPer100m   = 40.0;    // pesos por cada 100m extra
+const _kMaxDist   = 8000.0;  // cobertura máxima
+const _kMaxClient = 3500.0;  // tope que paga el cliente
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -20,6 +27,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _addressCtrl = TextEditingController();
   final _refCtrl     = TextEditingController();
   final _couponCtrl  = TextEditingController();
+  final _phoneCtrl   = TextEditingController();
   String _deliveryType = "delivery";
   String _payMethod    = "cash";
   double _discount     = 0;
@@ -29,6 +37,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _loading        = false;
   double? _deliveryLat;
   double? _deliveryLng;
+  double? _distanceMeters;
   Map<String, dynamic>? _storeData;
   bool _needsPrescription = false;
   Uint8List? _prescriptionBytes;
@@ -37,12 +46,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _imagePicker = ImagePicker();
 
   @override
-  void initState() { super.initState(); _loadStore(); }
+  void initState() { super.initState(); _loadStore(); _loadPhone(); }
+
+  Future<void> _loadPhone() async {
+    try {
+      final user = _sb.auth.currentUser;
+      if (user == null) return;
+      final u = await _sb.from("users").select("phone").eq("auth_id", user.id).maybeSingle();
+      final phone = u?["phone"] as String? ?? "";
+      if (phone.isNotEmpty && mounted) _phoneCtrl.text = phone;
+    } catch (_) {}
+  }
 
   Future<void> _loadStore() async {
     final cart = context.read<CartProvider>();
     if (cart.currentStoreId == null) return;
-    final store = await _sb.from("stores").select().eq("id", cart.currentStoreId!).single();
+    final store = await _sb.from("stores")
+        .select("*, lat, lng, delivery_fee_mode, delivery_fee_store, delivery_fee_client")
+        .eq("id", cart.currentStoreId!)
+        .single();
     bool needsRx = false;
     if (store["category"] == "Farmacia" && cart.items.isNotEmpty) {
       final ids = cart.items.map((i) => i.id).toList();
@@ -53,6 +75,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         .any((m) => m["requires_prescription"] == true);
     }
     if (mounted) setState(() { _storeData = store; _needsPrescription = needsRx; });
+    _updateDistance();
+  }
+
+  void _updateDistance() {
+    if (_deliveryLat == null || _deliveryLng == null || _storeData == null) return;
+    final storeLat = (_storeData!["lat"] as num?)?.toDouble();
+    final storeLng = (_storeData!["lng"] as num?)?.toDouble();
+    if (storeLat == null || storeLng == null) return;
+    setState(() {
+      _distanceMeters = Geolocator.distanceBetween(storeLat, storeLng, _deliveryLat!, _deliveryLng!);
+    });
+  }
+
+  double _calcRiderFee(double distMeters) {
+    final extra = max(0.0, distMeters - _kBaseDist);
+    final extraFee = (extra / 100).ceil() * _kPer100m;
+    return _kBaseFee + extraFee;
+  }
+
+  ({int client, int rider, int storeAbsorbs, int platform}) _calcAllFees(double distMeters) {
+    final rider        = _calcRiderFee(distMeters).toInt();
+    final clientRaw    = (_storeData?["delivery_fee_client"] as num?)?.toDouble() ?? 0;
+    final client       = min(clientRaw, _kMaxClient).toInt();
+    final storeAbsorbs = ((_storeData?["delivery_fee_store"] as num?)?.toDouble() ?? 0).toInt();
+    final platform     = max(0.0, rider - (storeAbsorbs + client)).toInt();
+    return (client: client, rider: rider, storeAbsorbs: storeAbsorbs, platform: platform);
   }
 
   String _generateCode() => (1000 + Random().nextInt(9000)).toString();
@@ -87,6 +135,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ingresa tu dirección de entrega"), backgroundColor: AppColors.error));
       return;
     }
+    if (_phoneCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ingresa tu número de teléfono de contacto"), backgroundColor: AppColors.error));
+      return;
+    }
     if (_needsPrescription && _prescriptionBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Debes subir la receta médica para continuar"), backgroundColor: AppColors.error));
       return;
@@ -95,19 +147,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final cart   = context.read<CartProvider>();
       final auth   = context.read<AuthProvider>();
+      final phone      = _phoneCtrl.text.trim();
       final subtotal   = cart.subtotal;
       final discAmt    = (subtotal * _discount).round();
       final finalSub   = subtotal - discAmt;
-      final delivFee   = _deliveryType == "delivery" ? (_storeData?["delivery_fee"] ?? 1990) as num : 0;
       final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 7) as num) / 100).round();
       final fixedFee   = (_storeData?["fixed_fee"] ?? 3000) as num;
-      final total      = finalSub + delivFee;
+      int delivFee = 0, riderFee = 0, storeDelivFee = 0, platformDelivFee = 0;
+      if (_deliveryType == "delivery") {
+        final dist = _distanceMeters ?? 0.0;
+        final fees = _calcAllFees(dist);
+        delivFee       = fees.client;
+        riderFee       = fees.rider;
+        storeDelivFee  = fees.storeAbsorbs;
+        platformDelivFee = fees.platform;
+      }
+      final total = finalSub + delivFee;
       // retiro: cliente muestra pickup_code a la tienda
       // delivery: delivery_code lo da el cliente al rider; pickup_code lo genera el sistema al asignar rider
       final pickupCode = _deliveryType == "pickup" ? _generateCode() : null;
       final delivCode  = _deliveryType == "delivery" ? _generateCode() : null;
 
-      final u = await _sb.from("users").select("id").eq("auth_id", auth.user!.id).single();
+      final u = await _sb.from("users").select("id,phone").eq("auth_id", auth.user!.id).single();
+
+      // Save phone to user profile if it was new
+      if ((u["phone"] as String? ?? "").isEmpty && phone.isNotEmpty) {
+        await _sb.from("users").update({"phone": phone}).eq("id", u["id"]);
+      }
 
       String? prescriptionUrl;
       if (_prescriptionBytes != null) {
@@ -123,6 +189,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "store_id": cart.currentStoreId,
         "subtotal": finalSub,
         "delivery_fee": delivFee,
+        "rider_fee": riderFee > 0 ? riderFee : null,
+        "store_delivery_fee": storeDelivFee > 0 ? storeDelivFee : null,
+        "platform_delivery_fee": platformDelivFee > 0 ? platformDelivFee : null,
+        "delivery_distance": _distanceMeters != null ? _distanceMeters!.round() : null,
         "platform_fee": platformFee,
         "fixed_fee": fixedFee,
         "total": total,
@@ -138,6 +208,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "pickup_code": pickupCode,
         "delivery_code": delivCode,
         "prescription_url": prescriptionUrl,
+        "contact_phone": phone,
       }).select().single();
 
       await _sb.from("order_items").insert(cart.items.map((item) => {
@@ -164,8 +235,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final subtotal  = cart.subtotal;
     final discAmt   = (subtotal * _discount).round();
     final finalSub  = subtotal - discAmt;
-    final delivFee  = _deliveryType == "delivery" ? (_storeData?["delivery_fee"] ?? 1990) as num : 0;
-    final total     = finalSub + delivFee;
+    final bool outOfRange = _deliveryType == "delivery" && _distanceMeters != null && _distanceMeters! > _kMaxDist;
+    int delivFee = 0;
+    String? delivLabel;
+    if (_deliveryType == "delivery") {
+      if (_distanceMeters != null) {
+        delivFee  = _calcAllFees(_distanceMeters!).client;
+        final km  = (_distanceMeters! / 1000).toStringAsFixed(1);
+        delivLabel = "🛵 Envío ($km km)";
+      } else {
+        final clientFee = (_storeData?["delivery_fee_client"] as num?)?.toInt() ?? 0;
+        delivFee  = min(clientFee, _kMaxClient.toInt());
+        delivLabel = "🛵 Envío";
+      }
+    }
+    final total = finalSub + delivFee;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -198,6 +282,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   _deliveryLat = result["lat"] as double?;
                   _deliveryLng = result["lng"] as double?;
                 });
+                _updateDistance();
               }
             },
             child: Container(
@@ -282,6 +367,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ],
         const SizedBox(height: 20),
 
+        // Teléfono de contacto
+        const Text("📱 Teléfono de contacto", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        const Text("Obligatorio *", style: TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _phoneCtrl,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(
+            hintText: "+56 9 XXXX XXXX",
+            prefixIcon: Icon(Icons.phone_outlined, color: AppColors.accent),
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          "El repartidor y la tienda usarán este número para contactarte si es necesario",
+          style: TextStyle(fontSize: 11, color: AppColors.textLight, height: 1.4),
+        ),
+        const SizedBox(height: 20),
+
         // Resumen
         Container(
           padding: const EdgeInsets.all(16),
@@ -297,7 +402,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const Divider(),
             _summaryRow("Subtotal", _fmt(subtotal)),
             if (discAmt > 0) _summaryRow("Descuento", "-${_fmt(discAmt)}", color: AppColors.success),
-            if (_deliveryType == "delivery") _summaryRow("Envío", _fmt(delivFee)),
+            if (_deliveryType == "delivery")
+              _summaryRow(
+                delivLabel ?? "🛵 Envío",
+                outOfRange ? "Fuera de cobertura" : delivFee == 0 ? "Gratis" : _fmt(delivFee),
+                color: outOfRange ? AppColors.error : delivFee == 0 ? AppColors.success : null,
+              ),
             const Divider(thickness: 2),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text("Total", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
@@ -358,8 +468,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         const SizedBox(height: 24),
 
+        if (outOfRange)
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.error.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.error.withOpacity(0.4)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 20),
+              SizedBox(width: 10),
+              Expanded(child: Text("Dirección fuera de cobertura (máx. 8 km desde la tienda)", style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 13))),
+            ]),
+          ),
+
         ElevatedButton(
-          onPressed: _loading ? null : _placeOrder,
+          onPressed: (_loading || outOfRange) ? null : _placeOrder,
           child: _loading
             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
             : Text("Confirmar pedido · ${_fmt(total)}"),

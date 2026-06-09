@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
+import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 
@@ -27,7 +28,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await Future.delayed(const Duration(milliseconds: 2800));
     if (!mounted) return;
     final session = Supabase.instance.client.auth.currentSession;
-    context.go(session != null ? "/home" : "/onboarding");
+    if (session == null) {
+      context.go("/onboarding");
+      return;
+    }
+    final prefs             = await SharedPreferences.getInstance();
+    final locationConfigured = prefs.getBool("location_configured") ?? false;
+    if (!mounted) return;
+    context.go(locationConfigured ? "/home" : "/location");
   }
 
   @override

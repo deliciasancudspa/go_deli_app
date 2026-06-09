@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:flutter_svg/flutter_svg.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "../../../core/theme/app_theme.dart";
@@ -15,6 +16,18 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passCtrl  = TextEditingController();
   bool _obscure = true;
   String? _error;
+
+  Future<void> _googleSignIn() async {
+    final err = await context.read<AuthProvider>().signInWithGoogle();
+    if (!mounted) return;
+    if (err == null) {
+      context.go("/home");
+    } else if (err == "needs_profile_completion") {
+      context.go("/complete-profile");
+    } else if (err != "cancelled") {
+      setState(() => _error = "No se pudo iniciar sesión con Google. Intenta con email.");
+    }
+  }
 
   Future<void> _login() async {
     final auth = context.read<AuthProvider>();
@@ -37,14 +50,12 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(children: [
             const SizedBox(height: 40),
             Column(children: [
-              Container(
-                width: 72, height: 72,
-                decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(20)),
-                child: const Center(child: Text("Go", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white))),
+              Image.asset(
+                "assets/images/logo.png",
+                width: 160,
+                filterQuality: FilterQuality.high,
               ),
-              const SizedBox(height: 16),
-              const Text("Go Deli", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
+              const SizedBox(height: 12),
               Text("Bienvenido de vuelta", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 15)),
             ]),
             const SizedBox(height: 40),
@@ -98,6 +109,37 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: auth.loading
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Text("Entrar"),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            // Google sign-in separator
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+              child: Row(children: [
+                const Expanded(child: Divider(color: Colors.white24)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text("o", style: TextStyle(color: Colors.white.withOpacity(0.5))),
+                ),
+                const Expanded(child: Divider(color: Colors.white24)),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: auth.loading ? null : _googleSignIn,
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                side: const BorderSide(color: Color(0xFFDEDEDE)),
+                minimumSize: const Size(double.infinity, 52),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                SvgPicture.asset("assets/icons/google_logo.svg", width: 20, height: 20),
+                const SizedBox(width: 12),
+                const Text(
+                  "Continuar con Google",
+                  style: TextStyle(color: Color(0xFF3C4043), fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ]),
             ),

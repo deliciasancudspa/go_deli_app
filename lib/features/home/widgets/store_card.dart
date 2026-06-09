@@ -8,52 +8,92 @@ class StoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final logoUrl   = store["logo_url"]   as String?;
+    final sponsored = store["sponsored"] == true;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4))],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.homeCardBorder),
+          boxShadow: [BoxShadow(color: AppColors.homePurple.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4))],
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child: Row(children: [
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-            child: Stack(children: [
-              store["cover_url"] != null
-                ? Image.network(store["cover_url"], height: 130, width: double.infinity, fit: BoxFit.cover)
-                : Container(
-                    height: 130, width: double.infinity,
-                    decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight)),
-                    child: Center(child: Text(store["emoji"] ?? "X", style: const TextStyle(fontSize: 50))),
-                  ),
-              if (!(store["is_open"] ?? true))
-                Container(height: 130, width: double.infinity, color: Colors.black54,
-                  child: const Center(child: Text("CERRADO", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 4)))),
-            ]),
+            borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+            child: SizedBox(
+              width: 96, height: 96,
+              child: logoUrl != null
+                  ? Image.network(logoUrl, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _placeholder())
+                  : _placeholder(),
+            ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(store["name"] ?? "", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textDark)),
-              const SizedBox(height: 4),
-              Text(store["category"] ?? "", style: const TextStyle(fontSize: 13, color: AppColors.textLight)),
-              const SizedBox(height: 10),
-              Row(children: [
-                const Icon(Icons.star, color: Colors.amber, size: 14), const SizedBox(width: 3),
-                Text("${store["rating"] ?? 5.0}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                const SizedBox(width: 12),
-                const Icon(Icons.access_time, size: 14, color: AppColors.textLight), const SizedBox(width: 3),
-                Text("${store["delivery_time"] ?? "30-45"} min", style: const TextStyle(fontSize: 13, color: AppColors.textLight)),
-                const SizedBox(width: 12),
-                const Icon(Icons.delivery_dining, size: 14, color: AppColors.textLight), const SizedBox(width: 3),
-                Text("\$${((store["delivery_fee"] ?? 2990) as num).toStringAsFixed(0)}", style: const TextStyle(fontSize: 13, color: AppColors.textLight)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(store["name"] ?? "",
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.homeDark),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  if (sponsored) Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: AppColors.homeOrange, borderRadius: BorderRadius.circular(6)),
+                    child: const Text("Destacado",
+                        style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
+                  ),
+                  if (!(store["is_open"] ?? true)) Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    child: const Text("Cerrado",
+                        style: TextStyle(color: AppColors.error, fontSize: 9, fontWeight: FontWeight.w700)),
+                  ),
+                ]),
+                const SizedBox(height: 2),
+                Text(store["category"] ?? "",
+                    style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
+                const SizedBox(height: 8),
+                Row(children: [
+                  const Icon(Icons.star_rounded, color: AppColors.homeOrange, size: 14),
+                  Text(" ${store["rating"] ?? "5.0"}",
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 5),
+                    child: Text("·", style: TextStyle(color: AppColors.textLight)),
+                  ),
+                  const Icon(Icons.access_time_rounded, size: 13, color: AppColors.textLight),
+                  Text(" ${store["delivery_time"] ?? "30-45"} min",
+                      style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+                ]),
+                const SizedBox(height: 3),
+                Row(children: [
+                  const Icon(Icons.delivery_dining, size: 13, color: AppColors.textLight),
+                  Builder(builder: (_) {
+                    final clientFee = (store["delivery_fee_client"] as num?)?.toInt() ?? 0;
+                    return Text(
+                      clientFee == 0 ? "  Gratis" : "  \$$clientFee",
+                      style: TextStyle(fontSize: 12, color: clientFee == 0 ? AppColors.primary : AppColors.textLight, fontWeight: clientFee == 0 ? FontWeight.w700 : FontWeight.normal),
+                    );
+                  }),
+                ]),
               ]),
-            ]),
+            ),
           ),
         ]),
       ),
     );
   }
+
+  Widget _placeholder() => Container(
+    color: AppColors.homeDark,
+    child: Center(child: Text(store["emoji"] ?? "🍽️",
+        style: const TextStyle(fontSize: 32))),
+  );
 }

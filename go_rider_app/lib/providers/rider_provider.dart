@@ -1,3 +1,4 @@
+import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/material.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
@@ -47,6 +48,7 @@ class RiderProvider extends ChangeNotifier {
       if (rider != null) {
         _isOnline = rider["is_online"] ?? false;
         await loadActiveOrders();
+        _saveFcmToken(rider["id"] as String);
       }
       notifyListeners();
     } catch (e) {
@@ -55,6 +57,19 @@ class RiderProvider extends ChangeNotifier {
       _profileLoaded = true;
       notifyListeners();
     }
+  }
+
+  // Saves the FCM token to Supabase so the backend can send push notifications
+  void _saveFcmToken(String riderId) async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) return;
+      await _sb.from("deliverers").update({"fcm_token": token}).eq("id", riderId);
+      // Refresh token if it rotates
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        _sb.from("deliverers").update({"fcm_token": newToken}).eq("id", riderId);
+      });
+    } catch (_) {}
   }
 
   Future<String?> signIn(String email, String password) async {

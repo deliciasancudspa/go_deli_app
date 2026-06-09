@@ -3,7 +3,7 @@ import "package:flutter/material.dart";
 class CartItem {
   final String id, storeId, storeName, name, emoji;
   final int price;
-  final String? imageUrl, notes;
+  final String? imageUrl, notes, variant;
   final List<Map<String, dynamic>> extras;
   int quantity;
 
@@ -16,6 +16,7 @@ class CartItem {
     this.emoji = "X",
     this.imageUrl,
     this.notes,
+    this.variant,
     this.extras = const [],
     this.quantity = 1,
   });
@@ -36,12 +37,13 @@ class CartProvider extends ChangeNotifier {
   void addItem(CartItem item) {
     if (_currentStoreId != null && _currentStoreId != item.storeId) clearCart();
     _currentStoreId = item.storeId;
-    final idx = _items.indexWhere((i) => i.id == item.id);
-    if (idx >= 0) {
-      _items[idx].quantity++;
-    } else {
-      _items.add(item);
+    // Items with variants/extras are always new lines (don't merge)
+    final hasCustomization = item.variant != null || item.extras.isNotEmpty;
+    if (!hasCustomization) {
+      final idx = _items.indexWhere((i) => i.id == item.id && i.variant == null && i.extras.isEmpty);
+      if (idx >= 0) { _items[idx].quantity++; notifyListeners(); return; }
     }
+    _items.add(item);
     notifyListeners();
   }
 

@@ -1,3 +1,4 @@
+import "dart:convert";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
@@ -78,24 +79,136 @@ class _StoreScreenState extends State<StoreScreen> {
       ]))),
       if (_cats.isNotEmpty) SliverToBoxAdapter(child: SizedBox(height: 50, child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), itemCount: _cats.length, itemBuilder: (ctx, i) { final c = _cats[i]; final sel = _selCat == c["id"]; return GestureDetector(onTap: () => setState(() => _selCat = sel ? null : c["id"]), child: Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), decoration: BoxDecoration(color: sel ? AppColors.primary : AppColors.surface, border: Border.all(color: sel ? AppColors.primary : AppColors.border), borderRadius: BorderRadius.circular(20)), child: Text(c["name"], style: TextStyle(fontWeight: FontWeight.w700, color: sel ? Colors.white : AppColors.textMedium, fontSize: 13)))); }))),
       SliverList(delegate: SliverChildBuilderDelegate((ctx, i) {
-        final item = _filtered[i]; final qty = cart.getQuantity(item["id"]);
-        return Container(margin: const EdgeInsets.fromLTRB(16, 0, 16, 12), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)), child: Row(children: [
-          item["image_url"] != null ? ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(item["image_url"], width: 80, height: 80, fit: BoxFit.cover)) : Container(width: 80, height: 80, decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12)), child: Center(child: Text(item["emoji"] ?? "X", style: const TextStyle(fontSize: 36)))),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(item["name"], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-            const SizedBox(height: 4), Text(item["description"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 8),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(_fmt(item["price"]), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accent)),
-              qty > 0 ? Row(children: [
-                GestureDetector(onTap: () => cart.removeItem(item["id"]), child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: AppColors.secondary, shape: BoxShape.circle), child: const Icon(Icons.remove, color: Colors.white, size: 14))),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text("$qty", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
-                GestureDetector(onTap: () => cart.addItem(CartItem(id: item["id"], storeId: _store!["id"], storeName: _store!["name"], name: item["name"], price: (item["price"] as num).toInt(), imageUrl: item["image_url"])), child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle), child: const Icon(Icons.add, color: Colors.white, size: 14))),
-              ]) : GestureDetector(onTap: () => cart.addItem(CartItem(id: item["id"], storeId: _store!["id"], storeName: _store!["name"], name: item["name"], price: (item["price"] as num).toInt(), imageUrl: item["image_url"])), child: Container(width: 32, height: 32, decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle), child: const Icon(Icons.add, color: Colors.white, size: 18))),
+        final item       = _filtered[i];
+        final qty        = cart.getQuantity(item["id"] as String);
+        final isRestaurant = (_store?["store_type"] as String?) == "restaurante";
+        final basePrice  = (item["price"] as num?)?.toInt() ?? 0;
+        final discPct    = (item["discount_pct"] as int?) ?? 0;
+        final origPrice  = (item["original_price"] as num?)?.toInt();
+        // Variants / variant_groups-aware price label
+        String priceLabel = _fmt(basePrice);
+        bool hasVariants = false;
+        try {
+          final vs = item["variants"];
+          List? vl;
+          if (vs is String && vs.isNotEmpty) vl = jsonDecode(vs) as List;
+          else if (vs is List && vs.isNotEmpty) vl = vs;
+          if (vl != null && vl.isNotEmpty) {
+            hasVariants = true;
+            final minP = vl.cast<Map<String, dynamic>>()
+                .map((v) => (v["price"] as num?)?.toInt() ?? basePrice)
+                .reduce((a, b) => a < b ? a : b);
+            priceLabel = "Desde ${_fmt(minP)}";
+          }
+        } catch (_) {}
+        if (!hasVariants) {
+          try {
+            final vgs = item["variant_groups"];
+            List? vgl;
+            if (vgs is String && vgs.isNotEmpty) vgl = jsonDecode(vgs) as List;
+            else if (vgs is List && vgs.isNotEmpty) vgl = vgs;
+            if (vgl != null && vgl.isNotEmpty) {
+              hasVariants = true;
+              var minP = 2147483647;
+              for (final g in vgl.cast<Map<String, dynamic>>()) {
+                for (final it in (g["items"] as List? ?? []).cast<Map<String, dynamic>>()) {
+                  final p = (it["price"] as num?)?.toInt() ?? basePrice;
+                  if (p < minP) minP = p;
+                }
+              }
+              if (minP < 2147483647) priceLabel = "Desde ${_fmt(minP)}";
+            }
+          } catch (_) {}
+        }
+        final navigateToDetail = isRestaurant || hasVariants;
+        return GestureDetector(
+          onTap: navigateToDetail ? () => context.push("/product/${item["id"]}") : null,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
+            child: Row(children: [
+              Stack(children: [
+                item["image_url"] != null
+                  ? ClipRRect(borderRadius: BorderRadius.circular(12),
+                      child: Image.network(item["image_url"], width: 80, height: 80, fit: BoxFit.cover))
+                  : Container(width: 80, height: 80,
+                      decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12)),
+                      child: Center(child: Text(item["emoji"] ?? "🍽️",
+                          style: const TextStyle(fontSize: 36)))),
+                if (discPct > 0) Positioned(top: 4, left: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(6)),
+                    child: Text("-$discPct%",
+                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                  )),
+              ]),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(item["name"] as String? ?? "",
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                const SizedBox(height: 4),
+                Text(item["description"] as String? ?? "",
+                    style: const TextStyle(color: AppColors.textLight, fontSize: 12),
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    if (discPct > 0 && origPrice != null)
+                      Text(_fmt(origPrice), style: const TextStyle(
+                          fontSize: 11, color: AppColors.textLight,
+                          decoration: TextDecoration.lineThrough)),
+                    Text(priceLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w900,
+                            fontSize: 16, color: AppColors.accent)),
+                  ]),
+                  if (navigateToDetail)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: AppColors.accent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.accent.withOpacity(0.4))),
+                      child: const Text("Ver →",
+                          style: TextStyle(color: AppColors.accent,
+                              fontSize: 12, fontWeight: FontWeight.w800)),
+                    )
+                  else if (qty > 0)
+                    Row(children: [
+                      GestureDetector(
+                        onTap: () => cart.removeItem(item["id"] as String),
+                        child: Container(width: 28, height: 28,
+                            decoration: const BoxDecoration(color: AppColors.secondary, shape: BoxShape.circle),
+                            child: const Icon(Icons.remove, color: Colors.white, size: 14))),
+                      Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text("$qty",
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+                      GestureDetector(
+                        onTap: () => cart.addItem(CartItem(
+                            id: item["id"] as String, storeId: _store!["id"] as String,
+                            storeName: _store!["name"] as String? ?? "",
+                            name: item["name"] as String? ?? "",
+                            price: basePrice, imageUrl: item["image_url"] as String?)),
+                        child: Container(width: 28, height: 28,
+                            decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                            child: const Icon(Icons.add, color: Colors.white, size: 14))),
+                    ])
+                  else
+                    GestureDetector(
+                      onTap: () => cart.addItem(CartItem(
+                          id: item["id"] as String, storeId: _store!["id"] as String,
+                          storeName: _store!["name"] as String? ?? "",
+                          name: item["name"] as String? ?? "",
+                          price: basePrice, imageUrl: item["image_url"] as String?)),
+                      child: Container(width: 32, height: 32,
+                          decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                          child: const Icon(Icons.add, color: Colors.white, size: 18))),
+                ]),
+              ])),
             ]),
-          ])),
-        ]));
+          ),
+        );
       }, childCount: _filtered.length)),
       const SliverToBoxAdapter(child: SizedBox(height: 100)),
     ]),

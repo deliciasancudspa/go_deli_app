@@ -1,0 +1,113 @@
+const List<String> chileRegiones = [
+  'Arica y Parinacota',
+  'Tarapacá',
+  'Antofagasta',
+  'Atacama',
+  'Coquimbo',
+  'Valparaíso',
+  'Metropolitana de Santiago',
+  "O'Higgins",
+  'Maule',
+  'Ñuble',
+  'Biobío',
+  'La Araucanía',
+  'Los Ríos',
+  'Los Lagos',
+  'Aysén',
+  'Magallanes',
+];
+
+const Map<String, List<String>> chileRegionCiudades = {
+  'Arica y Parinacota': [
+    'Arica', 'Camarones', 'General Lagos', 'Putre',
+  ],
+  'Tarapacá': [
+    'Iquique', 'Alto Hospicio', 'Camiña', 'Colchane', 'Huara', 'Pica', 'Pozo Almonte',
+  ],
+  'Antofagasta': [
+    'Antofagasta', 'Calama', 'Tocopilla', 'Mejillones', 'Sierra Gorda', 'Taltal',
+    'María Elena', 'San Pedro de Atacama', 'Ollagüe',
+  ],
+  'Atacama': [
+    'Copiapó', 'Vallenar', 'Caldera', 'Chañaral', 'Diego de Almagro', 'Freirina',
+    'Huasco', 'Tierra Amarilla', 'Alto del Carmen',
+  ],
+  'Coquimbo': [
+    'La Serena', 'Coquimbo', 'Ovalle', 'Illapel', 'Los Vilos', 'Salamanca',
+    'Vicuña', 'Paihuano', 'Río Hurtado', 'Canela', 'Andacollo', 'La Higuera',
+    'Monte Patria', 'Combarbalá',
+  ],
+  'Valparaíso': [
+    'Valparaíso', 'Viña del Mar', 'Quilpué', 'Villa Alemana', 'San Antonio',
+    'Quillota', 'Los Andes', 'San Felipe', 'Calera', 'La Cruz', 'La Ligua',
+    'Petorca', 'Zapallar', 'Puchuncaví', 'Quintero', 'Casablanca', 'Olmué',
+    'Limache', 'Concón', 'Juan Fernández', 'Isla de Pascua',
+  ],
+  'Metropolitana de Santiago': [
+    'Santiago', 'Providencia', 'Las Condes', 'Maipú', 'Puente Alto', 'San Bernardo',
+    'La Florida', 'Ñuñoa', 'Vitacura', 'Lo Barnechea', 'Peñalolén', 'La Pintana',
+    'El Bosque', 'Quilicura', 'Pudahuel', 'Cerrillos', 'Renca', 'Huechuraba',
+    'Recoleta', 'Independencia', 'Cerro Navia', 'Lo Espejo', 'Lo Prado', 'Macul',
+    'Pedro Aguirre Cerda', 'San Joaquín', 'San Miguel', 'San Ramón',
+    'Estación Central', 'Colina', 'Lampa', 'Tiltil', 'Buin', 'Calera de Tango',
+    'Paine', 'San José de Maipo', 'Pirque', 'Melipilla', 'Alhué', 'María Pinto',
+    'San Pedro', 'Curacaví', 'Talagante', 'Padre Hurtado', 'Peñaflor',
+    'El Monte', 'Isla de Maipo',
+  ],
+  "O'Higgins": [
+    'Rancagua', 'San Fernando', 'Pichilemu', 'Rengo', 'Machalí', 'Graneros',
+    'Peumo', 'Doñihue', 'Olivar', 'Codegua', 'Coínco', 'Coltauco', 'Las Cabras',
+    'Mostazal', 'Quinta de Tilcoco', 'Requínoa', 'San Vicente', 'Litueche',
+    'La Estrella', 'Marchihue', 'Navidad', 'Paredones', 'Chépica', 'Chimbarongo',
+    'Lolol', 'Nancagua', 'Palmilla', 'Peralillo', 'Placilla', 'Pumanque',
+    'Santa Cruz',
+  ],
+  'Maule': [
+    'Talca', 'Curicó', 'Linares', 'Cauquenes', 'Constitución', 'San Clemente',
+    'Maule', 'Pelarco', 'Pencahue', 'Río Claro', 'San Rafael', 'Villa Alegre',
+    'Yerbas Buenas', 'Curepto', 'Empedrado', 'Rauco', 'Romeral', 'Sagrada Familia',
+    'Teno', 'Vichuquén', 'Longaví', 'Parral', 'Retiro', 'San Javier',
+    'Chanco', 'Pelluhue',
+  ],
+  'Ñuble': [
+    'Chillán', 'Chillán Viejo', 'Bulnes', 'Cobquecura', 'Coelemu', 'Coihueco',
+    'El Carmen', 'Ninhue', 'Ñiquén', 'Pemuco', 'Pinto', 'Portezuelo', 'Quillón',
+    'Quirihue', 'Ránquil', 'San Carlos', 'San Fabián', 'San Ignacio', 'San Nicolás',
+    'Treguaco', 'Yungay',
+  ],
+  'Biobío': [
+    'Concepción', 'Talcahuano', 'Chiguayante', 'Coronel', 'Hualpén', 'Lota',
+    'Penco', 'San Pedro de la Paz', 'Santa Juana', 'Tomé', 'Hualqui', 'Florida',
+    'Los Ángeles', 'Cabrero', 'Laja', 'Mulchén', 'Nacimiento', 'Negrete',
+    'Quilaco', 'Quilleco', 'San Rosendo', 'Santa Bárbara', 'Tucapel', 'Yumbel',
+    'Antuco', 'Arauco', 'Cañete', 'Contulmo', 'Curanilahue', 'Lebu',
+    'Los Álamos', 'Tirúa',
+  ],
+  'La Araucanía': [
+    'Temuco', 'Padre Las Casas', 'Villarrica', 'Pucón', 'Angol', 'Collipulli',
+    'Curacautín', 'Ercilla', 'Lonquimay', 'Los Sauces', 'Lumaco', 'Purén',
+    'Renaico', 'Traiguén', 'Victoria', 'Carahue', 'Cholchol', 'Freire',
+    'Galvarino', 'Gorbea', 'Lautaro', 'Loncoche', 'Melipeuco', 'Nueva Imperial',
+    'Perquenco', 'Pitrufquén', 'Cunco', 'Teodoro Schmidt', 'Toltén', 'Vilcún',
+  ],
+  'Los Ríos': [
+    'Valdivia', 'La Unión', 'Futrono', 'Lago Ranco', 'Lanco', 'Los Lagos',
+    'Máfil', 'Mariquina', 'Paillaco', 'Panguipulli', 'Río Bueno', 'Corral',
+  ],
+  'Los Lagos': [
+    'Puerto Montt', 'Osorno', 'Puerto Varas', 'Castro', 'Ancud', 'Calbuco',
+    'Chonchi', 'Curaco de Vélez', 'Dalcahue', 'Fresia', 'Frutillar', 'Hualaihué',
+    'Llanquihue', 'Los Muermos', 'Maullín', 'Puerto Octay', 'Puqueldón',
+    'Purranque', 'Puyehue', 'Queilén', 'Quellón', 'Quemchi', 'Quinchao',
+    'Río Negro', 'San Juan de la Costa', 'San Pablo', 'Cochamó',
+  ],
+  'Aysén': [
+    'Coyhaique', 'Puerto Aysén', 'Chile Chico', 'Cisnes', 'Cochrane', 'Guaitecas',
+    'Lago Verde', "O'Higgins", 'Río Ibáñez', 'Tortel',
+  ],
+  'Magallanes': [
+    'Punta Arenas', 'Puerto Natales', 'Porvenir', 'Puerto Williams', 'Antártica',
+    'Cabo de Hornos', 'Laguna Blanca', 'Río Verde', 'San Gregorio', 'Timaukel',
+    'Torres del Paine',
+  ],
+};
