@@ -1,5 +1,4 @@
 import "package:firebase_core/firebase_core.dart";
-import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_localizations/flutter_localizations.dart";
@@ -15,23 +14,16 @@ import "providers/language_provider.dart";
 import "providers/theme_provider.dart";
 import "services/notification_service.dart";
 
-// Handles FCM messages when app is terminated or in background.
-@pragma("vm:entry-point")
-Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
-  try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    await NotificationService().init();
-    final n = message.notification;
-    if (n != null) await NotificationService().show(n.title ?? "Go Deli", n.body ?? "");
-  } catch (_) {}
-}
+// NOTA: no se registra onBackgroundMessage. Los push llevan payload
+// "notification", así que Android los muestra automáticamente cuando la app
+// está en segundo plano o cerrada — mostrarlos también manualmente generaba
+// notificaciones duplicadas/en blanco.
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
   } catch (_) {}
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,

@@ -11,6 +11,7 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   RealtimeChannel? _ordersChannel;
+  final Map<String, String> _lastOrderStatus = {};
   bool _initialized = false;
 
   final _controller = StreamController<void>.broadcast();
@@ -68,7 +69,20 @@ class NotificationService {
     });
   }
 
+  // Dedupe: el listener Realtime y el push FCM generan el mismo aviso para
+  // un cambio de estado; solo se muestra una vez.
+  String? _lastShownKey;
+  DateTime? _lastShownAt;
+
   Future<void> show(String title, String body) async {
+    final key = "$title|$body";
+    if (_lastShownKey == key &&
+        _lastShownAt != null &&
+        DateTime.now().difference(_lastShownAt!) < const Duration(seconds: 10)) {
+      return;
+    }
+    _lastShownKey = key;
+    _lastShownAt = DateTime.now();
     await _plugin.show(
       DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
       title,
@@ -105,7 +119,12 @@ class NotificationService {
         ),
         callback: (payload) {
           final status = payload.newRecord["status"] as String?;
-          if (status == null) return;
+          final orderId = payload.newRecord["id"] as String?;
+          if (status == null || orderId == null) return;
+          // Solo notificar cuando el ESTADO cambia — los pedidos se actualizan
+          // también por otros campos (rider, códigos, etc.)
+          if (_lastOrderStatus[orderId] == status) return;
+          _lastOrderStatus[orderId] = status;
           final msg = _statusMessages[status];
           if (msg != null) { show(msg[0], msg[1]); _controller.add(null); }
         },

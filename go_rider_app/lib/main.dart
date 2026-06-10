@@ -11,27 +11,15 @@ import "core/services/notification_service.dart";
 import "firebase_options.dart";
 import "providers/rider_provider.dart";
 
-// Handles FCM messages when app is terminated or in background.
-// Must be a top-level function.
-@pragma("vm:entry-point")
-Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await NotificationService.init();
-  final n = message.notification;
-  if (n != null) {
-    await NotificationService.show(
-      title: n.title ?? "Go Rider",
-      body: n.body ?? "",
-      payload: "notifications",
-    );
-  }
-}
+// NOTA: no se registra onBackgroundMessage. Los push llevan payload
+// "notification", así que Android los muestra automáticamente cuando la app
+// está en segundo plano o cerrada — duplicarlos manualmente generaba
+// notificaciones en blanco.
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
