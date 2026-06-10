@@ -464,6 +464,13 @@ drop policy if exists service_providers_write on public.service_providers;
 create policy service_providers_write on public.service_providers for all to authenticated
 using (public.is_admin()) with check (public.is_admin());
 
+-- Registro público de prestadores desde web.html ("Registra tu empresa"):
+-- cualquiera puede postular, pero solo como pendiente e inactivo.
+drop policy if exists service_providers_apply on public.service_providers;
+create policy service_providers_apply on public.service_providers
+for insert to anon, authenticated
+with check (status = 'pending' and is_active = false);
+
 drop policy if exists service_requests_select on public.service_requests;
 create policy service_requests_select on public.service_requests for select to authenticated
 using (client_id = public.app_user_id() or public.is_admin());
