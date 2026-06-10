@@ -30,33 +30,44 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final rider = context.watch<RiderProvider>();
     return Scaffold(
-      backgroundColor: AppColors.primary,
-      body: SafeArea(child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Column(children: [
+      backgroundColor: Colors.white,
+      body: Stack(children: [
+        // Mismos detalles decorativos que la pantalla de carga
+        Positioned(top: -80, right: -80, child: Container(
+          width: 300, height: 300,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFFFF6B35).withOpacity(0.08)),
+        )),
+        Positioned(bottom: -60, left: -60, child: Container(
+          width: 240, height: 240,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF7C3AED).withOpacity(0.08)),
+        )),
+        Positioned(top: 160, left: -40, child: Container(
+          width: 140, height: 140,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF7C3AED).withOpacity(0.05)),
+        )),
+        SafeArea(child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Column(children: [
         const SizedBox(height: 40),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-          child: Image.asset("assets/images/logo.png", width: 170, filterQuality: FilterQuality.high),
-        ),
+        Image.asset("assets/images/logo.png", width: 190, filterQuality: FilterQuality.high),
         const SizedBox(height: 16),
-        Text("Bienvenido de vuelta", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 15)),
-        const SizedBox(height: 40),
-        Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: const Color(0xFF1A2636), borderRadius: BorderRadius.circular(20)), child: Column(children: [
-          TextFormField(controller: _emailCtrl, keyboardType: TextInputType.emailAddress, style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(hintText: "Correo electronico", hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)), prefixIcon: const Icon(Icons.email_outlined, color: AppColors.accent), filled: true, fillColor: const Color(0xFF0F1923), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent, width: 2)))),
+        const Text("Bienvenido de vuelta", style: TextStyle(color: AppColors.textLight, fontSize: 15)),
+        const SizedBox(height: 32),
+        Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border), boxShadow: [BoxShadow(color: const Color(0xFF7C3AED).withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6))]), child: Column(children: [
+          TextFormField(controller: _emailCtrl, keyboardType: TextInputType.emailAddress, style: const TextStyle(color: AppColors.textDark),
+            decoration: InputDecoration(hintText: "Correo electronico", hintStyle: const TextStyle(color: AppColors.textLight), prefixIcon: const Icon(Icons.email_outlined, color: AppColors.accent), filled: true, fillColor: const Color(0xFFF4F5F7), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent, width: 2)))),
           const SizedBox(height: 12),
-          TextFormField(controller: _passCtrl, obscureText: _obscure, style: const TextStyle(color: Colors.white), onFieldSubmitted: (_) => _login(),
-            decoration: InputDecoration(hintText: "Contrasena", hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)), prefixIcon: const Icon(Icons.lock_outline, color: AppColors.accent), suffixIcon: IconButton(icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: Colors.white38), onPressed: () => setState(() => _obscure = !_obscure)), filled: true, fillColor: const Color(0xFF0F1923), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent, width: 2)))),
+          TextFormField(controller: _passCtrl, obscureText: _obscure, style: const TextStyle(color: AppColors.textDark), onFieldSubmitted: (_) => _login(),
+            decoration: InputDecoration(hintText: "Contrasena", hintStyle: const TextStyle(color: AppColors.textLight), prefixIcon: const Icon(Icons.lock_outline, color: AppColors.accent), suffixIcon: IconButton(icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: AppColors.textLight), onPressed: () => setState(() => _obscure = !_obscure)), filled: true, fillColor: const Color(0xFFF4F5F7), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent, width: 2)))),
           if (_error != null) ...[const SizedBox(height: 8), Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13))],
           const SizedBox(height: 20),
           ElevatedButton(onPressed: rider.loading ? null : _login, child: rider.loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text("Entrar")),
         ])),
         const SizedBox(height: 20),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Text("No tienes cuenta? ", style: TextStyle(color: Colors.white60)),
+          const Text("No tienes cuenta? ", style: TextStyle(color: AppColors.textMedium)),
           GestureDetector(onTap: () => context.go("/register"), child: const Text("Registrate", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800))),
         ]),
       ]))),
+      ]),
     );
   }
 }
