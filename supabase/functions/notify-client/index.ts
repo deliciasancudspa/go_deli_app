@@ -103,14 +103,24 @@ async function isAdminRequest(req: Request, sb: ReturnType<typeof createClient>)
   }
 }
 
+// CORS: el panel admin llama esta función desde el navegador
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   try {
     const sb = createClient(SUPABASE_URL, SUPABASE_SVC_KEY);
     const secretOk = WEBHOOK_SECRET !== "" &&
       req.headers.get("x-webhook-secret") === WEBHOOK_SECRET;
 
     if (WEBHOOK_SECRET && !secretOk && !(await isAdminRequest(req, sb))) {
-      return new Response("unauthorized", { status: 401 });
+      return new Response("unauthorized", { status: 401, headers: corsHeaders });
     }
     const rawPayload = await req.json();
 
@@ -120,12 +130,12 @@ serve(async (req) => {
     if (rawPayload.broadcast === true) {
       if (!secretOk && !(await isAdminRequest(req, sb))) {
         return new Response(JSON.stringify({ ok: false, reason: "solo admin" }), {
-          status: 401, headers: { "Content-Type": "application/json" },
+          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
       const bTitle = String(rawPayload.title ?? "Go Deli");
       const bBody  = String(rawPayload.body ?? "");
-      if (!bBody) return new Response("missing body", { status: 400 });
+      if (!bBody) return new Response("missing body", { status: 400, headers: corsHeaders });
 
       const { data: clients } = await sb
         .from("users")
@@ -142,7 +152,7 @@ serve(async (req) => {
         }));
       }
       return new Response(JSON.stringify({ ok: true, sent, failed }), {
-        status: 200, headers: { "Content-Type": "application/json" },
+        status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
@@ -209,7 +219,7 @@ serve(async (req) => {
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500, headers: { "Content-Type": "application/json" },
+      status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
 });
