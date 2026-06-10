@@ -61,20 +61,24 @@ class _StoreScreenState extends State<StoreScreen> {
           _store?["cover_url"] != null
             ? Image.network(_store!["cover_url"], fit: BoxFit.cover)
             : Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Center(child: Text(_store?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 70)))),
-          Positioned(
-            bottom: -24, left: 16,
-            child: Container(
-              width: 56, height: 56,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.surface, border: Border.all(color: Colors.white, width: 3), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 8)]),
-              child: ClipOval(child: _store?["logo_url"] != null
-                ? Image.network(_store!["logo_url"], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Text(_store?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 24))))
-                : Center(child: Text(_store?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 24)))),
-            ),
-          ),
         ]))),
-      SliverToBoxAdapter(child: Container(color: AppColors.surface, padding: const EdgeInsets.fromLTRB(16, 36, 16, 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(_store?["name"] ?? "", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 4), Text(_store?["description"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
+      SliverToBoxAdapter(child: Container(color: AppColors.surface, padding: const EdgeInsets.fromLTRB(16, 16, 16, 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Logo de perfil grande, fuera del cover para que nada lo tape
+        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Container(
+            width: 80, height: 80,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.surface, border: Border.all(color: Colors.white, width: 3), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10)]),
+            child: ClipOval(child: _store?["logo_url"] != null
+              ? Image.network(_store!["logo_url"], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Text(_store?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 34))))
+              : Center(child: Text(_store?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 34)))),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_store?["name"] ?? "", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text(_store?["description"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ])),
+        ]),
         const SizedBox(height: 12), Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4), Text("${_store?["rating"] ?? 5.0}", style: const TextStyle(fontWeight: FontWeight.w700)), const SizedBox(width: 12), const Icon(Icons.access_time, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text("${_store?["delivery_time"] ?? "30-45"} min", style: const TextStyle(color: AppColors.textLight)), const SizedBox(width: 12), const Icon(Icons.delivery_dining, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text(_fmt(_store?["delivery_fee"] ?? 2990), style: const TextStyle(color: AppColors.textLight))]),
       ]))),
       if (_cats.isNotEmpty) SliverToBoxAdapter(child: SizedBox(height: 50, child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), itemCount: _cats.length, itemBuilder: (ctx, i) { final c = _cats[i]; final sel = _selCat == c["id"]; return GestureDetector(onTap: () => setState(() => _selCat = sel ? null : c["id"]), child: Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), decoration: BoxDecoration(color: sel ? AppColors.primary : AppColors.surface, border: Border.all(color: sel ? AppColors.primary : AppColors.border), borderRadius: BorderRadius.circular(20)), child: Text(c["name"], style: TextStyle(fontWeight: FontWeight.w700, color: sel ? Colors.white : AppColors.textMedium, fontSize: 13)))); }))),
@@ -120,7 +124,18 @@ class _StoreScreenState extends State<StoreScreen> {
             }
           } catch (_) {}
         }
-        final navigateToDetail = isRestaurant || hasVariants;
+        // Opciones y recomendaciones (configuradas en el panel de aliados)
+        // también requieren pasar por el detalle del producto.
+        bool hasJsonList(dynamic v) {
+          try {
+            if (v is String && v.isNotEmpty) return (jsonDecode(v) as List).isNotEmpty;
+            if (v is List) return v.isNotEmpty;
+          } catch (_) {}
+          return false;
+        }
+        final hasExtras = hasVariants || hasJsonList(item["options"]) || hasJsonList(item["recommendations"]);
+        final isPopular = item["is_popular"] == true;
+        final navigateToDetail = isRestaurant || hasExtras;
         return GestureDetector(
           onTap: navigateToDetail ? () => context.push("/product/${item["id"]}") : null,
           child: Container(
@@ -146,8 +161,24 @@ class _StoreScreenState extends State<StoreScreen> {
               ]),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(item["name"] as String? ?? "",
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                Row(children: [
+                  Flexible(child: Text(item["name"] as String? ?? "",
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                      maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  if (isPopular)
+                    const Padding(padding: EdgeInsets.only(left: 4),
+                        child: Text("⭐", style: TextStyle(fontSize: 12))),
+                  if (hasExtras)
+                    Container(
+                      margin: const EdgeInsets.only(left: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(6)),
+                      child: const Text("+ opciones",
+                          style: TextStyle(fontSize: 9, color: AppColors.textLight, fontWeight: FontWeight.w700)),
+                    ),
+                ]),
                 const SizedBox(height: 4),
                 Text(item["description"] as String? ?? "",
                     style: const TextStyle(color: AppColors.textLight, fontSize: 12),

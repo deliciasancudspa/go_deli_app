@@ -2,7 +2,6 @@ import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
-import "../../../core/theme/app_theme.dart";
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -44,88 +43,50 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.accent,
+      backgroundColor: Colors.white,
       body: Stack(children: [
-        // Fondo degradado naranja → morado
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFFF6B35), Color(0xFFD4526E), Color(0xFF7C3AED)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-        ),
-
-        // Círculos decorativos de fondo
+        // Detalles decorativos con los colores de la app sobre fondo blanco
         Positioned(top: -80, right: -80, child: Container(
           width: 320, height: 320,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.06),
+            color: const Color(0xFFFF6B35).withOpacity(0.08),
           ),
         )),
         Positioned(bottom: -60, left: -60, child: Container(
           width: 260, height: 260,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.06),
+            color: const Color(0xFF7C3AED).withOpacity(0.08),
           ),
         )),
         Positioned(top: 180, left: -40, child: Container(
           width: 160, height: 160,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.04),
+            color: const Color(0xFFFF6B35).withOpacity(0.05),
+          ),
+        )),
+        Positioned(bottom: 140, right: -30, child: Container(
+          width: 120, height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF7C3AED).withOpacity(0.05),
           ),
         )),
 
-        // Contenido central
+        // Solo el logo, nada debajo
         Center(
           child: FadeTransition(
             opacity: _fade,
             child: ScaleTransition(
               scale: _scale,
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                // Logo
-                Image.asset(
-                  "assets/images/logo.png",
-                  width: 220,
-                  filterQuality: FilterQuality.high,
-                ),
-                const SizedBox(height: 32),
-                // Tagline
-                Text(
-                  "Pide lo que quieras",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ]),
-            ),
-          ),
-        ),
-
-        // Loading bottom
-        Positioned(
-          bottom: 60,
-          left: 0, right: 0,
-          child: FadeTransition(
-            opacity: _fade,
-            child: Column(children: [
-              SizedBox(
-                width: 32, height: 32,
-                child: CircularProgressIndicator(
-                  color: AppColors.accent,
-                  strokeWidth: 2.5,
-                ),
+              child: Image.asset(
+                "assets/images/logo.png",
+                width: 220,
+                filterQuality: FilterQuality.high,
               ),
-              const SizedBox(height: 16),
-              Text("Cargando...", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13)),
-            ]),
+            ),
           ),
         ),
       ]),

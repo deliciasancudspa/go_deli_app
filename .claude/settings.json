@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 60 supabase functions deploy notify-client)",
+      "Bash(npx -y supabase --version)",
+      "Bash(timeout 120 npx -y supabase functions deploy notify-client --project-ref yxseolcaububyifhksud)"
+    ]
+  }
+}

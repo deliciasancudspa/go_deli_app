@@ -1,8 +1,5 @@
 import "dart:async";
-import "dart:io";
 import "package:flutter/material.dart";
-import "package:go_router/go_router.dart";
-import "package:image_picker/image_picker.dart";
 import "package:shimmer/shimmer.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -457,6 +454,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
     final priceFrom = p["price_from"] as int?;
     final avail     = p["availability"] as String?;
     final phone     = p["phone"] as String? ?? "";
+    final services  = (p["services"] as String?)?.trim() ?? "";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -560,6 +558,19 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
             ),
           ),
 
+        // B2) Servicios que presta
+        if (services.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.handyman_outlined, size: 14, color: _kPurple),
+              const SizedBox(width: 6),
+              Expanded(child: Text(services,
+                  style: const TextStyle(color: AppColors.textMedium, fontSize: 12, height: 1.4),
+                  maxLines: 2, overflow: TextOverflow.ellipsis)),
+            ]),
+          ),
+
         // C) Footer
         Container(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
@@ -623,128 +634,32 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ContactSheet(provider: p, sb: _sb),
+      builder: (_) => _ProviderDetailSheet(provider: p),
     );
   }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Contact + Request Sheet
+// Provider Detail Sheet — cobertura, respuesta, horarios, servicios,
+// descripción y botones de Llamar / WhatsApp.
 // ════════════════════════════════════════════════════════════════════════════
-class _ContactSheet extends StatefulWidget {
+class _ProviderDetailSheet extends StatelessWidget {
   final Map<String, dynamic> provider;
-  final SupabaseClient sb;
-  const _ContactSheet({required this.provider, required this.sb});
-  @override
-  State<_ContactSheet> createState() => _ContactSheetState();
-}
-
-class _ContactSheetState extends State<_ContactSheet> {
-  bool _showForm = false;
-  bool _sending  = false;
-
-  final _descCtrl = TextEditingController();
-  final _addrCtrl = TextEditingController();
-  DateTime? _preferredDate;
-  TimeOfDay? _preferredTime;
-  final List<XFile> _photos = [];
-  final _picker = ImagePicker();
-
-  @override
-  void initState() {
-    super.initState();
-    _prefillAddress();
-  }
-
-  @override
-  void dispose() {
-    _descCtrl.dispose();
-    _addrCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _prefillAddress() async {
-    try {
-      final user = widget.sb.auth.currentUser;
-      if (user == null) return;
-      final u = await widget.sb.from("users").select("id").eq("auth_id", user.id).maybeSingle();
-      if (u == null) return;
-      final addr = await widget.sb.from("user_addresses")
-          .select("address").eq("user_id", u["id"]).eq("is_default", true).maybeSingle();
-      if (addr != null && mounted) {
-        setState(() => _addrCtrl.text = addr["address"] as String? ?? "");
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _pickPhoto() async {
-    if (_photos.length >= 3) return;
-    final img = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
-    if (img != null && mounted) setState(() => _photos.add(img));
-  }
-
-  Future<void> _submitRequest() async {
-    if (_descCtrl.text.trim().isEmpty || _preferredDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Completa la descripción y fecha preferida")),
-      );
-      return;
-    }
-    setState(() => _sending = true);
-    try {
-      final user = widget.sb.auth.currentUser;
-      String? clientId;
-      if (user != null) {
-        final u = await widget.sb.from("users")
-            .select("id").eq("auth_id", user.id).maybeSingle();
-        clientId = u?["id"] as String?;
-      }
-      final photoUrls = <String>[];
-      for (final f in _photos) {
-        try {
-          final bytes = await f.readAsBytes();
-          final ext   = f.name.split(".").last;
-          final path  = "service_requests/${DateTime.now().millisecondsSinceEpoch}_${f.name}";
-          await widget.sb.storage.from("public").uploadBinary(
-            path, bytes,
-            fileOptions: FileOptions(contentType: "image/$ext"),
-          );
-          photoUrls.add(widget.sb.storage.from("public").getPublicUrl(path));
-        } catch (_) {}
-      }
-      final d = _preferredDate!;
-      await widget.sb.from("service_requests").insert({
-        "provider_id": widget.provider["id"],
-        if (clientId != null) "client_id": clientId,
-        "description":     _descCtrl.text.trim(),
-        "address":         _addrCtrl.text.trim(),
-        "preferred_date":  "${d.year}-${d.month.toString().padLeft(2, "0")}-${d.day.toString().padLeft(2, "0")}",
-        if (_preferredTime != null)
-          "preferred_time":
-              "${_preferredTime!.hour.toString().padLeft(2, "0")}:${_preferredTime!.minute.toString().padLeft(2, "0")}",
-        if (photoUrls.isNotEmpty) "photos": photoUrls,
-      });
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Solicitud enviada. El proveedor te contactará pronto.")),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _sending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error al enviar: $e")),
-        );
-      }
-    }
-  }
+  const _ProviderDetailSheet({required this.provider});
 
   @override
   Widget build(BuildContext context) {
-    final p     = widget.provider;
-    final phone = p["phone"] as String? ?? "";
-    final maxH  = MediaQuery.of(context).size.height * 0.92;
+    final p        = provider;
+    final phone    = (p["phone"] as String? ?? "").trim();
+    final waRaw    = (p["whatsapp"] as String?)?.trim() ?? "";
+    final whatsapp = waRaw.isNotEmpty ? waRaw : phone;
+    final photo    = p["photo_url"] as String?;
+    final desc     = (p["description"] as String?)?.trim() ?? "";
+    final services = (p["services"] as String?)?.trim() ?? "";
+    final coverage = (p["coverage"] as String?)?.trim() ?? "";
+    final response = (p["response_time"] as String?)?.trim() ?? "";
+    final avail    = (p["availability"] as String?)?.trim() ?? "";
+    final maxH     = MediaQuery.of(context).size.height * 0.92;
 
     return Container(
       constraints: BoxConstraints(maxHeight: maxH),
@@ -761,16 +676,22 @@ class _ContactSheetState extends State<_ContactSheet> {
         Flexible(child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Provider header
+            // Header
             Row(children: [
               Container(
-                width: 56, height: 56,
+                width: 64, height: 64,
                 decoration: BoxDecoration(
                   color: AppColors.homePurple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Center(child: Text(p["emoji"] ?? "🔧",
-                    style: const TextStyle(fontSize: 28))),
+                clipBehavior: Clip.antiAlias,
+                child: photo != null && photo.isNotEmpty
+                    ? Image.network(photo, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Center(
+                            child: Text(p["emoji"] ?? "🔧",
+                                style: const TextStyle(fontSize: 30))))
+                    : Center(child: Text(p["emoji"] ?? "🔧",
+                        style: const TextStyle(fontSize: 30))),
               ),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -778,283 +699,117 @@ class _ContactSheetState extends State<_ContactSheet> {
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                 Text(p["category"] ?? "",
                     style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
+                const SizedBox(height: 4),
+                Row(children: [
+                  const Icon(Icons.star_rounded, color: Color(0xFFFFB800), size: 15),
+                  const SizedBox(width: 2),
+                  Text("${p["rating"] ?? "5.0"}",
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  const Text("  ·  ", style: TextStyle(color: AppColors.textLight, fontSize: 12)),
+                  Text("${p["jobs_count"] ?? 0} trabajos",
+                      style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+                ]),
               ])),
             ]),
 
-            if ((p["description"] as String?)?.isNotEmpty == true) ...[
-              const SizedBox(height: 12),
-              Text(p["description"] as String,
+            // Descripción de la empresa
+            if (desc.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              const Text("Sobre la empresa",
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+              const SizedBox(height: 6),
+              Text(desc,
                   style: const TextStyle(color: AppColors.textMedium, fontSize: 14, height: 1.5)),
             ],
-            const SizedBox(height: 20),
 
-            if (!_showForm) ...[
-              const Text("Opciones de contacto",
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-              const SizedBox(height: 12),
-              if (phone.isNotEmpty) ...[
-                _contactOption(
-                  icon: Icons.phone_rounded, iconColor: AppColors.info,
-                  label: "Llamar", subtitle: phone,
-                  onTap: () => launchUrl(
-                    Uri.parse("tel:$phone"), mode: LaunchMode.externalApplication),
+            // Info: cobertura / tiempo de respuesta / horarios
+            if (coverage.isNotEmpty || response.isNotEmpty || avail.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.homeBackground,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.homeCardBorder),
                 ),
-                const SizedBox(height: 8),
-                _contactOption(
-                  icon: Icons.chat_rounded, iconColor: const Color(0xFF25D366),
-                  label: "WhatsApp", subtitle: "Escríbele directamente",
-                  onTap: () => launchUrl(
-                    Uri.parse("https://wa.me/$phone?text=${Uri.encodeComponent("Hola, vi tu perfil en Go Deli y me gustaría cotizar un servicio.")}"),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              _contactOption(
-                icon: Icons.message_outlined, iconColor: AppColors.homePurple,
-                label: "Mensaje interno", subtitle: "Chat dentro de la app",
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push("/chat/${p["id"]}");
-                },
+                child: Column(children: [
+                  if (coverage.isNotEmpty)
+                    _infoRow(Icons.place_outlined, "Cobertura", coverage),
+                  if (response.isNotEmpty) ...[
+                    if (coverage.isNotEmpty) const SizedBox(height: 10),
+                    _infoRow(Icons.bolt_outlined, "Tiempo de respuesta", response),
+                  ],
+                  if (avail.isNotEmpty) ...[
+                    if (coverage.isNotEmpty || response.isNotEmpty) const SizedBox(height: 10),
+                    _infoRow(Icons.schedule_outlined, "Disponibilidad", avail),
+                  ],
+                ]),
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => setState(() => _showForm = true),
-                  icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                  label: const Text("Solicitar visita"),
+            ],
+
+            // Servicios que ofrece
+            if (services.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              const Text("Servicios que ofrece",
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+              const SizedBox(height: 6),
+              Text(services,
+                  style: const TextStyle(color: AppColors.textMedium, fontSize: 14, height: 1.5)),
+            ],
+
+            // Botones de contacto
+            const SizedBox(height: 24),
+            Row(children: [
+              if (phone.isNotEmpty)
+                Expanded(child: ElevatedButton.icon(
+                  onPressed: () => launchUrl(
+                      Uri.parse("tel:$phone"), mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.phone_rounded, size: 18),
+                  label: const Text("Llamar"),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.homeOrange,
+                    backgroundColor: AppColors.info,
                     foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 48),
+                    minimumSize: const Size(0, 50),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, fontFamily: "Nunito"),
                   ),
-                ),
-              ),
-            ] else ...[
-              // Request form
-              Row(children: [
-                IconButton(
-                  onPressed: () => setState(() => _showForm = false),
-                  icon: const Icon(Icons.arrow_back_ios, size: 18, color: AppColors.textMedium),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                const SizedBox(width: 8),
-                const Text("Solicitar visita",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-              ]),
-              const SizedBox(height: 16),
-
-              _fieldLabel("Descripción del trabajo *"),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _descCtrl,
-                maxLines: 4,
-                decoration: _inputDecor("Ej: Necesito reparar una fuga en el baño..."),
-              ),
-              const SizedBox(height: 14),
-
-              _fieldLabel("Dirección"),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _addrCtrl,
-                decoration: _inputDecor("Ej: Calle Los Pinos 123, Ancud",
-                    prefix: const Icon(Icons.location_on_outlined, color: AppColors.homeOrange, size: 20)),
-              ),
-              const SizedBox(height: 14),
-
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _fieldLabel("Fecha preferida *"),
-                  const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () async {
-                      final d = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now().add(const Duration(days: 1)),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 90)),
-                        builder: (ctx, child) => Theme(
-                          data: ThemeData().copyWith(
-                            colorScheme: const ColorScheme.light(primary: AppColors.homePurple),
-                          ),
-                          child: child!,
-                        ),
-                      );
-                      if (d != null && mounted) setState(() => _preferredDate = d);
-                    },
-                    child: _dateBox(
-                      icon: Icons.calendar_today_outlined,
-                      text: _preferredDate != null
-                          ? "${_preferredDate!.day}/${_preferredDate!.month}/${_preferredDate!.year}"
-                          : "Seleccionar",
-                      selected: _preferredDate != null,
-                    ),
+                )),
+              if (phone.isNotEmpty && whatsapp.isNotEmpty) const SizedBox(width: 10),
+              if (whatsapp.isNotEmpty)
+                Expanded(child: ElevatedButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse("https://wa.me/$whatsapp?text=${Uri.encodeComponent("Hola, vi tu perfil en Go Deli y me gustaría cotizar un servicio.")}"),
+                    mode: LaunchMode.externalApplication,
                   ),
-                ])),
-                const SizedBox(width: 10),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _fieldLabel("Hora preferida"),
-                  const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () async {
-                      final t = await showTimePicker(
-                        context: context,
-                        initialTime: const TimeOfDay(hour: 9, minute: 0),
-                        builder: (ctx, child) => Theme(
-                          data: ThemeData().copyWith(
-                            colorScheme: const ColorScheme.light(primary: AppColors.homePurple),
-                          ),
-                          child: child!,
-                        ),
-                      );
-                      if (t != null && mounted) setState(() => _preferredTime = t);
-                    },
-                    child: _dateBox(
-                      icon: Icons.access_time,
-                      text: _preferredTime != null
-                          ? _preferredTime!.format(context)
-                          : "Seleccionar",
-                      selected: _preferredTime != null,
-                    ),
-                  ),
-                ])),
-              ]),
-              const SizedBox(height: 14),
-
-              _fieldLabel("Fotos (opcional, máx. 3)"),
-              const SizedBox(height: 8),
-              Row(children: [
-                ..._photos.map((f) => Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  width: 72, height: 72,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.border),
-                    image: DecorationImage(
-                      image: FileImage(File(f.path)), fit: BoxFit.cover),
+                  icon: const Icon(Icons.chat_rounded, size: 18),
+                  label: const Text("WhatsApp"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, fontFamily: "Nunito"),
                   ),
                 )),
-                if (_photos.length < 3)
-                  GestureDetector(
-                    onTap: _pickPhoto,
-                    child: Container(
-                      width: 72, height: 72,
-                      decoration: BoxDecoration(
-                        color: AppColors.homeBackground,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Icon(Icons.add_photo_alternate_outlined, color: AppColors.textLight, size: 24),
-                        SizedBox(height: 4),
-                        Text("Agregar", style: TextStyle(color: AppColors.textLight, fontSize: 10)),
-                      ]),
-                    ),
-                  ),
-              ]),
-              const SizedBox(height: 24),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _sending ? null : _submitRequest,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.homeOrange,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, fontFamily: "Nunito"),
-                  ),
-                  child: _sending
-                      ? const SizedBox(height: 20, width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text("Enviar solicitud"),
-                ),
-              ),
-            ],
+            ]),
           ]),
         )),
       ]),
     );
   }
 
-  Widget _contactOption({
-    required IconData icon, required Color iconColor,
-    required String label, required String subtitle,
-    required VoidCallback onTap,
-  }) =>
-    GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.homeBackground,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.homeCardBorder),
-        ),
-        child: Row(children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-            Text(subtitle, style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
-          ])),
-          const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textLight),
-        ]),
-      ),
-    );
-
-  Widget _fieldLabel(String text) => Text(text,
-      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textMedium));
-
-  InputDecoration _inputDecor(String hint, {Widget? prefix}) => InputDecoration(
-    hintText: hint,
-    prefixIcon: prefix,
-    border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border)),
-    enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border)),
-    focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.homePurple, width: 2)),
-    filled: true,
-    fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-  );
-
-  Widget _dateBox({required IconData icon, required String text, required bool selected}) =>
-    Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: selected ? AppColors.homePurple : AppColors.border),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-      ),
-      child: Row(children: [
-        Icon(icon, size: 15, color: selected ? AppColors.homePurple : AppColors.textLight),
-        const SizedBox(width: 6),
-        Flexible(child: Text(text,
-            style: TextStyle(
-              color: selected ? AppColors.textDark : AppColors.textLight,
-              fontSize: 12,
-            ),
-            maxLines: 1, overflow: TextOverflow.ellipsis)),
-      ]),
-    );
+  Widget _infoRow(IconData icon, String label, String value) =>
+    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, size: 18, color: AppColors.homePurple),
+      const SizedBox(width: 10),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.textLight)),
+        const SizedBox(height: 1),
+        Text(value,
+            style: const TextStyle(color: AppColors.textDark, fontSize: 13, fontWeight: FontWeight.w600, height: 1.35)),
+      ])),
+    ]);
 }
 
 // ════════════════════════════════════════════════════════════════════════════

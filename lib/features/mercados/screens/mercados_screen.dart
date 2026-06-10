@@ -815,20 +815,16 @@ class _MercadosScreenState extends State<MercadosScreen> {
   // ── Cart logic ───────────────────────────────────────────────────────────────
 
   bool _itemHasVariants(Map<String, dynamic> item) {
-    try {
-      final vs = item["variants"];
-      if (vs != null) {
-        final raw = vs is String ? (vs.isNotEmpty ? jsonDecode(vs) as List : const []) : vs as List;
+    // Variantes, grupos de variantes, opciones o recomendaciones (todas se
+    // configuran en el panel de aliados) requieren pasar por el detalle.
+    for (final key in const ["variants", "variant_groups", "options", "recommendations"]) {
+      try {
+        final v = item[key];
+        if (v == null) continue;
+        final raw = v is String ? (v.isNotEmpty ? jsonDecode(v) as List : const []) : v as List;
         if (raw.isNotEmpty) return true;
-      }
-    } catch (_) {}
-    try {
-      final vgs = item["variant_groups"];
-      if (vgs != null) {
-        final raw = vgs is String ? (vgs.isNotEmpty ? jsonDecode(vgs) as List : const []) : vgs as List;
-        if (raw.isNotEmpty) return true;
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
     return false;
   }
 

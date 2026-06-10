@@ -41,6 +41,16 @@
         <meta-data
         android:name="com.google.android.geo.API_KEY"
         android:value="AIzaSyB2MmFbdc9HsUxuGWgPXA0rwZqGvynrevM"/>
+        <!-- Icono y color de las notificaciones push (FCM) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="go_deli_orders" />
 </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

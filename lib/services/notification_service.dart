@@ -1,4 +1,5 @@
 import "dart:async";
+import "dart:ui" show Color;
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -46,7 +47,7 @@ class NotificationService {
     await ios?.requestPermissions(alert: true, badge: true, sound: true);
 
     await _plugin.initialize(const InitializationSettings(
-      android: AndroidInitializationSettings("@mipmap/ic_launcher"),
+      android: AndroidInitializationSettings("@drawable/ic_notification"),
       iOS: DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,
@@ -77,7 +78,8 @@ class NotificationService {
           _channelId, _channelName,
           importance: Importance.high,
           priority: Priority.high,
-          icon: "@mipmap/ic_launcher",
+          icon: "@drawable/ic_notification",
+          color: Color(0xFFFF6B35),
         ),
         iOS: DarwinNotificationDetails(
           presentAlert: true,
