@@ -33,10 +33,12 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: AppColors.primary,
       body: SafeArea(child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Column(children: [
         const SizedBox(height: 40),
-        Container(width: 80, height: 80, decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(22)), child: const Center(child: Text("🛵", style: TextStyle(fontSize: 40)))),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
+          child: Image.asset("assets/images/logo.png", width: 170, filterQuality: FilterQuality.high),
+        ),
         const SizedBox(height: 16),
-        const Text("Go Rider", style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 6),
         Text("Bienvenido de vuelta", style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 15)),
         const SizedBox(height: 40),
         Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: const Color(0xFF1A2636), borderRadius: BorderRadius.circular(20)), child: Column(children: [

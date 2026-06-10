@@ -2,7 +2,6 @@ import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
-import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
 
 class SplashScreen extends StatefulWidget {
@@ -60,26 +59,32 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primary,
-      body: Center(
-        child: FadeTransition(
-          opacity: _fade,
-          child: ScaleTransition(
-            scale: _scale,
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(
-                width: 110, height: 110,
-                decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: AppColors.accent.withOpacity(0.4), blurRadius: 30, spreadRadius: 5)]),
-                child: const Center(child: Text("🛵", style: TextStyle(fontSize: 52))),
-              ),
-              const SizedBox(height: 24),
-              const Text("Go Rider", style: TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.w900, letterSpacing: -1)),
-              const SizedBox(height: 8),
-              Text("Entrega. Gana. Crece.", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16)),
-            ]),
+      backgroundColor: Colors.white,
+      body: Stack(children: [
+        // Detalles decorativos con los colores de la app sobre fondo blanco
+        Positioned(top: -80, right: -80, child: Container(
+          width: 300, height: 300,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFFFF6B35).withOpacity(0.08)),
+        )),
+        Positioned(bottom: -60, left: -60, child: Container(
+          width: 240, height: 240,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF7C3AED).withOpacity(0.08)),
+        )),
+        Positioned(top: 160, left: -40, child: Container(
+          width: 140, height: 140,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF7C3AED).withOpacity(0.05)),
+        )),
+        // Solo el logo
+        Center(
+          child: FadeTransition(
+            opacity: _fade,
+            child: ScaleTransition(
+              scale: _scale,
+              child: Image.asset("assets/images/logo.png", width: 240, filterQuality: FilterQuality.high),
+            ),
           ),
         ),
-      ),
+      ]),
     );
   }
 }

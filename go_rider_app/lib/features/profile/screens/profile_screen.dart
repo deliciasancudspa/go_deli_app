@@ -41,7 +41,7 @@ class ProfileScreen extends StatelessWidget {
         _card("Mi vehiculo", [
           _row("Tipo", rider.rider?["vehicle_type"] ?? "-"),
           if (rider.rider?["vehicle_plate"] != null) _row("Patente", rider.rider!["vehicle_plate"]),
-        ]),
+        ], onEdit: () => _editVehicle(context, rider)),
         const SizedBox(height: 12),
         _card("Datos bancarios", bank != null ? [
           _row("Banco", bank["bank_name"] ?? "-"),
@@ -49,7 +49,8 @@ class ProfileScreen extends StatelessWidget {
           _row("Numero cuenta", bank["account_number"] ?? "-"),
           _row("Titular", bank["account_holder"] ?? "-"),
           _row("RUT", bank["rut"] ?? "-"),
-        ] : [const Padding(padding: EdgeInsets.all(8), child: Text("Sin datos bancarios", style: TextStyle(color: AppColors.textLight)))]),
+        ] : [const Padding(padding: EdgeInsets.all(8), child: Text("Sin datos bancarios", style: TextStyle(color: AppColors.textLight)))],
+          onEdit: () => _editBank(context, rider, bank)),
         const SizedBox(height: 12),
         _card("Contactar Admin", [
           _rowButton(
@@ -98,11 +99,44 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _card(String title, List<Widget> children) => Container(
+  void _editVehicle(BuildContext context, RiderProvider rider) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditVehicleSheet(rider: rider),
+    );
+  }
+
+  void _editBank(BuildContext context, RiderProvider rider, Map<String, dynamic>? bank) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditBankSheet(rider: rider, bank: bank),
+    );
+  }
+
+  Widget _card(String title, List<Widget> children, {VoidCallback? onEdit}) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textMedium)),
+      Row(children: [
+        Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textMedium))),
+        if (onEdit != null)
+          InkWell(
+            onTap: onEdit,
+            borderRadius: BorderRadius.circular(8),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.edit_outlined, size: 15, color: AppColors.accent),
+                SizedBox(width: 4),
+                Text("Editar", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700, fontSize: 13)),
+              ]),
+            ),
+          ),
+      ]),
       const SizedBox(height: 12), const Divider(height: 1), const SizedBox(height: 8),
       ...children,
     ]),
@@ -130,4 +164,208 @@ class ProfileScreen extends StatelessWidget {
         ]),
       ),
     );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Edición de vehículo — los cambios se notifican al admin para revisión
+// ════════════════════════════════════════════════════════════════════════════
+class _EditVehicleSheet extends StatefulWidget {
+  final RiderProvider rider;
+  const _EditVehicleSheet({required this.rider});
+  @override
+  State<_EditVehicleSheet> createState() => _EditVehicleSheetState();
+}
+
+class _EditVehicleSheetState extends State<_EditVehicleSheet> {
+  static const _vehicles = ["Moto", "Bicicleta", "Auto", "A pie"];
+  static const _icons = {"Moto": "🏍️", "Bicicleta": "🚲", "Auto": "🚗", "A pie": "🚶"};
+  late String _type;
+  late final TextEditingController _plateCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.rider.rider?["vehicle_type"] as String? ?? "Moto";
+    if (!_vehicles.contains(_type)) _type = "Moto";
+    _plateCtrl = TextEditingController(text: widget.rider.rider?["vehicle_plate"] as String? ?? "");
+  }
+
+  @override
+  void dispose() { _plateCtrl.dispose(); super.dispose(); }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final err = await widget.rider.updateVehicle(_type, _plateCtrl.text);
+    if (!mounted) return;
+    if (err != null) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar: $err"), backgroundColor: AppColors.error));
+      return;
+    }
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text("📋 Datos guardados. Los cambios se enviaron a revisión y serán verificados por el administrador."),
+      duration: Duration(seconds: 5),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 16),
+          const Text("Editar vehículo", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          const Text("Los cambios serán revisados por el administrador antes de confirmarse.",
+              style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+          const SizedBox(height: 16),
+          Wrap(spacing: 8, runSpacing: 8, children: _vehicles.map((v) {
+            final sel = _type == v;
+            return GestureDetector(
+              onTap: () => setState(() => _type = v),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: sel ? AppColors.accent.withOpacity(0.12) : AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: sel ? AppColors.accent : AppColors.border, width: 1.5),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_icons[v]!, style: const TextStyle(fontSize: 18)),
+                  const SizedBox(width: 6),
+                  Text(v, style: TextStyle(fontWeight: FontWeight.w700, color: sel ? AppColors.accent : AppColors.textMedium)),
+                ]),
+              ),
+            );
+          }).toList()),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _plateCtrl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(labelText: "Patente (opcional)", hintText: "AB-CD-12"),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text("Guardar y enviar a revisión"),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Edición de datos bancarios — los cambios se notifican al admin para revisión
+// ════════════════════════════════════════════════════════════════════════════
+class _EditBankSheet extends StatefulWidget {
+  final RiderProvider rider;
+  final Map<String, dynamic>? bank;
+  const _EditBankSheet({required this.rider, this.bank});
+  @override
+  State<_EditBankSheet> createState() => _EditBankSheetState();
+}
+
+class _EditBankSheetState extends State<_EditBankSheet> {
+  static const _accountTypes = ["Cuenta Corriente", "Cuenta Vista", "Cuenta RUT", "Cuenta de Ahorro"];
+  late final TextEditingController _bankCtrl, _numberCtrl, _holderCtrl, _rutCtrl;
+  late String _accountType;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final b = widget.bank ?? {};
+    _bankCtrl   = TextEditingController(text: b["bank_name"] as String? ?? "");
+    _numberCtrl = TextEditingController(text: b["account_number"] as String? ?? "");
+    _holderCtrl = TextEditingController(text: b["account_holder"] as String? ?? "");
+    _rutCtrl    = TextEditingController(text: b["rut"] as String? ?? "");
+    _accountType = b["account_type"] as String? ?? "Cuenta RUT";
+    if (!_accountTypes.contains(_accountType)) _accountType = "Cuenta RUT";
+  }
+
+  @override
+  void dispose() {
+    _bankCtrl.dispose(); _numberCtrl.dispose(); _holderCtrl.dispose(); _rutCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_bankCtrl.text.trim().isEmpty || _numberCtrl.text.trim().isEmpty ||
+        _holderCtrl.text.trim().isEmpty || _rutCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Completa todos los campos"), backgroundColor: AppColors.error));
+      return;
+    }
+    setState(() => _saving = true);
+    final err = await widget.rider.updateBankInfo(
+      bankName: _bankCtrl.text,
+      accountType: _accountType,
+      accountNumber: _numberCtrl.text,
+      accountHolder: _holderCtrl.text,
+      rut: _rutCtrl.text,
+    );
+    if (!mounted) return;
+    if (err != null) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar: $err"), backgroundColor: AppColors.error));
+      return;
+    }
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text("📋 Datos guardados. Los cambios se enviaron a revisión y serán verificados por el administrador."),
+      duration: Duration(seconds: 5),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 16),
+          const Text("Editar datos bancarios", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          const Text("Los cambios serán revisados por el administrador antes de confirmarse. Tus pagos se harán a esta cuenta.",
+              style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+          const SizedBox(height: 16),
+          TextField(controller: _bankCtrl, decoration: const InputDecoration(labelText: "Banco", hintText: "Ej: Banco Estado")),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _accountType,
+            decoration: const InputDecoration(labelText: "Tipo de cuenta"),
+            items: _accountTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+            onChanged: (v) => setState(() => _accountType = v ?? _accountType),
+          ),
+          const SizedBox(height: 12),
+          TextField(controller: _numberCtrl, keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: "Número de cuenta")),
+          const SizedBox(height: 12),
+          TextField(controller: _holderCtrl, decoration: const InputDecoration(labelText: "Titular de la cuenta")),
+          const SizedBox(height: 12),
+          TextField(controller: _rutCtrl, decoration: const InputDecoration(labelText: "RUT del titular", hintText: "12.345.678-9")),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text("Guardar y enviar a revisión"),
+          ),
+        ])),
+      ),
+    );
+  }
 }

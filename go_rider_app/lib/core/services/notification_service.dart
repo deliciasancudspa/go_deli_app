@@ -1,3 +1,4 @@
+import "dart:ui" show Color;
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 
@@ -12,7 +13,7 @@ class NotificationService {
 
   static Future<void> init() async {
     if (_initialized) return;
-    const androidSettings = AndroidInitializationSettings("@mipmap/ic_launcher");
+    const androidSettings = AndroidInitializationSettings("@drawable/ic_notification");
     await _plugin.initialize(
       const InitializationSettings(android: androidSettings),
       onDidReceiveNotificationResponse: _onTap,
@@ -83,6 +84,8 @@ class NotificationService {
           priority: Priority.high,
           playSound: true,
           enableVibration: true,
+          icon: "@drawable/ic_notification",
+          color: Color(0xFFFF6B35),
         ),
       ),
       payload: payload,

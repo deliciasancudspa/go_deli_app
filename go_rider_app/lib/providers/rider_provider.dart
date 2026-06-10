@@ -145,6 +145,75 @@ class RiderProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> reloadProfile() async {
+    final authId = _sb.auth.currentUser?.id;
+    if (authId != null) await _loadProfile(authId);
+  }
+
+  // ── Edición de datos del rider (quedan sujetos a revisión del admin) ──
+
+  Future<String?> updateVehicle(String vehicleType, String plate) async {
+    if (_rider == null) return "Perfil no cargado";
+    try {
+      final cleanPlate = plate.trim().toUpperCase();
+      await _sb.from("deliverers").update({
+        "vehicle_type": vehicleType,
+        "vehicle_plate": cleanPlate.isEmpty ? null : cleanPlate,
+      }).eq("id", riderId);
+      await _notifyAdminDataChange("vehículo",
+          "Tipo: $vehicleType · Patente: ${cleanPlate.isEmpty ? "-" : cleanPlate}");
+      await reloadProfile();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<String?> updateBankInfo({
+    required String bankName,
+    required String accountType,
+    required String accountNumber,
+    required String accountHolder,
+    required String rut,
+  }) async {
+    if (_rider == null) return "Perfil no cargado";
+    try {
+      final data = {
+        "bank_name": bankName.trim(),
+        "account_type": accountType.trim(),
+        "account_number": accountNumber.trim(),
+        "account_holder": accountHolder.trim(),
+        "rut": rut.trim(),
+      };
+      final existing = await _sb.from("deliverer_bank_info")
+          .select("id").eq("deliverer_id", riderId).maybeSingle();
+      if (existing != null) {
+        await _sb.from("deliverer_bank_info").update(data).eq("id", existing["id"]);
+      } else {
+        await _sb.from("deliverer_bank_info").insert({...data, "deliverer_id": riderId});
+      }
+      await _notifyAdminDataChange("datos bancarios",
+          "${data["bank_name"]} · ${data["account_type"]} · cta. ${data["account_number"]}");
+      await reloadProfile();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  // Aviso al admin para que verifique los datos modificados
+  Future<void> _notifyAdminDataChange(String what, String detail) async {
+    try {
+      await _sb.from("notifications").insert({
+        "target": "admin",
+        "title": "🛵 Rider modificó sus datos",
+        "message": "$riderName actualizó sus datos de $what. $detail. Verifica la información en el panel.",
+        "type": "rider_data_change",
+        "emoji": "🛵",
+      });
+    } catch (_) {}
+  }
+
   Future<void> signOut() async {
     await _sb.auth.signOut();
     _user = null; _rider = null; _isOnline = false;
