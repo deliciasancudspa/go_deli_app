@@ -63,12 +63,88 @@ async function getAccessToken(): Promise<string> {
   return tokenData.access_token as string;
 }
 
+async function sendFcm(accessToken: string, token: string, title: string, body: string): Promise<boolean> {
+  const res = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        message: {
+          token,
+          notification: { title, body },
+          android: {
+            priority: "high",
+            notification: { channel_id: "go_deli_orders", sound: "default" },
+          },
+          data: { route: "orders" },
+        },
+      }),
+    },
+  );
+  return res.ok;
+}
+
+// ¿La petición viene de un admin autenticado? (panel web → functions.invoke
+// adjunta el JWT de la sesión en Authorization)
+async function isAdminRequest(req: Request, sb: ReturnType<typeof createClient>): Promise<boolean> {
+  try {
+    const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    if (!jwt) return false;
+    const { data: { user } } = await sb.auth.getUser(jwt);
+    if (!user) return false;
+    const { data } = await sb.from("users").select("role").eq("auth_id", user.id).single();
+    return data?.role === "admin";
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req) => {
   try {
-    if (WEBHOOK_SECRET && req.headers.get("x-webhook-secret") !== WEBHOOK_SECRET) {
+    const sb = createClient(SUPABASE_URL, SUPABASE_SVC_KEY);
+    const secretOk = WEBHOOK_SECRET !== "" &&
+      req.headers.get("x-webhook-secret") === WEBHOOK_SECRET;
+
+    if (WEBHOOK_SECRET && !secretOk && !(await isAdminRequest(req, sb))) {
       return new Response("unauthorized", { status: 401 });
     }
     const rawPayload = await req.json();
+
+    // ── Broadcast del admin a todos los clientes ──────────────────────────
+    // Siempre exige secreto o JWT de admin, aunque NOTIFY_WEBHOOK_SECRET no
+    // esté configurado: nadie con la anon key puede spamear a toda la base.
+    if (rawPayload.broadcast === true) {
+      if (!secretOk && !(await isAdminRequest(req, sb))) {
+        return new Response(JSON.stringify({ ok: false, reason: "solo admin" }), {
+          status: 401, headers: { "Content-Type": "application/json" },
+        });
+      }
+      const bTitle = String(rawPayload.title ?? "Go Deli");
+      const bBody  = String(rawPayload.body ?? "");
+      if (!bBody) return new Response("missing body", { status: 400 });
+
+      const { data: clients } = await sb
+        .from("users")
+        .select("fcm_token")
+        .eq("role", "client")
+        .not("fcm_token", "is", null);
+      const tokens = [...new Set((clients ?? []).map((c) => c.fcm_token).filter(Boolean))];
+
+      const accessToken = await getAccessToken();
+      let sent = 0, failed = 0;
+      for (let i = 0; i < tokens.length; i += 20) {
+        await Promise.all(tokens.slice(i, i + 20).map(async (t) => {
+          (await sendFcm(accessToken, t as string, bTitle, bBody)) ? sent++ : failed++;
+        }));
+      }
+      return new Response(JSON.stringify({ ok: true, sent, failed }), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      });
+    }
 
     let client_id: string;
     let title: string;
@@ -92,7 +168,6 @@ serve(async (req) => {
 
     if (!client_id) return new Response("missing client_id", { status: 400 });
 
-    const sb = createClient(SUPABASE_URL, SUPABASE_SVC_KEY);
     const { data: user, error } = await sb
       .from("users")
       .select("fcm_token")

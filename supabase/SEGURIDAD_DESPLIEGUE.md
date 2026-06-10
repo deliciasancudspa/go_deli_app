@@ -44,13 +44,16 @@ push notifications arbitrarias a todos tus usuarios.
 
 ## 3. Restringir la API key de Google Maps
 
-La key `AIzaSy...` está embebida en las apps (normal en móvil), pero debe
-restringirse en Google Cloud Console → Credentials:
+La key `AIzaSy...` está embebida en las apps (normal en móvil) **y en los
+paneles web** (web.html, aliados.html y ahora admin.html para el mapa en
+vivo). Google solo permite UN tipo de restricción de aplicación por key, así
+que lo correcto es **separar en 2 keys** en Google Cloud Console → Credentials:
 
-- **Restricción de aplicación**: huella SHA-1 del certificado Android +
-  bundle ID de iOS (`Application restrictions`).
-- **Restricción de API**: solo Maps SDK for Android/iOS, Geocoding API
-  (las que uses).
+- **Key móvil** (la actual en las apps): restricción por huella SHA-1
+  Android + bundle ID iOS; APIs: Maps SDK for Android/iOS, Geocoding.
+- **Key web** (nueva, reemplazarla en los 3 HTML): restricción por
+  **HTTP referrers** (tu dominio de Vercel/hosting); APIs: Maps JavaScript
+  API, Places API, Geocoding API.
 
 Sin esto, cualquiera puede extraer la key del APK y consumir tu cuota.
 
@@ -75,6 +78,29 @@ Validando el esquema de producción contra el código se encontró y corrigió:
 - **`service_providers.rating` no existía** → la app mostraba siempre "5.0".
   El script `rls_policies.sql` añade la columna (sección 13b).
 - Resto del esquema verificado columna por columna contra producción: ✓.
+
+## 4c. Push masivo desde el panel admin (broadcast)
+
+`notify-client` ahora soporta `{ broadcast: true, title, body }`: envía un
+push FCM a **todos** los clientes con token registrado. Autorización: header
+`x-webhook-secret` **o** JWT de un usuario con `role='admin'` (el panel lo
+manda automático con `sb.functions.invoke`). El broadcast exige esto siempre,
+aunque `NOTIFY_WEBHOOK_SECRET` no esté configurado.
+
+Paso manual: re-desplegar la función:
+```bash
+supabase functions deploy notify-client
+```
+Probar desde el panel: Configuración → "📱 Notificaciones push" → Enviar a
+todos (el toast muestra dispositivos enviados/fallidos).
+
+## 4d. Mapa en vivo del admin
+
+`admin.html` ahora carga Maps JavaScript API y muestra los riders aprobados
+en un mapa real (verde = en línea, gris = desconectado), con Realtime +
+refresco automático cada 20 s. Si los markers no se mueven en vivo, verifica
+que la tabla `deliverers` esté en la publicación Realtime:
+Database → Replication → supabase_realtime.
 
 ## 5. Recomendación pendiente: recetas médicas con signed URLs
 
