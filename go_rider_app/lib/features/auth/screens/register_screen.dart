@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
+import "../../../core/constants/banks.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
 
@@ -26,8 +27,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _accountNumCtrl = TextEditingController();
   final _accountHolderCtrl = TextEditingController();
   final _accountRutCtrl = TextEditingController();
-  final _vehicles = ["Moto","Bicicleta","Auto","A pie"];
-  final _banks = ["BancoEstado","Banco de Chile","BCI","Banco Santander","Banco Itau","Scotiabank","Banco Falabella","Mercado Pago","MACH","Tenpo","Otro"];
+  final _vehicles = ["Moto","Bicicleta","Auto"];
+  final _banks = kBankOptions;
   final _accountTypes = ["Cuenta Vista","Cuenta Corriente","Cuenta de Ahorro"];
   final _steps = ["Datos personales","Vehiculo","Datos bancarios"];
 
@@ -41,7 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       name: _nameCtrl.text.trim(), email: _emailCtrl.text.trim(),
       password: _passCtrl.text, phone: _phoneCtrl.text.trim(),
       rut: _rutCtrl.text.trim(), vehicle: _vehicleType,
-      plate: _plateCtrl.text.trim(), bankName: _bankName,
+      plate: _vehicleType == "Bicicleta" ? "" : _plateCtrl.text.trim(), bankName: _bankName,
       accountType: _accountType, accountNumber: _accountNumCtrl.text.trim(),
       accountHolder: _accountHolderCtrl.text.trim(), accountRut: _accountRutCtrl.text.trim(),
     );
@@ -147,7 +148,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     mainAxisSpacing: 12,
                     childAspectRatio: 2.5,
                     children: _vehicles.map((v) {
-                      final icons = {"Moto":"🏍️","Bicicleta":"🚲","Auto":"🚗","A pie":"🚶"};
+                      final icons = {"Moto":"🏍️","Bicicleta":"🚲","Auto":"🚗"};
                       final selected = _vehicleType == v;
                       return GestureDetector(
                         onTap: () => setState(() => _vehicleType = v),
@@ -167,12 +168,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       );
                     }).toList(),
                   ),
-                  if (_vehicleType != "A pie") ...[
+                  if (_vehicleType != "Bicicleta") ...[
                     const SizedBox(height: 20),
-                    _field(_plateCtrl, "Patente del vehiculo", Icons.directions_car_outlined),
+                    _field(_plateCtrl, "Patente del vehiculo *", Icons.directions_car_outlined),
+                  ],
+                  if (_error != null && _step == 1) ...[
+                    const SizedBox(height: 12),
+                    Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
                   ],
                   const SizedBox(height: 24),
-                  ElevatedButton(onPressed: _next, child: const Text("Siguiente")),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_vehicleType != "Bicicleta" && _plateCtrl.text.trim().isEmpty) {
+                        setState(() => _error = "La patente es obligatoria para ${_vehicleType == "Auto" ? "autos" : "motos"}");
+                        return;
+                      }
+                      _next();
+                    },
+                    child: const Text("Siguiente"),
+                  ),
                 ]),
               ),
               // PASO 3: Datos bancarios

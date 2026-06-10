@@ -37,6 +37,17 @@ void main() async {
     anonKey: AppConfig.supabaseAnonKey,
   );
   await NotificationService.init();
+
+  // Tap en push con la app en segundo plano → abrir diálogo de oferta
+  FirebaseMessaging.onMessageOpenedApp.listen((m) {
+    if ((m.data["route"] ?? "") == "notifications") NotificationService.openOffers();
+  });
+  // App abierta DESDE una push (estaba cerrada): navegar tras el splash
+  final initialMsg = await FirebaseMessaging.instance.getInitialMessage();
+  if (initialMsg != null && (initialMsg.data["route"] ?? "") == "notifications") {
+    NotificationService.pendingRoute = "/notifications?open=1";
+  }
+
   runApp(const GoRiderApp());
 }
 

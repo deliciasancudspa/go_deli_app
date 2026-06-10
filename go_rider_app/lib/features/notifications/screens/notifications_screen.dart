@@ -9,7 +9,8 @@ import "../../../providers/rider_provider.dart";
 const _kTimeout = 30;
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  final bool autoOpen;
+  const NotificationsScreen({super.key, this.autoOpen = false});
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
@@ -18,6 +19,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final _sb = Supabase.instance.client;
   List<Map<String, dynamic>> _notifications = [];
   bool _loading = true;
+  bool _dialogShown = false;
   final Set<String> _processing = {};
 
   @override
@@ -34,7 +36,56 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           .eq("is_read", false)
           .order("created_at", ascending: false);
       if (mounted) setState(() { _notifications = List<Map<String, dynamic>>.from(data); _loading = false; });
+      // Si venimos del tap de una notificación push, abrir el diálogo de la
+      // oferta más reciente directamente.
+      if (widget.autoOpen && !_dialogShown && _notifications.isNotEmpty && mounted) {
+        _dialogShown = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showOfferDialog(_notifications.first);
+        });
+      }
     } catch (_) { if (mounted) setState(() => _loading = false); }
+  }
+
+  void _showOfferDialog(Map<String, dynamic> notif) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [
+          const Text("🛵", style: TextStyle(fontSize: 26)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(notif["title"] as String? ?? "Nueva oferta de pedido",
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+        ]),
+        content: Text(notif["message"] as String? ?? "Tienes un nuevo pedido disponible.",
+            style: const TextStyle(fontSize: 14, height: 1.5)),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        actions: [
+          Row(children: [
+            Expanded(child: OutlinedButton(
+              onPressed: () { Navigator.pop(ctx); _reject(notif); },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: const BorderSide(color: AppColors.error),
+                minimumSize: const Size(0, 46),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text("Rechazar", style: TextStyle(fontWeight: FontWeight.w800)),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton(
+              onPressed: () { Navigator.pop(ctx); _accept(notif); },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                minimumSize: const Size(0, 46),
+              ),
+              child: const Text("✅ Aceptar", style: TextStyle(fontWeight: FontWeight.w800)),
+            )),
+          ]),
+        ],
+      ),
+    );
   }
 
   Future<void> _accept(Map<String, dynamic> notif) async {
@@ -54,14 +105,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final searchStatus = order["rider_search_status"] as String?;
       final assignedTo   = order["deliverer_id"] as String?;
 
-      if (searchStatus != "assigned" || assignedTo != rider.riderId) {
+      if (searchStatus == "assigned" && assignedTo == rider.riderId) {
+        // Oferta dirigida a este rider (despacho del aliado)
+        await _sb.from("orders").update({"status": "assigned"}).eq("id", orderId);
+      } else if (assignedTo == null && searchStatus == "searching") {
+        // Oferta abierta (reenviada por el admin): el primero que acepta gana
+        final claimed = await _sb.rpc("claim_order", params: {"p_order_id": orderId});
+        if (claimed != true) {
+          await _sb.from("notifications").update({"is_read": true}).eq("id", id);
+          await _load();
+          if (mounted) _showSnack("Otro rider tomó este pedido", AppColors.warning);
+          return;
+        }
+      } else {
         await _sb.from("notifications").update({"is_read": true}).eq("id", id);
         await _load();
         if (mounted) _showSnack("Este pedido ya no está disponible", AppColors.warning);
         return;
       }
-
-      await _sb.from("orders").update({"status": "assigned"}).eq("id", orderId);
       await _sb.from("notifications").update({"is_read": true}).eq("id", id);
       rider.loadActiveOrders();
       await _load();

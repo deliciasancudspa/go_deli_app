@@ -566,3 +566,39 @@ create trigger trg_validate_order_item_amounts
 -- Políticas creadas:
 --   select tablename, policyname, cmd from pg_policies
 --   where schemaname='public' order by tablename;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 15. CLAIM DE PEDIDOS EN BÚSQUEDA ABIERTA
+--     Cuando el admin reenvía la oferta a todos los riders elegibles
+--     ("continuar búsqueda"), el pedido queda sin deliverer_id y en
+--     rider_search_status='searching'. El primer rider que acepta se lo
+--     queda; esta función hace la asignación de forma atómica.
+-- ────────────────────────────────────────────────────────────────────────────
+create or replace function public.claim_order(p_order_id uuid)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare
+  v_rider uuid;
+  v_updated int;
+begin
+  v_rider := public.my_rider_id();
+  if v_rider is null then return false; end if;
+  if not exists (select 1 from deliverers where id = v_rider and status = 'approved') then
+    return false;
+  end if;
+  update orders set
+    deliverer_id        = v_rider,
+    status              = 'assigned',
+    rider_search_status = 'assigned',
+    pickup_code         = coalesce(pickup_code,   upper(substr(md5(random()::text), 1, 6))),
+    delivery_code       = coalesce(delivery_code, upper(substr(md5(random()::text), 1, 6)))
+  where id = p_order_id
+    and deliverer_id is null
+    and rider_search_status = 'searching'
+    and status not in ('delivered','cancelled','returned');
+  get diagnostics v_updated = row_count;
+  return v_updated > 0;
+end $$;
+
+revoke all on function public.claim_order(uuid) from public;
+grant execute on function public.claim_order(uuid) to authenticated;

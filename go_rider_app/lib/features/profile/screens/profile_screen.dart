@@ -3,6 +3,7 @@ import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:url_launcher/url_launcher.dart";
+import "../../../core/constants/banks.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
 
@@ -177,8 +178,8 @@ class _EditVehicleSheet extends StatefulWidget {
 }
 
 class _EditVehicleSheetState extends State<_EditVehicleSheet> {
-  static const _vehicles = ["Moto", "Bicicleta", "Auto", "A pie"];
-  static const _icons = {"Moto": "🏍️", "Bicicleta": "🚲", "Auto": "🚗", "A pie": "🚶"};
+  static const _vehicles = ["Moto", "Bicicleta", "Auto"];
+  static const _icons = {"Moto": "🏍️", "Bicicleta": "🚲", "Auto": "🚗"};
   late String _type;
   late final TextEditingController _plateCtrl;
   bool _saving = false;
@@ -195,8 +196,14 @@ class _EditVehicleSheetState extends State<_EditVehicleSheet> {
   void dispose() { _plateCtrl.dispose(); super.dispose(); }
 
   Future<void> _save() async {
+    if (_type != "Bicicleta" && _plateCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("La patente es obligatoria para ${_type == "Auto" ? "autos" : "motos"}"),
+          backgroundColor: AppColors.error));
+      return;
+    }
     setState(() => _saving = true);
-    final err = await widget.rider.updateVehicle(_type, _plateCtrl.text);
+    final err = await widget.rider.updateVehicle(_type, _type == "Bicicleta" ? "" : _plateCtrl.text);
     if (!mounted) return;
     if (err != null) {
       setState(() => _saving = false);
@@ -244,12 +251,14 @@ class _EditVehicleSheetState extends State<_EditVehicleSheet> {
               ),
             );
           }).toList()),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _plateCtrl,
-            textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(labelText: "Patente (opcional)", hintText: "AB-CD-12"),
-          ),
+          if (_type != "Bicicleta") ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _plateCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(labelText: "Patente *", hintText: "AB-CD-12"),
+            ),
+          ],
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: _saving ? null : _save,
@@ -276,7 +285,8 @@ class _EditBankSheet extends StatefulWidget {
 
 class _EditBankSheetState extends State<_EditBankSheet> {
   static const _accountTypes = ["Cuenta Corriente", "Cuenta Vista", "Cuenta RUT", "Cuenta de Ahorro"];
-  late final TextEditingController _bankCtrl, _numberCtrl, _holderCtrl, _rutCtrl;
+  late final TextEditingController _numberCtrl, _holderCtrl, _rutCtrl;
+  late String _bankName;
   late String _accountType;
   bool _saving = false;
 
@@ -284,7 +294,8 @@ class _EditBankSheetState extends State<_EditBankSheet> {
   void initState() {
     super.initState();
     final b = widget.bank ?? {};
-    _bankCtrl   = TextEditingController(text: b["bank_name"] as String? ?? "");
+    _bankName = b["bank_name"] as String? ?? "BancoEstado";
+    if (!kBankOptions.contains(_bankName)) _bankName = "BancoEstado";
     _numberCtrl = TextEditingController(text: b["account_number"] as String? ?? "");
     _holderCtrl = TextEditingController(text: b["account_holder"] as String? ?? "");
     _rutCtrl    = TextEditingController(text: b["rut"] as String? ?? "");
@@ -294,12 +305,12 @@ class _EditBankSheetState extends State<_EditBankSheet> {
 
   @override
   void dispose() {
-    _bankCtrl.dispose(); _numberCtrl.dispose(); _holderCtrl.dispose(); _rutCtrl.dispose();
+    _numberCtrl.dispose(); _holderCtrl.dispose(); _rutCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
-    if (_bankCtrl.text.trim().isEmpty || _numberCtrl.text.trim().isEmpty ||
+    if (_numberCtrl.text.trim().isEmpty ||
         _holderCtrl.text.trim().isEmpty || _rutCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Completa todos los campos"), backgroundColor: AppColors.error));
@@ -307,7 +318,7 @@ class _EditBankSheetState extends State<_EditBankSheet> {
     }
     setState(() => _saving = true);
     final err = await widget.rider.updateBankInfo(
-      bankName: _bankCtrl.text,
+      bankName: _bankName,
       accountType: _accountType,
       accountNumber: _numberCtrl.text,
       accountHolder: _holderCtrl.text,
@@ -342,7 +353,13 @@ class _EditBankSheetState extends State<_EditBankSheet> {
           const Text("Los cambios serán revisados por el administrador antes de confirmarse. Tus pagos se harán a esta cuenta.",
               style: TextStyle(color: AppColors.textLight, fontSize: 13)),
           const SizedBox(height: 16),
-          TextField(controller: _bankCtrl, decoration: const InputDecoration(labelText: "Banco", hintText: "Ej: Banco Estado")),
+          DropdownButtonFormField<String>(
+            initialValue: _bankName,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: "Banco"),
+            items: kBankOptions.map((b) => DropdownMenuItem(value: b, child: Text(b, overflow: TextOverflow.ellipsis))).toList(),
+            onChanged: (v) => setState(() => _bankName = v ?? _bankName),
+          ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _accountType,

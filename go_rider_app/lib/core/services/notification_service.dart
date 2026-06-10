@@ -1,6 +1,7 @@
 import "dart:ui" show Color;
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
+import "../../config/app_routes.dart";
 
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -39,15 +40,25 @@ class NotificationService {
     });
   }
 
-  // Called when the user taps a local notification — navigate to /notifications
+  // Ruta pendiente cuando la app se abre desde una notificación (app cerrada)
+  static String? pendingRoute;
+
+  // Tap en una notificación local → abrir las ofertas con el diálogo
+  // de aceptar/rechazar directamente.
   static void _onTap(NotificationResponse response) {
     if (response.payload == "notifications") {
-      navigatorKey?.currentState?.pushNamed("/notifications");
+      openOffers();
     }
   }
 
-  // Assign this in main.dart if you want tap-navigation to work
-  static dynamic navigatorKey;
+  // Navega a la pantalla de ofertas abriendo el diálogo de la más reciente
+  static void openOffers() {
+    try {
+      appRouter.push("/notifications?open=1");
+    } catch (_) {
+      pendingRoute = "/notifications?open=1";
+    }
+  }
 
   static Future<void> requestPermission() async {
     if (_permissionRequested) return;

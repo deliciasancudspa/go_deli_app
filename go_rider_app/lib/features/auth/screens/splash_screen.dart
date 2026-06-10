@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "../../../core/services/notification_service.dart";
 import "../../../providers/rider_provider.dart";
 
 class SplashScreen extends StatefulWidget {
@@ -50,6 +51,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       context.go("/pending");
     } else {
       context.go("/dashboard");
+      // Si la app se abrió desde una notificación de pedido, abrir la oferta
+      final pending = NotificationService.pendingRoute;
+      if (pending != null) {
+        NotificationService.pendingRoute = null;
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (mounted) context.push(pending);
+        });
+      }
     }
   }
 
