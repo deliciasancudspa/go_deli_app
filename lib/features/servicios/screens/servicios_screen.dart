@@ -476,7 +476,12 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
                   color: _kPurple.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Center(child: Text(p["emoji"] ?? "🔧", style: const TextStyle(fontSize: 26))),
+                clipBehavior: Clip.antiAlias,
+                child: (p["logo_url"] as String?)?.isNotEmpty == true
+                    ? Image.network(p["logo_url"] as String, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Center(
+                            child: Text(p["emoji"] ?? "🔧", style: const TextStyle(fontSize: 26))))
+                    : Center(child: Text(p["emoji"] ?? "🔧", style: const TextStyle(fontSize: 26))),
               ),
               Positioned(right: -3, bottom: -3,
                 child: Container(
@@ -653,7 +658,8 @@ class _ProviderDetailSheet extends StatelessWidget {
     final phone    = (p["phone"] as String? ?? "").trim();
     final waRaw    = (p["whatsapp"] as String?)?.trim() ?? "";
     final whatsapp = waRaw.isNotEmpty ? waRaw : phone;
-    final photo    = p["photo_url"] as String?;
+    final logo     = p["logo_url"] as String?;
+    final portada  = p["photo_url"] as String?;
     final desc     = (p["description"] as String?)?.trim() ?? "";
     final services = (p["services"] as String?)?.trim() ?? "";
     final coverage = (p["coverage"] as String?)?.trim() ?? "";
@@ -676,6 +682,16 @@ class _ProviderDetailSheet extends StatelessWidget {
         Flexible(child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Portada
+            if (portada != null && portada.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.network(portada,
+                    width: double.infinity, height: 150, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+              ),
+              const SizedBox(height: 16),
+            ],
             // Header
             Row(children: [
               Container(
@@ -685,8 +701,8 @@ class _ProviderDetailSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: photo != null && photo.isNotEmpty
-                    ? Image.network(photo, fit: BoxFit.cover,
+                child: logo != null && logo.isNotEmpty
+                    ? Image.network(logo, fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Center(
                             child: Text(p["emoji"] ?? "🔧",
                                 style: const TextStyle(fontSize: 30))))

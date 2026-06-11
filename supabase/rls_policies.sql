@@ -610,3 +610,6 @@ grant execute on function public.claim_order(uuid) to authenticated;
 --     en un JSONB flexible y se muestran en la app y la web.
 -- ────────────────────────────────────────────────────────────────────────────
 alter table public.menu_items add column if not exists extra_info jsonb;
+
+-- Logo de prestadores de servicios (la portada usa photo_url)
+alter table public.service_providers add column if not exists logo_url text;
