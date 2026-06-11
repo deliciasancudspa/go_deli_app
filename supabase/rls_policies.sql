@@ -94,6 +94,7 @@ begin
   foreach t in array array[
     'users','orders','order_items','order_rejections',
     'stores','store_schedules','store_legal_info','store_payments',
+    'store_bank_info','store_contracts',
     'menu_items','menu_categories','categories',
     'deliverers','deliverer_bank_info','rider_payments',
     'user_addresses','user_favorites','user_coupons','coupons',
@@ -220,7 +221,7 @@ end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['store_legal_info','store_payments'] loop
+  foreach t in array array['store_legal_info','store_payments','store_bank_info','store_contracts'] loop
     if exists (select 1 from pg_tables where schemaname='public' and tablename=t) then
       execute format('drop policy if exists %I_all on public.%I', t, t);
       execute format(
@@ -613,3 +614,9 @@ alter table public.menu_items add column if not exists extra_info jsonb;
 
 -- Logo de prestadores de servicios (la portada usa photo_url)
 alter table public.service_providers add column if not exists logo_url text;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 17. NOTA: store_bank_info y store_contracts se crearon después del primer
+--     despliegue de RLS y quedaron SIN protección (datos bancarios y
+--     contratos legibles/escribibles por cualquiera). Este script ya las
+--     incluye en las secciones 2 y 5 — basta re-ejecutarlo completo.
