@@ -702,7 +702,6 @@ class _MercadosScreenState extends State<MercadosScreen> {
 
   Widget _buildMiniCard(Map<String, dynamic> item,
       Map<String, dynamic> store, CartProvider cart) {
-    final storeId  = store["id"] as String;
     final imgUrl   = item["image_url"] as String?;
     final discPct  = (item["discount_pct"] as int?) ?? 0;
     final price    = (item["price"] as num?)?.toInt() ?? 0;
