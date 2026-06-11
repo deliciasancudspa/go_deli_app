@@ -65,9 +65,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         .select("*, lat, lng, delivery_fee_mode, delivery_fee_store, delivery_fee_client")
         .eq("id", cart.currentStoreId!)
         .single();
+    // La receta se exige por PRODUCTO (requires_prescription), sin depender
+    // del nombre de categoría de la tienda — las farmacias suelen tener
+    // categorías múltiples ("Medicamentos,Vitaminas y Suplementos,…").
     bool needsRx = false;
-    if (store["category"] == "Farmacia" && cart.items.isNotEmpty) {
-      final ids = cart.items.map((i) => i.id).toList();
+    if (cart.items.isNotEmpty) {
+      // los ids del carrito pueden ser compuestos (id__variante)
+      final ids = cart.items.map((i) => i.id.split("__").first).toSet().toList();
       final menuItems = await _sb.from("menu_items")
         .select("id, requires_prescription")
         .inFilter("id", ids);
