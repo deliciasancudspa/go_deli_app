@@ -286,6 +286,93 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return false;
   }
 
+
+  // ── Ficha del producto: campos por tipo de negocio ─────────────────────────
+  // (farmacia: laboratorio/principio activo/formato · mercado: marca/unidad ·
+  //  tienda: marca/SKU/garantía · restaurante: tiempo/calorías/alérgenos)
+  Map<String, dynamic> get _extraInfo {
+    final raw = _item?["extra_info"];
+    try {
+      if (raw is Map) return raw.cast<String, dynamic>();
+      if (raw is String && raw.isNotEmpty) {
+        return (jsonDecode(raw) as Map).cast<String, dynamic>();
+      }
+    } catch (_) {}
+    return const {};
+  }
+
+  List<Widget> _productInfoSection() {
+    final x = _extraInfo;
+    final rows = <List<String>>[];
+    void add(String label, dynamic v, [String suffix = ""]) {
+      final s = v?.toString().trim() ?? "";
+      if (s.isNotEmpty) rows.add([label, "$s$suffix"]);
+    }
+
+    add("🏭 Laboratorio", x["laboratorio"]);
+    add("💊 Principio activo", _item?["active_ingredient"]);
+    add("📦 Formato", x["formato"]);
+    add("🏷️ Marca", x["marca"]);
+    if ((x["unidad"] ?? "un") != "un") add("⚖️ Se vende por", x["unidad"]);
+    add("🔢 Código", x["sku"]);
+    add("🛡️ Garantía", x["garantia"]);
+    add("⏱️ Preparación", _item?["preparation_time"], " min");
+    add("🔥 Calorías", _item?["calories"], " kcal");
+    final allergens = _item?["allergens"] as String?;
+    if (allergens != null && allergens.trim().isNotEmpty) {
+      rows.add(["⚠️ Alérgenos", allergens.split(",").map((a) => a.trim()).join(", ")]);
+    }
+
+    final badges = <List<dynamic>>[];
+    if (_item?["requires_prescription"] == true) badges.add([const Color(0xFFFEF3C7), const Color(0xFF92400E), "📋 Requiere receta médica"]);
+    if (x["refrigerado"] == true)                badges.add([const Color(0xFFE0F2FE), const Color(0xFF075985), "❄️ Refrigerado"]);
+    if (x["controlado"] == true)                 badges.add([const Color(0xFFFEE2E2), const Color(0xFF991B1B), "⚠️ Producto controlado"]);
+    if (_item?["contains_alcohol"] == true)      badges.add([const Color(0xFFFEE2E2), const Color(0xFF991B1B), "🔞 Contiene alcohol"]);
+    final tags = _item?["tags"] as String?;
+    if (tags != null) {
+      const labels = {"vegano": "🌱 Vegano", "vegetariano": "🥬 Vegetariano", "picante": "🌶️ Picante", "sin_gluten": "🌾 Sin gluten"};
+      for (final t in tags.split(",")) {
+        final l = labels[t.trim()];
+        if (l != null) badges.add([const Color(0xFFF0FDF4), const Color(0xFF166534), l]);
+      }
+    }
+
+    if (rows.isEmpty && badges.isEmpty) return const [];
+    return [
+      if (badges.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Wrap(spacing: 6, runSpacing: 6, children: badges.map((b) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: b[0] as Color, borderRadius: BorderRadius.circular(20)),
+          child: Text(b[2] as String, style: TextStyle(color: b[1] as Color, fontSize: 11, fontWeight: FontWeight.w800)),
+        )).toList()),
+      ],
+      if (rows.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(children: [
+            for (final r in rows) Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(r[0], style: const TextStyle(color: AppColors.textLight, fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 12),
+                Expanded(child: Text(r[1], textAlign: TextAlign.right,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
+              ]),
+            ),
+          ]),
+        ),
+      ],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -373,6 +460,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         style: const TextStyle(color: AppColors.textLight,
                             fontSize: 13, height: 1.4)),
                   ],
+                  ..._productInfoSection(),
                   const SizedBox(height: 10),
                   Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                     if (showOrig) ...[

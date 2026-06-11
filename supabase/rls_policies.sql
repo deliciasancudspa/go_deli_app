@@ -602,3 +602,11 @@ end $$;
 
 revoke all on function public.claim_order(uuid) from public;
 grant execute on function public.claim_order(uuid) to authenticated;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 16. INFORMACIÓN EXTRA DE PRODUCTOS POR TIPO DE NEGOCIO
+--     El panel de aliados recoge campos específicos (laboratorio, formato,
+--     marca, unidad, SKU, garantía, refrigerado, controlado…) que se guardan
+--     en un JSONB flexible y se muestran en la app y la web.
+-- ────────────────────────────────────────────────────────────────────────────
+alter table public.menu_items add column if not exists extra_info jsonb;
