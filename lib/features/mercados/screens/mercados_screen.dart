@@ -7,6 +7,7 @@ import "package:shimmer/shimmer.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/utils/category_match.dart";
 import "../../../providers/cart_provider.dart";
 
 const _kDark   = AppColors.homeDark;
@@ -128,9 +129,12 @@ class _MercadosScreenState extends State<MercadosScreen> {
         final raw = await _sb.from("categories")
             .select()
             .eq("is_active", true)
-            .or("screens.eq.mercados,screens.eq.all")
             .order("sort_order");
-        _cachedMainCats = List<Map<String,dynamic>>.from(raw as List);
+        // Aceptar listas de pantallas ("home,mercados") además de "mercados"/"all"
+        _cachedMainCats = List<Map<String,dynamic>>.from(raw as List).where((c) {
+          final s = (c["screens"] as String?) ?? "all";
+          return s == "all" || s.split(",").map((x) => x.trim()).contains("mercados");
+        }).toList();
         _catCachedAt = DateTime.now();
       } catch (_) {}
     }
@@ -157,11 +161,14 @@ class _MercadosScreenState extends State<MercadosScreen> {
 
     try {
       // 1 – stores
-      final storesRaw = key == "Todas"
-          ? await _sb.from("stores").select().eq("is_active", true).eq("status", "approved")
-          : await _sb.from("stores").select().eq("is_active", true).eq("status", "approved").eq("category", key);
+      final storesRaw = await _sb.from("stores").select().eq("is_active", true).eq("status", "approved");
 
+      // Filtro tolerante en cliente: los nombres de categoría del aliado no
+      // siempre son idénticos a los del admin ("Supermercado" vs "Mercado",
+      // listas separadas por coma, etc.)
       final stores = List<Map<String, dynamic>>.from(storesRaw)
+          .where((s) => storeMatchesCategory(s, key == "Todas" ? null : key))
+          .toList()
         ..sort((a, b) {
           final fa = a["featured_order"] as int?;
           final fb = b["featured_order"] as int?;

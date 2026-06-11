@@ -15,6 +15,7 @@ import "package:url_launcher/url_launcher.dart";
 import "../../../config/app_config.dart";
 import "../../../services/notification_service.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/utils/category_match.dart";
 import "../../../providers/cart_provider.dart";
 import "../../mercados/screens/mercados_screen.dart";
 import "../../servicios/screens/servicios_screen.dart";
@@ -78,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> get _featuredStores {
     final base = _selectedCat == null
         ? _allStores
-        : _allStores.where((s) => s["category"] == _selectedCat!["name"]).toList();
+        : _allStores.where((s) => storeMatchesCategory(s, _selectedCat!["name"] as String?)).toList();
     final list = base.where((s) => s["featured_order"] != null).toList()
       ..sort((a, b) => (a["featured_order"] as int).compareTo(b["featured_order"] as int));
     return list.take(8).toList();
@@ -87,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> get _nearbyStores {
     var base = _selectedCat == null
         ? List<Map<String, dynamic>>.from(_allStores)
-        : _allStores.where((s) => s["category"] == _selectedCat!["name"]).toList();
+        : _allStores.where((s) => storeMatchesCategory(s, _selectedCat!["name"] as String?)).toList();
     final featured = _featuredStores;
     if (featured.isNotEmpty) {
       final ids = featured.map((s) => s["id"] as String).toSet();
@@ -217,9 +218,12 @@ class _HomeScreenState extends State<HomeScreen> {
         final raw = await _sb.from("categories")
             .select()
             .eq("is_active", true)
-            .or("screens.eq.home,screens.eq.all")
             .order("sort_order");
-        _cachedCategories = List<Map<String, dynamic>>.from(raw);
+        // Aceptar listas de pantallas ("home,mercados") además de "home"/"all"
+        _cachedCategories = List<Map<String, dynamic>>.from(raw).where((c) {
+          final s = (c["screens"] as String?) ?? "all";
+          return s == "all" || s.split(",").map((x) => x.trim()).contains("home");
+        }).toList();
         _catCachedAt = DateTime.now();
       }
 
