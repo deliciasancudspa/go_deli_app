@@ -137,7 +137,10 @@ class _StoreScreenState extends State<StoreScreen> {
         final isPopular = item["is_popular"] == true;
         final navigateToDetail = isRestaurant || hasExtras;
         return GestureDetector(
-          onTap: navigateToDetail ? () => context.push("/product/${item["id"]}") : null,
+          // Tocar la tarjeta SIEMPRE abre la ficha del producto (laboratorio,
+          // marca, formato, etc. en todas las categorías); los botones +/-
+          // siguen agregando directo al carrito.
+          onTap: () => context.push("/product/${item["id"]}"),
           child: Container(
             margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             padding: const EdgeInsets.all(14),

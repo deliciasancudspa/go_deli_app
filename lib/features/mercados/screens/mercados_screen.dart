@@ -710,7 +710,8 @@ class _MercadosScreenState extends State<MercadosScreen> {
     final showOrig = discPct > 0 && origPrice != null && origPrice > price;
 
     return GestureDetector(
-      onTap: () => context.push("/store/$storeId"),
+      // Abrir la ficha completa del producto (detalles por categoría)
+      onTap: () => context.push("/product/${item["id"]}"),
       child: Container(
         width: 100,
         margin: const EdgeInsets.only(right: 8),
