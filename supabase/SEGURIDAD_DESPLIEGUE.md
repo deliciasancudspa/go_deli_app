@@ -140,3 +140,27 @@ de **debug**. Antes de publicar:
 - [ ] API key de Maps restringida
 - [ ] Confirmar en Supabase → Authentication que el email confirm está
       configurado como quieres para producción
+
+## 8. Asistente IA del panel de aliados (importar carta/catálogo)
+
+Nueva edge function `menu-import`: el aliado sube una foto/PDF de su carta,
+un link o texto; Claude (Anthropic) lo analiza y devuelve el menú
+estructurado; el panel muestra vista previa editable y lo carga al catálogo.
+Solo el dueño de la tienda (o admin) puede invocarla; la clave API vive en
+los secretos del servidor.
+
+Pasos manuales:
+1. Crear una API key en https://console.anthropic.com → API Keys
+2. Configurar el secreto y desplegar:
+   ```bash
+   npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref yxseolcaububyifhksud
+   npx supabase functions deploy menu-import --project-ref yxseolcaububyifhksud
+   ```
+   (requiere `npx supabase login` o SUPABASE_ACCESS_TOKEN)
+3. Desplegar el nuevo aliados.html
+4. Probar: panel aliados → Catálogo → "🤖 Asistente IA" → subir una foto de
+   una carta → revisar la vista previa → "Cargar al catálogo"
+
+Costos: usa el modelo claude-opus-4-8 (~1-5 centavos de dólar por carta
+analizada, según tamaño). La key se puede restringir con límite de gasto
+mensual en la consola de Anthropic.
