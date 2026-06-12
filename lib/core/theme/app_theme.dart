@@ -42,9 +42,9 @@ class WaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path();
-    path.lineTo(0, size.height - 20);
-    path.quadraticBezierTo(size.width * 0.25, size.height, size.width * 0.5, size.height - 15);
-    path.quadraticBezierTo(size.width * 0.75, size.height - 30, size.width, size.height - 10);
+    path.lineTo(0, size.height - 35);
+    path.quadraticBezierTo(size.width * 0.25, size.height + 10, size.width * 0.5, size.height - 20);
+    path.quadraticBezierTo(size.width * 0.75, size.height - 50, size.width, size.height - 25);
     path.lineTo(size.width, 0);
     path.close();
     return path;
@@ -57,11 +57,23 @@ class WaveClipper extends CustomClipper<Path> {
 class GradientFlexibleSpace extends StatelessWidget {
   const GradientFlexibleSpace({super.key});
   @override
-  Widget build(BuildContext context) => ClipPath(
-    clipper: WaveClipper(),
-    child: Container(
-      decoration: const BoxDecoration(gradient: AppColors.mainGradient),
-    ),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final h = constraints.maxHeight + 45;
+      return OverflowBox(
+        alignment: Alignment.topCenter,
+        maxHeight: h,
+        child: SizedBox(
+          height: h,
+          child: ClipPath(
+            clipper: WaveClipper(),
+            child: Container(
+              decoration: const BoxDecoration(gradient: AppColors.mainGradient),
+            ),
+          ),
+        ),
+      );
+    },
   );
 }
 

@@ -961,13 +961,13 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("¿Tienes un negocio?",
-              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.w600)),
+              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           const Text("Únete como Aliado",
               style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, fontFamily: "Nunito")),
           const SizedBox(height: 6),
           Text("Llega a más clientes con Go Deli",
-              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
+              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13)),
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

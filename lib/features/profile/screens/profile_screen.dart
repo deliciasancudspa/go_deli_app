@@ -480,11 +480,11 @@ class _PerfilScreenState extends State<PerfilScreen> {
                   color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
               const SizedBox(height: 2),
               Text(email,
-                style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 11)),
+                style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11)),
               if (since.isNotEmpty) ...[
                 const SizedBox(height: 2),
                 Text(since,
-                  style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                  style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10)),
               ],
               const SizedBox(height: 14),
               // Stats row

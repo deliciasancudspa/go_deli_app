@@ -351,7 +351,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
                       Text(cat["label"] as String,
                           style: TextStyle(
                               fontSize: 10, fontWeight: FontWeight.w700,
-                              color: active ? _kOrange : Colors.white.withOpacity(0.6),
+                              color: active ? _kOrange : Colors.white.withOpacity(0.85),
                               fontFamily: "Nunito")),
                     ],
                   ),
@@ -367,7 +367,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
           style: TextStyle(color: Colors.white, fontSize: 15,
               fontWeight: FontWeight.w900, fontFamily: "Nunito")),
       Text(_mainCatIdx == 0 ? "Todas las categorías" : (_allCats.length > _mainCatIdx ? _allCats[_mainCatIdx]["label"] as String : ""),
-          style: TextStyle(color: Colors.white.withOpacity(0.55),
+          style: TextStyle(color: Colors.white.withOpacity(0.85),
               fontSize: 11, fontFamily: "Nunito")),
     ]),
     actions: [

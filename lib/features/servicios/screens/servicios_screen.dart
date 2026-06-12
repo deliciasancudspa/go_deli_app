@@ -293,14 +293,14 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
             backgroundColor: Colors.transparent,
             flexibleSpace: const GradientFlexibleSpace(),
             toolbarHeight: 56,
-            title: const Column(
+            title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Servicios verificados",
+                const Text("Servicios verificados",
                     style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900, fontFamily: "Nunito")),
                 Text("Directorio",
-                    style: TextStyle(color: Colors.white54, fontSize: 11, fontFamily: "Nunito")),
+                    style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11, fontFamily: "Nunito")),
               ],
             ),
             actions: [
@@ -357,7 +357,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
                           const SizedBox(width: 4),
                           Text(cat["label"] as String,
                               style: TextStyle(
-                                color: active ? _kOrange : Colors.white,
+                                color: active ? _kOrange : Colors.white.withOpacity(0.85),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 fontFamily: "Nunito",
