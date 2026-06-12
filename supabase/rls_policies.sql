@@ -615,6 +615,12 @@ alter table public.menu_items add column if not exists extra_info jsonb;
 -- Logo de prestadores de servicios (la portada usa photo_url)
 alter table public.service_providers add column if not exists logo_url text;
 
+-- FK order_items → menu_items: SET NULL para permitir eliminar productos con historial
+-- (el historial queda intacto porque order_items guarda item_name/item_price como texto)
+alter table public.order_items drop constraint if exists order_items_menu_item_id_fkey;
+alter table public.order_items add constraint order_items_menu_item_id_fkey
+  foreign key (menu_item_id) references public.menu_items(id) on delete set null;
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 17. NOTA: store_bank_info y store_contracts se crearon después del primer
 --     despliegue de RLS y quedaron SIN protección (datos bancarios y

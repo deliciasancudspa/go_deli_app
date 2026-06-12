@@ -88,6 +88,7 @@ async function extractMenu(contentBlocks: unknown[], businessType: string) {
     body: JSON.stringify({
       model: "claude-opus-4-8",
       max_tokens: 16000,
+      thinking: { type: "adaptive" },
       system: SYSTEM_PROMPT,
       output_config: { format: { type: "json_schema", schema: MENU_SCHEMA } },
       messages: [{
@@ -107,8 +108,8 @@ async function extractMenu(contentBlocks: unknown[], businessType: string) {
   if (!res.ok) {
     throw new Error(data?.error?.message ?? `Claude API ${res.status}`);
   }
-  if (data.stop_reason === "refusal") {
-    throw new Error("El material no pudo ser procesado.");
+  if (data.stop_reason === "max_tokens") {
+    throw new Error("El material es demasiado extenso; intenta con una sección más pequeña.");
   }
   const text = (data.content ?? []).find((b: { type: string }) => b.type === "text")?.text;
   if (!text) throw new Error("Respuesta vacía del modelo");
@@ -120,25 +121,25 @@ serve(async (req) => {
 
   try {
     if (!ANTHROPIC_API_KEY) {
-      return json({ ok: false, error: "ANTHROPIC_API_KEY no está configurada en los secretos" }, 500);
+      return json({ ok: false, error: "ANTHROPIC_API_KEY no está configurada en los secretos" });
     }
 
     // ── Autorización: dueño de la tienda o admin ──
     const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-    if (!jwt) return json({ ok: false, error: "Sin autorización" }, 401);
+    if (!jwt) return json({ ok: false, error: "Sin autorización" });
     const sb = createClient(SUPABASE_URL, SUPABASE_SVC_KEY);
     const { data: { user } } = await sb.auth.getUser(jwt);
-    if (!user) return json({ ok: false, error: "Sesión inválida" }, 401);
+    if (!user) return json({ ok: false, error: "Sesión inválida" });
 
     const body = await req.json();
     const storeId = body.store_id as string;
-    if (!storeId) return json({ ok: false, error: "Falta store_id" }, 400);
+    if (!storeId) return json({ ok: false, error: "Falta store_id" });
 
     const { data: profile } = await sb.from("users").select("id, role").eq("auth_id", user.id).single();
     const { data: store } = await sb.from("stores").select("id, owner_id, store_type").eq("id", storeId).single();
-    if (!store) return json({ ok: false, error: "Tienda no encontrada" }, 404);
+    if (!store) return json({ ok: false, error: "Tienda no encontrada" });
     if (store.owner_id !== profile?.id && profile?.role !== "admin") {
-      return json({ ok: false, error: "No eres el dueño de esta tienda" }, 403);
+      return json({ ok: false, error: "No eres el dueño de esta tienda" });
     }
 
     // ── Construir bloques de contenido según la fuente ──
@@ -146,7 +147,6 @@ serve(async (req) => {
     const blocks: unknown[] = [];
 
     if (source.type === "image") {
-      // foto de la carta (base64)
       blocks.push({
         type: "image",
         source: { type: "base64", media_type: source.media_type ?? "image/jpeg", data: source.data },
@@ -157,9 +157,8 @@ serve(async (req) => {
         source: { type: "base64", media_type: "application/pdf", data: source.data },
       });
     } else if (source.type === "url") {
-      // Descargar la URL en el servidor y clasificar el contenido
       const resp = await fetch(source.url!, { headers: { "User-Agent": "GoDeliBot/1.0" } });
-      if (!resp.ok) return json({ ok: false, error: `No se pudo acceder a la URL (${resp.status})` }, 400);
+      if (!resp.ok) return json({ ok: false, error: `No se pudo acceder a la URL (${resp.status})` });
       const ctype = resp.headers.get("content-type") ?? "";
       if (ctype.includes("pdf")) {
         const buf = new Uint8Array(await resp.arrayBuffer());
@@ -171,7 +170,6 @@ serve(async (req) => {
       } else if (ctype.startsWith("image/")) {
         blocks.push({ type: "image", source: { type: "url", url: source.url } });
       } else {
-        // página web: pasar el HTML sin scripts/estilos, recortado
         let html = await resp.text();
         html = html
           .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -184,12 +182,12 @@ serve(async (req) => {
     } else if (source.type === "text") {
       blocks.push({ type: "text", text: (source.text ?? "").slice(0, 150_000) });
     } else {
-      return json({ ok: false, error: "Tipo de fuente no soportado" }, 400);
+      return json({ ok: false, error: "Tipo de fuente no soportado" });
     }
 
     const menu = await extractMenu(blocks, store.store_type ?? "restaurante");
     return json({ ok: true, menu });
   } catch (e) {
-    return json({ ok: false, error: String((e as Error).message ?? e) }, 500);
+    return json({ ok: false, error: String((e as Error).message ?? e) });
   }
 });
