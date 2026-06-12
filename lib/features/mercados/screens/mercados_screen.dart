@@ -294,12 +294,13 @@ class _MercadosScreenState extends State<MercadosScreen> {
     pinned: true,
     floating: false,
     automaticallyImplyLeading: false,
-    backgroundColor: _kDark,
+    backgroundColor: Colors.transparent,
+    flexibleSpace: const GradientFlexibleSpace(),
     toolbarHeight: 60,
     bottom: PreferredSize(
       preferredSize: const Size.fromHeight(76),
       child: Container(
-        color: _kDark,
+        color: Colors.transparent,
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         child: SizedBox(
           height: 72,
@@ -692,7 +693,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
       );
 
   Widget _avatarPh(Map<String, dynamic> store) => Container(
-    color: _kDark,
+    color: AppColors.secondary,
     child: Center(child: Text(
         store["emoji"] as String? ?? "🛒",
         style: const TextStyle(fontSize: 22))),
@@ -982,7 +983,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
             setState(() => _mainCatIdx = targetIdx);
             _loadData();
           },
-          style: ElevatedButton.styleFrom(backgroundColor: _kDark),
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
           child: const Text("Sí, soy mayor de 18"),
         ),
       ],
@@ -1021,7 +1022,7 @@ class _StoreSearchDelegate extends SearchDelegate<String> {
   @override
   ThemeData appBarTheme(BuildContext context) => Theme.of(context).copyWith(
     appBarTheme: const AppBarTheme(
-        backgroundColor: _kDark, foregroundColor: Colors.white),
+        backgroundColor: AppColors.secondary, foregroundColor: Colors.white),
     inputDecorationTheme: InputDecorationTheme(
       hintStyle: TextStyle(color: Colors.white.withOpacity(0.45)),
     ),

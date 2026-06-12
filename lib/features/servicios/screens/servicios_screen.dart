@@ -290,7 +290,8 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
           SliverAppBar(
             pinned: true,
             automaticallyImplyLeading: false,
-            backgroundColor: _kDark,
+            backgroundColor: Colors.transparent,
+            flexibleSpace: const GradientFlexibleSpace(),
             toolbarHeight: 56,
             title: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,

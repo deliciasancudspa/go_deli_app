@@ -1,26 +1,68 @@
 import "package:flutter/material.dart";
 
 class AppColors {
-  static const Color primary    = Color(0xFF7C3AED);
-  static const Color secondary  = Color(0xFF5B21B6);
-  static const Color accent     = Color(0xFFFF6B35);
+  // ── Paleta nueva ──────────────────────────────────────────────────────────
+  static const Color primary    = Color(0xFF9E00FF);   // morado principal
+  static const Color secondary  = Color(0xFF7B00CC);   // morado oscuro
+  static const Color accent     = Color(0xFFFF6B00);   // naranja principal
   static const Color success    = Color(0xFF22C55E);
   static const Color error      = Color(0xFFEF4444);
   static const Color warning    = Color(0xFFF59E0B);
   static const Color info       = Color(0xFF3B82F6);
-  static const Color background = Color(0xFFF8F9FA);
+  static const Color background = Color(0xFFF8F4FF);   // fondo claro con tinte morado
   static const Color surface    = Color(0xFFFFFFFF);
   static const Color textDark   = Color(0xFF1A1A2E);
   static const Color textMedium = Color(0xFF374151);
   static const Color textLight  = Color(0xFF9CA3AF);
-  static const Color border     = Color(0xFFE5E7EB);
+  static const Color border     = Color(0xFFE5E0F0);   // borde con tinte morado
 
   // Home screen palette
-  static const Color homeDark       = Color(0xFF1A0033);
-  static const Color homeOrange     = Color(0xFFFF6B00);
-  static const Color homePurple     = Color(0xFF9E00FF);
-  static const Color homeBackground = Color(0xFFF5F0FF);
+  static const Color homeDark       = Color(0xFF1A0033);   // fondo oscuro
+  static const Color homeOrange     = Color(0xFFFF6B00);   // naranja
+  static const Color homePurple     = Color(0xFF9E00FF);   // morado
+  static const Color homeBackground = Color(0xFFF8F4FF);   // fondo claro
   static const Color homeCardBorder = Color(0x229E00FF);
+
+  // ── Gradientes ────────────────────────────────────────────────────────────
+  static const LinearGradient mainGradient = LinearGradient(
+    colors: [Color(0xFF9E00FF), Color(0xFFFF6B00)],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+
+  static const LinearGradient darkGradient = LinearGradient(
+    colors: [Color(0xFF7B00CC), Color(0xFFFF4500)],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+}
+
+// ── WaveClipper ───────────────────────────────────────────────────────────────
+class WaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.lineTo(0, size.height - 20);
+    path.quadraticBezierTo(size.width * 0.25, size.height, size.width * 0.5, size.height - 15);
+    path.quadraticBezierTo(size.width * 0.75, size.height - 30, size.width, size.height - 10);
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> old) => false;
+}
+
+// ── Widget helper para AppBar con gradiente + ola ─────────────────────────────
+class GradientFlexibleSpace extends StatelessWidget {
+  const GradientFlexibleSpace({super.key});
+  @override
+  Widget build(BuildContext context) => ClipPath(
+    clipper: WaveClipper(),
+    child: Container(
+      decoration: const BoxDecoration(gradient: AppColors.mainGradient),
+    ),
+  );
 }
 
 class AppTheme {
@@ -36,7 +78,7 @@ class AppTheme {
     ),
     scaffoldBackgroundColor: AppColors.background,
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.primary,
+      backgroundColor: Colors.transparent,
       foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: true,
@@ -78,8 +120,8 @@ class AppTheme {
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: AppColors.surface,
-      selectedItemColor: AppColors.accent,
-      unselectedItemColor: AppColors.textLight,
+      selectedItemColor: AppColors.primary,
+      unselectedItemColor: Color(0xFF888888),
       type: BottomNavigationBarType.fixed,
       elevation: 12,
       selectedLabelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 11),

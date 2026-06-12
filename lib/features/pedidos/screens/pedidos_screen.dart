@@ -185,7 +185,9 @@ class _PedidosScreenState extends State<PedidosScreen>
           // Header
           SliverAppBar(
             pinned: true, automaticallyImplyLeading: false,
-            backgroundColor: _kDark, toolbarHeight: 56,
+            backgroundColor: Colors.transparent,
+            flexibleSpace: const GradientFlexibleSpace(),
+            toolbarHeight: 56,
             title: Row(children: [
               const Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,10 +294,7 @@ class _PedidosScreenState extends State<PedidosScreen>
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF6B00), Color(0xFFCC5500)],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-        ),
+        gradient: AppColors.mainGradient,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: _kOrange.withOpacity(0.35), blurRadius: 16, offset: const Offset(0, 6))],
       ),
@@ -336,7 +335,7 @@ class _PedidosScreenState extends State<PedidosScreen>
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: _kDark,
+                gradient: AppColors.darkGradient,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(children: [

@@ -419,7 +419,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       pinned: true,
       automaticallyImplyLeading: false,
       elevation: 0,
-      backgroundColor: _kDark,
+      backgroundColor: Colors.transparent,
       title: Text(name,
         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
       actions: [
@@ -432,7 +432,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       flexibleSpace: FlexibleSpaceBar(
         collapseMode: CollapseMode.parallax,
         background: Container(
-          color: _kDark,
+          decoration: const BoxDecoration(gradient: AppColors.mainGradient),
           padding: EdgeInsets.only(
             top: MediaQuery.of(context).padding.top + 56,
             left: 20, right: 20, bottom: 16),

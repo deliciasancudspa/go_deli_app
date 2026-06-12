@@ -84,6 +84,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text("Seguimiento del pedido"),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: const GradientFlexibleSpace(),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
       ),
       body: Column(children: [
@@ -92,10 +94,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: isDone ? [AppColors.success, const Color(0xFF16A34A)] : [AppColors.primary, const Color(0xFF5B21B6)],
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-            ),
+            gradient: isDone ? AppColors.darkGradient : AppColors.mainGradient,
           ),
           child: Column(children: [
             Text(icons[status] ?? "⏳", style: const TextStyle(fontSize: 48)),
@@ -122,9 +121,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
                     duration: const Duration(milliseconds: 400),
                     width: 36, height: 36,
                     decoration: BoxDecoration(
-                      color: done ? AppColors.primary : AppColors.border,
+                      color: isCur ? AppColors.accent : (done ? AppColors.primary : AppColors.border),
                       shape: BoxShape.circle,
-                      boxShadow: isCur ? [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 10)] : [],
+                      boxShadow: isCur ? [BoxShadow(color: AppColors.accent.withOpacity(0.4), blurRadius: 10)] : [],
                     ),
                     child: Center(child: done
                       ? const Icon(Icons.check, color: Colors.white, size: 18)

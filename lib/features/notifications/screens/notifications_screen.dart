@@ -74,6 +74,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text("Notificaciones"),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: const GradientFlexibleSpace(),
         actions: [
           if (_orders.isNotEmpty) TextButton(
             onPressed: _load,

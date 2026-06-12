@@ -47,18 +47,23 @@ class _SearchScreenState extends State<SearchScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.secondary,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: const GradientFlexibleSpace(),
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => context.pop()),
         title: TextField(
           controller: _ctrl, autofocus: true,
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(hintText: "Buscar tiendas...", hintStyle: TextStyle(color: Colors.white38), border: InputBorder.none, filled: false),
+          decoration: InputDecoration(
+            hintText: "Buscar tiendas...",
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.70)),
+            border: InputBorder.none, filled: false,
+          ),
           onChanged: _search,
         ),
       ),
       body: Column(children: [
         Container(
-          color: AppColors.secondary,
+          decoration: const BoxDecoration(gradient: AppColors.mainGradient),
           padding: const EdgeInsets.only(bottom: 12),
           child: SizedBox(height: 36, child: ListView.builder(
             scrollDirection: Axis.horizontal,

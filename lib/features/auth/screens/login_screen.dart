@@ -43,20 +43,20 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF1A0033),
       body: Stack(children: [
-        // Mismos detalles decorativos que la pantalla de carga
+        // Detalles decorativos con nueva paleta sobre fondo oscuro
         Positioned(top: -80, right: -80, child: Container(
           width: 320, height: 320,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFFFF6B35).withOpacity(0.08)),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFFFF6B00).withOpacity(0.15)),
         )),
         Positioned(bottom: -60, left: -60, child: Container(
           width: 260, height: 260,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF7C3AED).withOpacity(0.08)),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF9E00FF).withOpacity(0.18)),
         )),
         Positioned(top: 180, left: -40, child: Container(
           width: 160, height: 160,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFFFF6B35).withOpacity(0.05)),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFFFF6B00).withOpacity(0.08)),
         )),
         SafeArea(
         child: SingleChildScrollView(
@@ -79,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.border),
-                boxShadow: [BoxShadow(color: const Color(0xFF7C3AED).withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6))],
+                boxShadow: [BoxShadow(color: const Color(0xFF9E00FF).withOpacity(0.10), blurRadius: 16, offset: const Offset(0, 6))],
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text("Iniciar sesion", style: TextStyle(color: AppColors.textDark, fontSize: 20, fontWeight: FontWeight.w800)),
@@ -123,11 +123,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton(onPressed: () {}, child: const Text("Olvidaste tu contrasena?", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700))),
                 ),
-                ElevatedButton(
-                  onPressed: auth.loading ? null : _login,
-                  child: auth.loading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text("Entrar"),
+                Container(
+                  width: double.infinity, height: 52,
+                  decoration: BoxDecoration(
+                    gradient: auth.loading ? null : AppColors.mainGradient,
+                    color: auth.loading ? AppColors.border : null,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: auth.loading ? null : _login,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Center(child: auth.loading
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text("Entrar", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800, fontFamily: "Nunito"))),
+                    ),
+                  ),
                 ),
               ]),
             ),

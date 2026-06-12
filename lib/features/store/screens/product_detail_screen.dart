@@ -381,7 +381,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
     if (_item == null) {
       return Scaffold(
-        appBar: AppBar(backgroundColor: _kDark,
+        appBar: AppBar(backgroundColor: AppColors.primary,
             leading: const BackButton(color: Colors.white)),
         body: const Center(child: Text("Producto no encontrado")),
       );
@@ -401,7 +401,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           SliverAppBar(
             expandedHeight: 240,
             pinned: true,
-            backgroundColor: _kDark,
+            backgroundColor: AppColors.primary,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => context.pop(),
@@ -566,7 +566,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _imgPh() => Container(
-    color: _kDark,
+    color: AppColors.secondary,
     child: Center(child: Text(_item?["emoji"] as String? ?? "🍽️",
         style: const TextStyle(fontSize: 72))),
   );

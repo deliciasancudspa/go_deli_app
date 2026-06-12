@@ -302,7 +302,10 @@ class _HomeScreenState extends State<HomeScreen> {
     const activeIcons   = [Icons.home_rounded, Icons.storefront_rounded, Icons.handyman_rounded, Icons.receipt_long_rounded, Icons.person_rounded];
     const inactiveIcons = [Icons.home_outlined, Icons.storefront_outlined, Icons.handyman_outlined, Icons.receipt_long_outlined, Icons.person_outline];
     return Container(
-      color: _kDark,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -2))],
+      ),
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
       child: Row(
         children: List.generate(5, (i) {
@@ -311,28 +314,35 @@ class _HomeScreenState extends State<HomeScreen> {
             child: GestureDetector(
               onTap: () => setState(() => _navIdx = i),
               behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(active ? activeIcons[i] : inactiveIcons[i],
-                      color: active ? _kOrange : Colors.white.withOpacity(0.4),
-                      size: 22),
-                  const SizedBox(height: 2),
-                  Text(labels[i],
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: active ? _kOrange : Colors.white.withOpacity(0.4),
-                        fontFamily: "Nunito",
-                      )),
-                  const SizedBox(height: 4),
-                  Container(
-                    width: active ? 5 : 0,
-                    height: active ? 5 : 0,
-                    decoration: const BoxDecoration(color: _kOrange, shape: BoxShape.circle),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                // Indicador superior con gradiente
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 3,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    gradient: active ? AppColors.mainGradient : null,
+                    color: active ? null : Colors.transparent,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                ]),
-              ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(active ? activeIcons[i] : inactiveIcons[i],
+                        color: active ? _kPurple : const Color(0xFF888888),
+                        size: 22),
+                    const SizedBox(height: 2),
+                    Text(labels[i],
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: active ? _kPurple : const Color(0xFF888888),
+                          fontFamily: "Nunito",
+                        )),
+                  ]),
+                ),
+              ]),
             ),
           );
         }),
@@ -354,26 +364,28 @@ class _HomeScreenState extends State<HomeScreen> {
           pinned: true,
           floating: false,
           automaticallyImplyLeading: false,
-          backgroundColor: _kDark,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           toolbarHeight: 56,
+          flexibleSpace: const GradientFlexibleSpace(),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(52),
             child: Container(
-              color: _kDark,
+              color: Colors.transparent,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: GestureDetector(
                 onTap: () => context.push("/search"),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withOpacity(0.20),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.search, color: Colors.white54, size: 20),
+                    Icon(Icons.search, color: Colors.white.withOpacity(0.70), size: 20),
                     const SizedBox(width: 8),
                     Text("Buscar tiendas o productos...",
-                        style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 14, fontFamily: "Nunito")),
+                        style: TextStyle(color: Colors.white.withOpacity(0.70), fontSize: 14, fontFamily: "Nunito")),
                   ]),
                 ),
               ),
@@ -931,8 +943,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _coverPlaceholder(Map<String, dynamic> s, double height) => Container(
     height: height, width: double.infinity,
-    decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [_kDark, _kPurple], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+    decoration: const BoxDecoration(gradient: AppColors.darkGradient),
     child: Center(child: Text(s["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 40))),
   );
 
@@ -943,9 +954,7 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.fromLTRB(16, 24, 16, 0),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-            colors: [_kDark, Color(0xFF3D0080)],
-            begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: AppColors.darkGradient,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [BoxShadow(color: _kPurple.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 6))],
       ),

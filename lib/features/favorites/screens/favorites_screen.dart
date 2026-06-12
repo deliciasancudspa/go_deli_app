@@ -37,7 +37,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text("Mis favoritos")),
+      appBar: AppBar(
+        title: const Text("Mis favoritos"),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: const GradientFlexibleSpace(),
+      ),
       body: _loading
         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
         : _favorites.isEmpty
