@@ -170,9 +170,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             callback: (payload) {
               if (!mounted) return;
               final rec = payload.newRecord;
-              if ((rec["receiver_id"] as String?) != userId) return;  // client-side filter
-              final sender = rec["sender_type"] as String? ?? "cliente";
-              NotificationService.show(title: "💬 Mensaje de $sender", body: rec["message"] as String? ?? "");
+              if ((rec["receiver_id"] as String?) != userId) return;
+              final orderId = rec["order_id"] as String?;
+              if (orderId == null) return;
+              final msg = rec["message"] as String? ?? "";
+              NotificationService.show(
+                title: "💬 Mensaje del cliente",
+                body: msg,
+                payload: "/chat/$orderId",
+              );
             },
           ).subscribe();
         } catch (_) { _chatSubscribed = false; _subscribedUserId = ""; }

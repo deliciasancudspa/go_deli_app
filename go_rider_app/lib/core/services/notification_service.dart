@@ -43,11 +43,18 @@ class NotificationService {
   // Ruta pendiente cuando la app se abre desde una notificación (app cerrada)
   static String? pendingRoute;
 
-  // Tap en una notificación local → abrir las ofertas con el diálogo
-  // de aceptar/rechazar directamente.
+  // Tap en una notificación local → navega al payload o abre las ofertas.
   static void _onTap(NotificationResponse response) {
-    if (response.payload == "notifications") {
+    final payload = response.payload;
+    if (payload == null) return;
+    if (payload == "notifications") {
       openOffers();
+    } else {
+      try {
+        appRouter.push(payload);
+      } catch (_) {
+        pendingRoute = payload;
+      }
     }
   }
 
