@@ -21,16 +21,41 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _gpsActive = false;
   bool _deliveryLoading = false;
   Timer? _gpsTimer;
+  RealtimeChannel? _orderChannel;
   final _sb = Supabase.instance.client;
   final _deliveryCodeCtrl = TextEditingController();
 
   static const _activeStatuses = ["assigned", "picked_up", "on_the_way"];
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+    _subscribeOrder();
+  }
+
+  void _subscribeOrder() {
+    _orderChannel = _sb.channel("order-detail-${widget.orderId}")
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: "public",
+          table: "orders",
+          callback: (payload) {
+            if (!mounted) return;
+            final id = payload.newRecord["id"] as String?;
+            if (id != widget.orderId) return;
+            _load();
+          },
+        ).subscribe();
+  }
 
   @override
-  void dispose() { _stopGps(); _deliveryCodeCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _stopGps();
+    _deliveryCodeCtrl.dispose();
+    _orderChannel?.unsubscribe();
+    super.dispose();
+  }
 
   Future<void> _load() async {
     try {

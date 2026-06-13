@@ -162,10 +162,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   int get _totalPrice => _basePrice + _extrasTotal;
 
-  // Disabled until all variant_groups have a selection
+  // Disabled until all required groups have enough selections
   bool get _canAddToCart {
     for (var gi = 0; gi < _variantGroups.length; gi++) {
       if (!_selectedVGItems.containsKey(gi)) return false;
+    }
+    for (final g in _optGroups) {
+      final minSel = (g["min_sel"] as num?)?.toInt() ?? 0;
+      if (minSel > 0) {
+        final title = g["title"] as String? ?? "";
+        final selected = _selectedExtras.where((k) => k.startsWith("$title::")).length;
+        if (selected < minSel) return false;
+      }
     }
     return true;
   }
@@ -493,13 +501,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               // Options / adicionales
               for (final group in _optGroups) ...[
                 const SizedBox(height: 10),
-                _section(group["title"] as String? ?? "Adicionales",
-                  child: Column(
-                    children: (group["items"] as List? ?? [])
-                        .cast<Map<String, dynamic>>()
-                        .map((it) => _optionTile(group, it))
-                        .toList(),
-                  )),
+                _optionGroupSection(group),
               ],
 
               // Recommendations
@@ -555,7 +557,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Text(
                 _canAddToCart
                     ? "Agregar · ${_fmt(_totalPrice)}"
-                    : "Selecciona una opción",
+                    : _variantGroups.isNotEmpty &&
+                        List.generate(_variantGroups.length, (i) => i).any((i) => !_selectedVGItems.containsKey(i))
+                        ? "Selecciona una opción"
+                        : "Selecciona los adicionales requeridos",
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
             ),
@@ -726,25 +731,92 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  Widget _optionGroupSection(Map<String, dynamic> group) {
+    final title  = group["title"] as String? ?? "Adicionales";
+    final minSel = (group["min_sel"] as num?)?.toInt() ?? 0;
+    final maxSel = (group["max_sel"] as num?)?.toInt() ?? 0;
+    final selected = _selectedExtras.where((k) => k.startsWith("$title::")).length;
+
+    String? hint;
+    if (minSel > 0 && maxSel > 0) hint = "Elige entre $minSel y $maxSel";
+    else if (minSel > 0)           hint = "Mínimo $minSel";
+    else if (maxSel > 0)           hint = "Máximo $maxSel";
+
+    final isRequired = minSel > 0;
+    final isSatisfied = !isRequired || selected >= minSel;
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _kDark)),
+            if (hint != null)
+              Text(hint, style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+          ])),
+          if (maxSel > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: selected >= maxSel ? _kOrange.withOpacity(0.12) : AppColors.background,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text("$selected/$maxSel",
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                      color: selected >= maxSel ? _kOrange : AppColors.textLight)),
+            )
+          else if (isRequired)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isSatisfied
+                    ? AppColors.success.withOpacity(0.12)
+                    : _kOrange.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(isSatisfied ? "✓ Listo" : "Requerido",
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                      color: isSatisfied ? AppColors.success : _kOrange)),
+            ),
+        ]),
+        const SizedBox(height: 10),
+        Column(
+          children: (group["items"] as List? ?? [])
+              .cast<Map<String, dynamic>>()
+              .map((it) => _optionTile(group, it))
+              .toList(),
+        ),
+      ]),
+    );
+  }
+
   Widget _optionTile(Map<String, dynamic> group, Map<String, dynamic> it) {
-    final key   = "${group["title"]}::${it["name"]}";
-    final price = (it["price"] as num?)?.toInt() ?? 0;
+    final title  = group["title"] as String? ?? "";
+    final key    = "$title::${it["name"]}";
+    final price  = (it["price"] as num?)?.toInt() ?? 0;
+    final maxSel = (group["max_sel"] as num?)?.toInt() ?? 0;
+    final selected = _selectedExtras.where((k) => k.startsWith("$title::")).length;
+    final isSelected = _selectedExtras.contains(key);
+    final disabled   = maxSel > 0 && !isSelected && selected >= maxSel;
+
     return CheckboxListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
       activeColor: _kOrange,
       checkColor: Colors.white,
       title: Text(it["name"] as String? ?? "",
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+              color: disabled ? AppColors.textLight : _kDark)),
       secondary: price > 0
           ? Text(_fmt(price),
-              style: const TextStyle(color: _kOrange, fontWeight: FontWeight.w700))
-          : const Text("Gratis",
-              style: TextStyle(color: AppColors.textLight, fontSize: 12)),
-      value: _selectedExtras.contains(key),
-      onChanged: (v) => setState(() {
+              style: TextStyle(color: disabled ? AppColors.textLight : _kOrange, fontWeight: FontWeight.w700))
+          : Text("Gratis",
+              style: TextStyle(color: disabled ? AppColors.border : AppColors.textLight, fontSize: 12)),
+      value: isSelected,
+      onChanged: disabled ? null : (v) => setState(() {
         if (v == true) { _selectedExtras.add(key); }
-        else { _selectedExtras.remove(key); }
+        else           { _selectedExtras.remove(key); }
       }),
     );
   }
