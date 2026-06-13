@@ -19,6 +19,7 @@ import "../../../core/utils/category_match.dart";
 import "../../../providers/cart_provider.dart";
 import "../../mercados/screens/mercados_screen.dart";
 import "../../servicios/screens/servicios_screen.dart";
+import "../widgets/store_card.dart";
 import "../../pedidos/screens/pedidos_screen.dart";
 import "../../profile/screens/profile_screen.dart";
 
@@ -45,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _banners    = [];
   List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _allStores  = [];
+  List<_HomeSection>          _homeSections = [];
   bool _loadingHome = true;
   Map<String, List<Map<String, dynamic>>> _featuredItems = {};
   double? _userLat;
@@ -245,8 +247,21 @@ class _HomeScreenState extends State<HomeScreen> {
       // Stores (always fresh)
       final storesRaw = await _sb.from("stores").select().eq("status", "approved").eq("is_active", true);
 
+      // Dynamic home sections
+      final sectionsRaw = await _sb
+          .from("home_sections")
+          .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
+          .or("screen.eq.home,screen.eq.all")
+          .eq("is_active", true)
+          .order("sort_order");
+      final sections = (sectionsRaw as List)
+          .map((s) => _HomeSection.fromJson(s as Map<String, dynamic>))
+          .toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
       // Featured items for highlighted stores (is_featured OR discount_pct > 0)
-      final featIds = (storesRaw as List).cast<Map<String, dynamic>>()
+      final allStoresList = (storesRaw as List).cast<Map<String, dynamic>>();
+      final featIds = allStoresList
           .where((s) => s["featured_order"] != null)
           .map((s) => s["id"] as String)
           .toList();
@@ -270,7 +285,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() {
         _categories    = List<Map<String, dynamic>>.from(_cachedCategories ?? []);
         _banners       = List<Map<String, dynamic>>.from(_cachedBanners    ?? []);
-        _allStores     = List<Map<String, dynamic>>.from(storesRaw);
+        _allStores     = allStoresList;
+        _homeSections  = sections;
         _featuredItems = featItems;
         _loadingHome   = false;
       });
@@ -460,54 +476,65 @@ class _HomeScreenState extends State<HomeScreen> {
         )),
         SliverToBoxAdapter(child: _loadingHome ? _catsShimmer() : _buildCategories()),
 
-        // ── Destacados ───────────────────────────────────────────────────────
-        if (_loadingHome || _featuredStores.isNotEmpty) ...[
-          const SliverToBoxAdapter(child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-            child: Text("Destacados para ti",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _kDark)),
-          )),
+        // ── Si hay categoría seleccionada: resultados inmediatos ─────────────
+        if (_selectedCat != null) ...[
+          if (_loadingHome)
+            SliverToBoxAdapter(child: _storeShimmer())
+          else if (_nearbyStores.isEmpty)
+            const SliverToBoxAdapter(child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: Text("Sin tiendas en esta categoría",
+                  style: TextStyle(color: AppColors.textLight))),
+            ))
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (_, i) => _nearbyCard(_nearbyStores[i]),
+                  childCount: _nearbyStores.length,
+                ),
+              ),
+            ),
+        ] else ...[
+          // ── Secciones dinámicas ─────────────────────────────────────────────
           if (_loadingHome)
             SliverToBoxAdapter(child: _storeShimmer())
           else
+            ..._homeSections.map((sec) => SliverToBoxAdapter(
+              child: sec.sectionType == "banner"
+                  ? _buildBannerSection(sec)
+                  : _buildStoreSection(sec),
+            )),
+
+          // ── Banner aliado ───────────────────────────────────────────────────
+          SliverToBoxAdapter(child: _buildAliadoBanner()),
+
+          // ── Cerca de ti ────────────────────────────────────────────────────
+          const SliverToBoxAdapter(child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+            child: Text("Cerca de ti", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _kDark)),
+          )),
+
+          if (_loadingHome)
+            SliverToBoxAdapter(child: _storeShimmer())
+          else if (_nearbyStores.isEmpty)
+            const SliverToBoxAdapter(child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: Text("Sin tiendas en esta categoría",
+                  style: TextStyle(color: AppColors.textLight))),
+            ))
+          else
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (_, i) => _featuredStoreCard(_featuredStores[i]),
-                  childCount: _featuredStores.length,
+                  (_, i) => _nearbyCard(_nearbyStores[i]),
+                  childCount: _nearbyStores.length,
                 ),
               ),
             ),
         ],
-
-        // ── Banner aliado ────────────────────────────────────────────────────
-        SliverToBoxAdapter(child: _buildAliadoBanner()),
-
-        // ── Cerca de ti ──────────────────────────────────────────────────────
-        const SliverToBoxAdapter(child: Padding(
-          padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-          child: Text("Cerca de ti", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _kDark)),
-        )),
-
-        if (_loadingHome)
-          SliverToBoxAdapter(child: _storeShimmer())
-        else if (_nearbyStores.isEmpty)
-          const SliverToBoxAdapter(child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Center(child: Text("Sin tiendas en esta categoría",
-                style: TextStyle(color: AppColors.textLight))),
-          ))
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (_, i) => _nearbyCard(_nearbyStores[i]),
-                childCount: _nearbyStores.length,
-              ),
-            ),
-          ),
       ]),
     );
   }
@@ -1074,6 +1101,87 @@ class _HomeScreenState extends State<HomeScreen> {
   // TAB 4 — PERFIL  (sin cambios)
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildPerfil() => const PerfilScreen();
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SECCIONES DINÁMICAS
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildStoreSection(_HomeSection sec) {
+    if (sec.stores.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+          child: Text(sec.title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _kDark)),
+        ),
+        SizedBox(
+          height: 240,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: sec.stores.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, i) => SizedBox(
+              width: 200,
+              child: StoreCard(
+                store: sec.stores[i],
+                displayMode: sec.displayMode,
+                onTap: () {
+                  final s = sec.stores[i];
+                  if (sec.displayMode == 'product') {
+                    final productId = (s['product_data'] as Map<String, dynamic>?)?['id'] as String?;
+                    if (productId != null) {
+                      context.push('/product/$productId');
+                      return;
+                    }
+                  }
+                  context.push('/store/${s["id"]}', extra: s);
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBannerSection(_HomeSection sec) => _buildBanners();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// _HomeSection — modelo para secciones dinámicas del home
+// ════════════════════════════════════════════════════════════════════════════
+class _HomeSection {
+  final String id;
+  final String title;
+  final String sectionType;
+  final String screen;
+  final int sortOrder;
+  final String displayMode; // 'cover' | 'logo' | 'product'
+  final String? bannerId;
+  final List<Map<String, dynamic>> stores;
+
+  _HomeSection.fromJson(Map<String, dynamic> j)
+      : id          = j['id'] as String,
+        title       = j['title'] as String? ?? '',
+        sectionType = j['section_type'] as String? ?? 'stores',
+        screen      = j['screen'] as String? ?? 'home',
+        sortOrder   = (j['sort_order'] as num?)?.toInt() ?? 0,
+        displayMode = j['display_mode'] as String?
+            ?? ((j['show_logos'] as bool? ?? false) ? 'logo' : 'cover'),
+        bannerId    = j['banner_id'] as String?,
+        stores      = (j['home_section_stores'] as List? ?? [])
+            .where((s) => s['stores'] != null)
+            .map((s) {
+              final storeMap = Map<String, dynamic>.from(s['stores'] as Map);
+              // Adjuntar datos del producto si existen
+              if (s['menu_items'] != null) {
+                storeMap['product_data'] = Map<String, dynamic>.from(s['menu_items'] as Map);
+              }
+              return storeMap;
+            })
+            .toList();
 }
 
 // ════════════════════════════════════════════════════════════════════════════

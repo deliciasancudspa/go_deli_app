@@ -53,27 +53,12 @@ class WaveClipper extends CustomClipper<Path> {
   bool shouldReclip(covariant CustomClipper<Path> old) => false;
 }
 
-// ── Widget helper para AppBar con gradiente + ola ─────────────────────────────
+// ── Widget helper para AppBar con gradiente plano ─────────────────────────────
 class GradientFlexibleSpace extends StatelessWidget {
   const GradientFlexibleSpace({super.key});
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final h = constraints.maxHeight + 45;
-      return OverflowBox(
-        alignment: Alignment.topCenter,
-        maxHeight: h,
-        child: SizedBox(
-          height: h,
-          child: ClipPath(
-            clipper: WaveClipper(),
-            child: Container(
-              decoration: const BoxDecoration(gradient: AppColors.mainGradient),
-            ),
-          ),
-        ),
-      );
-    },
+  Widget build(BuildContext context) => Container(
+    decoration: const BoxDecoration(gradient: AppColors.mainGradient),
   );
 }
 
