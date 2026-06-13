@@ -337,11 +337,11 @@ class _PedidosScreenState extends State<PedidosScreen>
 
         // Delivery code: cliente se lo muestra al repartidor cuando llega
         if (showDelivCode) ...[
-          _buildCodeBox(context, deliveryCode!, "🔐", "Tu código de confirmación", "Muéstralo al repartidor cuando llegue"),
+          _buildCodeBox(context, o["delivery_code"] as String, "🔐", "Tu código de confirmación", "Muéstralo al repartidor cuando llegue"),
         ],
         // Pickup code: cliente se lo muestra en la tienda para retirar
         if (showPickupCode) ...[
-          _buildCodeBox(context, pickupCode!, "🏪", "Tu código de retiro", "Muéstralo en la tienda para retirar tu pedido"),
+          _buildCodeBox(context, o["pickup_code"] as String, "🏪", "Tu código de retiro", "Muéstralo en la tienda para retirar tu pedido"),
         ],
 
         // Rider + buttons footer
@@ -671,10 +671,10 @@ class _PedidosScreenState extends State<PedidosScreen>
       }
 
       final items = ((o["order_items"] as List?)?.cast<Map<String, dynamic>>() ?? []);
-      if (items.isEmpty) { context.push("/store/$storeId"); return; }
+      if (items.isEmpty) { if (mounted) context.push("/store/$storeId"); return; }
 
       final itemIds = items.map((i) => i["menu_item_id"]).whereType<String>().toList();
-      if (itemIds.isEmpty) { context.push("/store/$storeId"); return; }
+      if (itemIds.isEmpty) { if (mounted) context.push("/store/$storeId"); return; }
 
       final menuRaw = await _sb.from("menu_items")
           .select("id,name,price,image_url,is_available")
