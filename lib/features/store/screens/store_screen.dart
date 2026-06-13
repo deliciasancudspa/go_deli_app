@@ -219,22 +219,14 @@ class _StoreScreenState extends State<StoreScreen> {
                           child: Text("$qty",
                               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
                       GestureDetector(
-                        onTap: () => cart.addItem(CartItem(
-                            id: item["id"] as String, storeId: _store!["id"] as String,
-                            storeName: _store!["name"] as String? ?? "",
-                            name: item["name"] as String? ?? "",
-                            price: basePrice, imageUrl: item["image_url"] as String?)),
+                        onTap: () => _addToCart(cart, item, basePrice),
                         child: Container(width: 28, height: 28,
                             decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
                             child: const Icon(Icons.add, color: Colors.white, size: 14))),
                     ])
                   else
                     GestureDetector(
-                      onTap: () => cart.addItem(CartItem(
-                          id: item["id"] as String, storeId: _store!["id"] as String,
-                          storeName: _store!["name"] as String? ?? "",
-                          name: item["name"] as String? ?? "",
-                          price: basePrice, imageUrl: item["image_url"] as String?)),
+                      onTap: () => _addToCart(cart, item, basePrice),
                       child: Container(width: 32, height: 32,
                           decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
                           child: const Icon(Icons.add, color: Colors.white, size: 18))),
@@ -244,8 +236,95 @@ class _StoreScreenState extends State<StoreScreen> {
           ),
         );
       }, childCount: _filtered.length)),
+      SliverToBoxAdapter(child: _ReviewsSection(storeId: widget.storeId, sb: _sb)),
       const SliverToBoxAdapter(child: SizedBox(height: 100)),
     ]),
     bottomNavigationBar: cart.isEmpty ? null : Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, -4))]), child: ElevatedButton(onPressed: () => context.push("/cart"), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: Text("${cart.itemCount}", style: const TextStyle(fontWeight: FontWeight.w900))), const Text("Ver carrito"), Text(_fmt(cart.subtotal), style: const TextStyle(fontWeight: FontWeight.w900))]))));
+  }
+
+  void _addToCart(CartProvider cart, Map<String, dynamic> item, int basePrice) {
+    if (_store?["is_open"] != true) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Esta tienda está cerrada en este momento"),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
+    cart.addItem(CartItem(
+      id: item["id"] as String,
+      storeId: _store!["id"] as String,
+      storeName: _store!["name"] as String? ?? "",
+      name: item["name"] as String? ?? "",
+      price: basePrice,
+      imageUrl: item["image_url"] as String?,
+    ));
+  }
+}
+
+class _ReviewsSection extends StatefulWidget {
+  final String storeId;
+  final SupabaseClient sb;
+  const _ReviewsSection({required this.storeId, required this.sb});
+  @override State<_ReviewsSection> createState() => _ReviewsSectionState();
+}
+
+class _ReviewsSectionState extends State<_ReviewsSection> {
+  List<Map<String, dynamic>> _reviews = [];
+  bool _loaded = false;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    try {
+      final res = await widget.sb.from("reviews")
+          .select("rating_store, comment, created_at, users(name)")
+          .eq("store_id", widget.storeId)
+          .not("rating_store", "is", null)
+          .order("created_at", ascending: false)
+          .limit(10);
+      if (mounted) setState(() { _reviews = List<Map<String, dynamic>>.from(res); _loaded = true; });
+    } catch (_) { if (mounted) setState(() => _loaded = true); }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded || _reviews.isEmpty) return const SizedBox.shrink();
+    return Container(
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text("Reseñas", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 12),
+        ..._reviews.map((r) {
+          final stars = (r["rating_store"] as num?)?.toInt() ?? 0;
+          final comment = r["comment"] as String?;
+          final name = (r["users"] as Map<String, dynamic>?)?["name"] as String? ?? "Cliente";
+          final date = r["created_at"] as String? ?? "";
+          final d = date.isNotEmpty ? DateTime.tryParse(date) : null;
+          final dateLabel = d != null ? "${d.day}/${d.month}/${d.year}" : "";
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Row(children: List.generate(5, (i) => Icon(
+                  i < stars ? Icons.star_rounded : Icons.star_outline_rounded,
+                  color: Colors.amber, size: 16))),
+                const Spacer(),
+                Text(dateLabel, style: const TextStyle(color: AppColors.textLight, fontSize: 11)),
+              ]),
+              const SizedBox(height: 6),
+              Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              if (comment != null && comment.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(comment, style: const TextStyle(color: AppColors.textMedium, fontSize: 13, height: 1.4)),
+              ],
+            ]),
+          );
+        }),
+      ]),
+    );
   }
 }

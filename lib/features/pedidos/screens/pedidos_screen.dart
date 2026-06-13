@@ -289,7 +289,14 @@ class _PedidosScreenState extends State<PedidosScreen>
     final total  = (o["total"] as num?) ?? 0;
     final hasRider = ["assigned","picked_up","on_the_way"].contains(status);
     final isOnTheWay = status == "on_the_way";
-    final pickupCode = o["pickup_code"] as String?;
+    final orderType = o["order_type"] as String? ?? "delivery";
+    final pickupCode   = o["pickup_code"]   as String?;
+    final deliveryCode = o["delivery_code"] as String?;
+    // delivery orders: show delivery_code to rider when on_the_way
+    // pickup orders:   show pickup_code to store when accepted/preparing/ready
+    final showDelivCode  = orderType == "delivery" && isOnTheWay && deliveryCode != null;
+    final showPickupCode = orderType == "pickup"   &&
+        ["accepted","preparing","ready"].contains(status) && pickupCode != null;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -328,49 +335,13 @@ class _PedidosScreenState extends State<PedidosScreen>
         _buildProgressBar(status),
         const SizedBox(height: 12),
 
-        // Pickup code (only when on_the_way)
-        if (isOnTheWay && pickupCode != null) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                gradient: AppColors.darkGradient,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(children: [
-                const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text("🔐", style: TextStyle(fontSize: 16)),
-                  SizedBox(width: 6),
-                  Text("Tu código de entrega",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
-                ]),
-                const SizedBox(height: 3),
-                const Text("Muéstralo al repartidor cuando llegue",
-                    style: TextStyle(color: Colors.white54, fontSize: 11),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 10),
-                Text(pickupCode,
-                    style: const TextStyle(color: Colors.white, fontSize: 32,
-                        fontWeight: FontWeight.w900, letterSpacing: 10,
-                        fontFamily: "monospace")),
-                const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: pickupCode));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Código copiado")),
-                    );
-                  },
-                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const Icon(Icons.copy, color: Colors.white54, size: 13),
-                    const SizedBox(width: 4),
-                    const Text("Copiar", style: TextStyle(color: Colors.white54, fontSize: 11)),
-                  ]),
-                ),
-              ]),
-            ),
-          ),
+        // Delivery code: cliente se lo muestra al repartidor cuando llega
+        if (showDelivCode) ...[
+          _buildCodeBox(context, deliveryCode!, "🔐", "Tu código de confirmación", "Muéstralo al repartidor cuando llegue"),
+        ],
+        // Pickup code: cliente se lo muestra en la tienda para retirar
+        if (showPickupCode) ...[
+          _buildCodeBox(context, pickupCode!, "🏪", "Tu código de retiro", "Muéstralo en la tienda para retirar tu pedido"),
         ],
 
         // Rider + buttons footer
@@ -964,6 +935,38 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
       ]),
     );
 }
+
+Widget _buildCodeBox(BuildContext context, String code, String icon, String title, String subtitle) =>
+  Padding(
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+    child: Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(gradient: AppColors.darkGradient, borderRadius: BorderRadius.circular(12)),
+      child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text(icon, style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 6),
+          Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+        ]),
+        const SizedBox(height: 3),
+        Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 11), textAlign: TextAlign.center),
+        const SizedBox(height: 10),
+        Text(code, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 10, fontFamily: "monospace")),
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: code));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Código copiado")));
+          },
+          child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.copy, color: Colors.white54, size: 13),
+            SizedBox(width: 4),
+            Text("Copiar", style: TextStyle(color: Colors.white54, fontSize: 11)),
+          ]),
+        ),
+      ]),
+    ),
+  );
 
 // ════════════════════════════════════════════════════════════════════════════
 // RATING SHEET

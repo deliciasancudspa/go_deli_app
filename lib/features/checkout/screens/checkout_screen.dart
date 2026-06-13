@@ -28,6 +28,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _refCtrl     = TextEditingController();
   final _couponCtrl  = TextEditingController();
   final _phoneCtrl   = TextEditingController();
+  final _notesCtrl   = TextEditingController();
   String _deliveryType = "delivery";
   String _payMethod    = "cash";
   double _discount     = 0;
@@ -213,6 +214,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "delivery_code": delivCode,
         "prescription_url": prescriptionUrl,
         "contact_phone": phone,
+        "notes": _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       }).select().single();
 
       await _sb.from("order_items").insert(cart.items.map((item) => {
@@ -388,6 +390,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const Text(
           "El repartidor y la tienda usarán este número para contactarte si es necesario",
           style: TextStyle(fontSize: 11, color: AppColors.textLight, height: 1.4),
+        ),
+        const SizedBox(height: 20),
+
+        // Notas del pedido
+        const Text("📝 Notas del pedido", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        const Text("Opcional", style: TextStyle(fontSize: 12, color: AppColors.textLight)),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _notesCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: "Sin picante, sin cebolla, toca el portón... (opcional)",
+            prefixIcon: Padding(padding: EdgeInsets.only(bottom: 40), child: Icon(Icons.notes_outlined, color: AppColors.accent)),
+          ),
         ),
         const SizedBox(height: 20),
 

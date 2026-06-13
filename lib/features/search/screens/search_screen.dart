@@ -29,7 +29,8 @@ class _SearchScreenState extends State<SearchScreen> {
     if (q.isEmpty) { setState(() => _results = []); return; }
     setState(() => _loading = true);
     try {
-      var query = _sb.from("stores").select().eq("status", "approved").ilike("name", "%$q%");
+      var query = _sb.from("stores").select().eq("status", "approved")
+          .or("name.ilike.%$q%,category.ilike.%$q%");
       if (_filter == "open") query = query.eq("is_open", true);
       final res = await query;
       var list = List<Map<String, dynamic>>.from(res);

@@ -59,11 +59,13 @@ class NotificationService {
     // Request FCM permission
     await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true);
 
-    // Show FCM messages as local notifications when app is in foreground
+    // Show FCM messages in foreground only when they have a real body.
+    // Data-only pushes (empty notification) are already handled by the
+    // Realtime listener, so we skip them here to avoid duplicate/blank toasts.
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       final n = message.notification;
-      if (n != null) {
-        await show(n.title ?? "Go Deli", n.body ?? "");
+      if (n != null && (n.body?.isNotEmpty ?? false)) {
+        await show(n.title ?? "Go Deli", n.body!);
         _controller.add(null);
       }
     });
