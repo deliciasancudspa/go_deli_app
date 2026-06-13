@@ -3,6 +3,7 @@ import "dart:ui" show Color;
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "../config/app_routes.dart";
 
 class NotificationService {
   static final NotificationService _i = NotificationService._();
@@ -11,14 +12,17 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   RealtimeChannel? _ordersChannel;
+  RealtimeChannel? _chatChannel;
   final Map<String, String> _lastOrderStatus = {};
   bool _initialized = false;
 
   final _controller = StreamController<void>.broadcast();
   Stream<void> get onNewNotification => _controller.stream;
 
-  static const _channelId   = "go_deli_orders";
-  static const _channelName = "Pedidos Go Deli";
+  static const _channelId     = "go_deli_orders";
+  static const _channelName   = "Pedidos Go Deli";
+  static const _chatChannelId   = "go_deli_chat";
+  static const _chatChannelName = "Chat Go Deli";
 
   static const _statusMessages = {
     "accepted":   ["✅ Pedido confirmado",        "El restaurante aceptó tu pedido"],
@@ -43,18 +47,27 @@ class NotificationService {
       importance: Importance.high,
       playSound: true,
     ));
+    await android?.createNotificationChannel(const AndroidNotificationChannel(
+      _chatChannelId, _chatChannelName,
+      description: "Mensajes del chat con el repartidor",
+      importance: Importance.high,
+      playSound: true,
+    ));
 
     final ios = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
     await ios?.requestPermissions(alert: true, badge: true, sound: true);
 
-    await _plugin.initialize(const InitializationSettings(
-      android: AndroidInitializationSettings("@drawable/ic_notification"),
-      iOS: DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
+    await _plugin.initialize(
+      const InitializationSettings(
+        android: AndroidInitializationSettings("@drawable/ic_notification"),
+        iOS: DarwinInitializationSettings(
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        ),
       ),
-    ));
+      onDidReceiveNotificationResponse: _onTap,
+    );
 
     // Request FCM permission
     await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true);
@@ -104,6 +117,64 @@ class NotificationService {
         ),
       ),
     );
+  }
+
+  static void _onTap(NotificationResponse response) {
+    final payload = response.payload;
+    if (payload == null || payload.isEmpty) return;
+    try {
+      appRouter.push(payload);
+    } catch (_) {}
+  }
+
+  Future<void> showChat(String title, String body, String orderId) async {
+    await _plugin.show(
+      DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
+      title,
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _chatChannelId, _chatChannelName,
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: "@drawable/ic_notification",
+          color: Color(0xFFFF6B35),
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      payload: "/chat/$orderId",
+    );
+  }
+
+  void startChatListener(String userId) {
+    _chatChannel?.unsubscribe();
+    _chatChannel = Supabase.instance.client
+      .channel("notif_chat_$userId")
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: "public",
+        table: "chat_messages",
+        callback: (payload) {
+          final rec = payload.newRecord;
+          if ((rec["receiver_id"] as String?) != userId) return;
+          final orderId = rec["order_id"] as String?;
+          if (orderId == null) return;
+          final senderType = rec["sender_type"] as String? ?? "";
+          if (senderType == "client") return;
+          final msg = rec["message"] as String? ?? "";
+          showChat("💬 Repartidor", msg, orderId);
+          _controller.add(null);
+        },
+      ).subscribe();
+  }
+
+  void stopChatListener() {
+    _chatChannel?.unsubscribe();
+    _chatChannel = null;
   }
 
   void startOrderListener(String userId) {

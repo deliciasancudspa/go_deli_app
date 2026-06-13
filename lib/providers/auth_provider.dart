@@ -29,6 +29,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     if (res != null && res["id"] != null) {
       NotificationService().startOrderListener(res["id"] as String);
+      NotificationService().startChatListener(res["id"] as String);
       _saveFcmToken(res["id"] as String);
     }
   }
@@ -188,6 +189,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signOut() async {
     NotificationService().stopOrderListener();
+    NotificationService().stopChatListener();
     await _sb.auth.signOut();
     _user = null;
     _profile = null;
