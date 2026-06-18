@@ -6,16 +6,19 @@ import "package:image_picker/image_picker.dart";
 import "package:geolocator/geolocator.dart";
 import "dart:typed_data";
 import "dart:math";
+import "dart:convert";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
 import "../../../providers/auth_provider.dart";
 import "address_picker_screen.dart";
 
-const _kBaseDist  = 2000.0;  // metros gratis
-const _kBaseFee   = 2000.0;  // fee base al rider
-const _kPer100m   = 40.0;    // pesos por cada 100m extra
-const _kMaxDist   = 8000.0;  // cobertura máxima
-const _kMaxClient = 3500.0;  // tope que paga el cliente
+// Valores por defecto del fee de delivery. Son configurables desde el panel
+// admin (tabla `config`, key `delivery_fees`) y se aplican a toda la plataforma.
+// La tarifa base se cobra desde 0 km y suma por cada 0.1 km (100 m).
+const _kDefBaseFee   = 1500.0; // tarifa base al rider (desde 0 km)
+const _kDefPer100m   = 35.0;   // pesos por cada 0.1 km (100 m)
+const _kDefMaxDistKm = 6.0;    // distancia máxima permitida (km)
+const _kMaxClient    = 3500.0; // tope que paga el cliente (no configurable aquí)
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -39,6 +42,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double? _deliveryLat;
   double? _deliveryLng;
   double? _distanceMeters;
+  // Parámetros de tarifa de delivery (cargados desde config; defaults abajo)
+  double _baseFee  = _kDefBaseFee;
+  double _per100m  = _kDefPer100m;
+  double _maxDistM = _kDefMaxDistKm * 1000;
   Map<String, dynamic>? _storeData;
   bool _needsPrescription = false;
   Uint8List? _prescriptionBytes;
@@ -47,7 +54,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _imagePicker = ImagePicker();
 
   @override
-  void initState() { super.initState(); _loadStore(); _loadPhone(); }
+  void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); }
+
+  // Carga los parámetros de tarifa de delivery configurados desde el admin.
+  // Si no existen aún, se usan los valores por defecto (base 1500, 35/0.1km, 6km).
+  Future<void> _loadDeliveryConfig() async {
+    try {
+      final row = await _sb.from("config").select("value").eq("key", "delivery_fees").maybeSingle();
+      final raw = row?["value"];
+      if (raw == null) return;
+      final cfg = raw is String ? jsonDecode(raw) : raw;
+      if (!mounted) return;
+      setState(() {
+        _baseFee = (cfg["base_fee"] as num?)?.toDouble() ?? _baseFee;
+        _per100m = (cfg["fee_per_100m"] as num?)?.toDouble() ?? _per100m;
+        final maxKm = (cfg["max_distance_km"] as num?)?.toDouble();
+        if (maxKm != null && maxKm > 0) _maxDistM = maxKm * 1000;
+      });
+    } catch (_) {}
+  }
 
   Future<void> _loadPhone() async {
     try {
@@ -94,9 +119,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   double _calcRiderFee(double distMeters) {
-    final extra = max(0.0, distMeters - _kBaseDist);
-    final extraFee = (extra / 100).ceil() * _kPer100m;
-    return _kBaseFee + extraFee;
+    // Tarifa base desde 0 km + monto por cada 0.1 km (100 m) de distancia.
+    final units = (distMeters / 100).ceil();
+    return _baseFee + units * _per100m;
   }
 
   ({int client, int rider, int storeAbsorbs, int platform}) _calcAllFees(double distMeters) {
@@ -241,7 +266,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final subtotal  = cart.subtotal;
     final discAmt   = (subtotal * _discount).round();
     final finalSub  = subtotal - discAmt;
-    final bool outOfRange = _deliveryType == "delivery" && _distanceMeters != null && _distanceMeters! > _kMaxDist;
+    final bool outOfRange = _deliveryType == "delivery" && _distanceMeters != null && _distanceMeters! > _maxDistM;
     int delivFee = 0;
     String? delivLabel;
     if (_deliveryType == "delivery") {
