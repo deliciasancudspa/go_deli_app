@@ -5,8 +5,10 @@ import "package:provider/provider.dart";
 import "package:url_launcher/url_launcher.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:geolocator/geolocator.dart";
+import "package:google_maps_flutter/google_maps_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
+import "../../map/widgets/route_map_view.dart";
 
 class OrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -20,6 +22,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _loading = true;
   bool _gpsActive = false;
   bool _deliveryLoading = false;
+  double? _riderLat, _riderLng; // ubicación en vivo del rider para el mapa
+  double? _routeKm;             // distancia de la ruta calculada
+  String? _routeEta;            // tiempo estimado (ej: "12 min")
   Timer? _gpsTimer;
   RealtimeChannel? _orderChannel;
   final _sb = Supabase.instance.client;
@@ -60,7 +65,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _load() async {
     try {
       final o = await _sb.from("orders")
-        .select("*, stores(name,emoji,address,phone), users!client_id(name,phone), order_items(item_name,quantity,item_price)")
+        .select("*, stores(name,emoji,address,phone,lat,lng), users!client_id(name,phone), order_items(item_name,quantity,item_price)")
         .eq("id", widget.orderId)
         .single();
       if (mounted) {
@@ -90,7 +95,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       ).timeout(const Duration(seconds: 5));
-      if (mounted) await context.read<RiderProvider>().sendLocation(pos.latitude, pos.longitude);
+      if (mounted) {
+        setState(() { _riderLat = pos.latitude; _riderLng = pos.longitude; });
+        await context.read<RiderProvider>().sendLocation(pos.latitude, pos.longitude);
+      }
     } catch (_) {}
   }
 
@@ -113,6 +121,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       : Uri.encodeComponent(address ?? "");
     if (q.isEmpty) return;
     final uri = Uri.parse("https://maps.google.com/?q=$q");
+    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  // Abre navegación paso a paso (turn-by-turn) en Google Maps hacia el destino
+  Future<void> _navigateTo(double lat, double lng) async {
+    final uri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving");
     if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -214,6 +228,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final total = (_order!["total"] as num?)?.toDouble() ?? 0;
     final payMethod = _order!["payment_method"] as String?;
     final pickupCode = _order!["pickup_code"] as String?;
+    final mapSection = _routeMapSection(status);
 
     final statusEmojis  = {"assigned":"🛵","picked_up":"📦","on_the_way":"🚀","delivered":"✅","cancelled":"❌"};
     final statusLabels  = {"assigned":"Ve al restaurante","picked_up":"Pedido recogido","on_the_way":"En camino al cliente","delivered":"Entregado","cancelled":"Cancelado"};
@@ -264,6 +279,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ]),
         ),
         const SizedBox(height: 16),
+
+        // Mapa con la ruta según el estado del pedido
+        if (mapSection != null) mapSection,
 
         // Código de retiro (visible solo cuando status == assigned)
         if (pickupCode != null && status == "assigned")
@@ -416,6 +434,85 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ],
 
         const SizedBox(height: 20),
+      ]),
+    );
+  }
+
+  // Mapa con la ruta de conducción según el estado del pedido:
+  //  - assigned            → ruta del rider hacia la tienda (recoger)
+  //  - picked_up/on_the_way→ ruta del rider hacia el cliente (entregar)
+  Widget? _routeMapSection(String status) {
+    final store = _order!["stores"] as Map?;
+    final storeLat = (store?["lat"] as num?)?.toDouble();
+    final storeLng = (store?["lng"] as num?)?.toDouble();
+    final clientLat = (_order!["delivery_lat"] as num?)?.toDouble();
+    final clientLng = (_order!["delivery_lng"] as num?)?.toDouble();
+
+    LatLng dest;
+    String destLabel;
+    String title;
+    double destHue;
+
+    if (status == "assigned") {
+      if (storeLat == null || storeLng == null) return null;
+      dest = LatLng(storeLat, storeLng);
+      destLabel = store?["name"] as String? ?? "Tienda";
+      title = "🛵 Ruta a la tienda";
+      destHue = BitmapDescriptor.hueOrange;
+    } else if (status == "picked_up" || status == "on_the_way") {
+      if (clientLat == null || clientLng == null) return null;
+      dest = LatLng(clientLat, clientLng);
+      destLabel = "Cliente";
+      title = "🚀 Ruta al cliente";
+      destHue = BitmapDescriptor.hueViolet;
+    } else {
+      return null;
+    }
+
+    final origin = (_riderLat != null && _riderLng != null) ? LatLng(_riderLat!, _riderLng!) : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+          if (_routeKm != null)
+            Text("${_routeKm!.toStringAsFixed(1)} km${_routeEta != null ? " · $_routeEta" : ""}",
+                style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800, fontSize: 13)),
+        ]),
+        const SizedBox(height: 10),
+        RouteMapView(
+          origin: origin,
+          destination: dest,
+          originLabel: "Tú",
+          destinationLabel: destLabel,
+          destinationHue: destHue,
+          height: 220,
+          embedded: true,
+          onRouteReady: (r) {
+            if (mounted) setState(() { _routeKm = r.distanceKm; _routeEta = r.durationText; });
+          },
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _navigateTo(dest.latitude, dest.longitude),
+            icon: const Icon(Icons.navigation_outlined, size: 18),
+            label: const Text("Navegar con Google Maps"),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, minimumSize: const Size(double.infinity, 46)),
+          ),
+        ),
+        if (origin == null) ...[
+          const SizedBox(height: 8),
+          const Row(children: [
+            Icon(Icons.gps_fixed, size: 13, color: AppColors.textLight),
+            SizedBox(width: 6),
+            Expanded(child: Text("Obteniendo tu ubicación GPS...", style: TextStyle(color: AppColors.textLight, fontSize: 12))),
+          ]),
+        ],
       ]),
     );
   }

@@ -5,6 +5,7 @@ import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
+import "../../orders/screens/offer_map_screen.dart";
 
 const _kTimeout = 30;
 
@@ -41,10 +42,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (widget.autoOpen && !_dialogShown && _notifications.isNotEmpty && mounted) {
         _dialogShown = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _showOfferDialog(_notifications.first);
+          if (mounted) _openOffer(_notifications.first);
         });
       }
     } catch (_) { if (mounted) setState(() => _loading = false); }
+  }
+
+  // Abre la oferta sobre un mapa (tienda → cliente, ganancia, distancia).
+  // Si no hay order_id asociado, cae al diálogo simple.
+  Future<void> _openOffer(Map<String, dynamic> notif) async {
+    final orderId = (notif["data"] as Map?)?["order_id"] as String?;
+    if (orderId == null) { _showOfferDialog(notif); return; }
+    final accepted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OfferMapScreen(
+          orderId: orderId,
+          offerData: Map<String, dynamic>.from((notif["data"] as Map?) ?? {}),
+        ),
+      ),
+    );
+    if (!mounted || accepted == null) return;
+    if (accepted) {
+      await _accept(notif);
+    } else {
+      await _reject(notif);
+    }
   }
 
   void _showOfferDialog(Map<String, dynamic> notif) {
@@ -126,7 +149,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await _sb.from("notifications").update({"is_read": true}).eq("id", id);
       rider.loadActiveOrders();
       await _load();
-      if (mounted) _showSnack("✅ Pedido aceptado", AppColors.success);
+      if (mounted) {
+        _showSnack("✅ Pedido aceptado", AppColors.success);
+        // Abre el detalle con el mapa rider → tienda para recoger el pedido
+        context.push("/order/$orderId");
+      }
     } catch (e) {
       if (mounted) _showSnack("Error al aceptar: $e", AppColors.error);
     } finally {
@@ -197,6 +224,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         key: ValueKey(notif["id"] as String),
                         notif: notif,
                         isProcessing: _processing.contains(notif["id"] as String),
+                        onTap: () => _openOffer(notif),
                         onAccept: () => _accept(notif),
                         onExpired: () => _reject(notif),
                       );
@@ -213,6 +241,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 class _OfferCard extends StatefulWidget {
   final Map<String, dynamic> notif;
   final bool isProcessing;
+  final VoidCallback onTap;     // abrir la oferta en el mapa
   final VoidCallback onAccept;
   final VoidCallback onExpired; // called both on "Rechazar" tap and timer expiry
 
@@ -220,6 +249,7 @@ class _OfferCard extends StatefulWidget {
     super.key,
     required this.notif,
     required this.isProcessing,
+    required this.onTap,
     required this.onAccept,
     required this.onExpired,
   });
@@ -282,7 +312,9 @@ class _OfferCardState extends State<_OfferCard> {
     final itemsCount = (data["items_count"] as num?)?.toInt();
     final distance   = data["distance_km"] as String?;
 
-    return Container(
+    return GestureDetector(
+      onTap: widget.isProcessing ? null : widget.onTap,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -362,6 +394,7 @@ class _OfferCardState extends State<_OfferCard> {
               _detailRow(const Icon(Icons.shopping_bag_outlined, size: 15, color: AppColors.textLight), "$itemsCount producto${itemsCount != 1 ? "s" : ""}"),
             if (distance != null)
               _detailRow(const Icon(Icons.route_outlined, size: 15, color: AppColors.textLight), "$distance km aproximados"),
+            _detailRow(const Icon(Icons.map_outlined, size: 15, color: AppColors.accent), "Toca para ver la ruta en el mapa"),
           ]),
         ),
 
@@ -394,6 +427,7 @@ class _OfferCardState extends State<_OfferCard> {
           ]),
         ),
       ]),
+      ),
     );
   }
 
