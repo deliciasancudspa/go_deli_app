@@ -30,10 +30,13 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
 
   Future<void> _load() async {
     try {
+      // maybeSingle: en ofertas abiertas la RLS puede no dejar leer el pedido
+      // todavía (deliverer_id NULL). En ese caso _order queda null y la pantalla
+      // muestra los datos que vienen en la notificación.
       final o = await _sb.from("orders")
           .select("delivery_lat,delivery_lng,delivery_address,rider_fee,total,delivery_distance,payment_method,stores(name,emoji,lat,lng,address)")
           .eq("id", widget.orderId)
-          .single();
+          .maybeSingle();
       if (mounted) setState(() { _order = o; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);

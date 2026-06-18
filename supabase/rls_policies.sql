@@ -280,6 +280,13 @@ using (
   or deliverer_id = public.my_rider_id()
   or store_id in (select public.my_store_ids())
   or public.is_admin()
+  -- Ofertas abiertas: cualquier repartidor puede leer el pedido mientras está
+  -- en búsqueda (deliverer_id aún NULL), para previsualizar la ruta y aceptarlo.
+  or (
+    rider_search_status = 'searching'
+    and status not in ('delivered','cancelled','returned')
+    and public.my_rider_id() is not null
+  )
 );
 
 drop policy if exists orders_insert on public.orders;
