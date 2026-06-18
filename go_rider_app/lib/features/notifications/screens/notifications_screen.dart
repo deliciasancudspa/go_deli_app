@@ -120,35 +120,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     setState(() => _processing.add(id));
     try {
-      // RLS solo deja al rider leer el pedido si ya es el deliverer asignado.
-      // En ofertas abiertas (deliverer_id NULL) la lectura devuelve 0 filas, por
-      // eso usamos maybeSingle() y, si no es legible, lo reclamamos vía RPC.
-      Map<String, dynamic>? order;
-      try {
-        order = await _sb.from("orders")
-            .select("rider_search_status, deliverer_id")
-            .eq("id", orderId)
-            .maybeSingle();
-      } catch (_) {
-        order = null;
-      }
-
-      final searchStatus = order?["rider_search_status"] as String?;
-      final assignedTo   = order?["deliverer_id"] as String?;
-
-      if (order != null && searchStatus == "assigned" && assignedTo == rider.riderId) {
-        // Oferta dirigida a este rider (despacho del aliado)
-        await _sb.from("orders").update({"status": "assigned"}).eq("id", orderId);
-      } else {
-        // Oferta abierta (o no legible por RLS): reclamar de forma atómica.
-        // claim_order (security definer) asigna el pedido solo si sigue libre.
-        final claimed = await _sb.rpc("claim_order", params: {"p_order_id": orderId});
-        if (claimed != true) {
-          await _sb.from("notifications").update({"is_read": true}).eq("id", id);
-          await _load();
-          if (mounted) _showSnack("Este pedido ya no está disponible", AppColors.warning);
-          return;
-        }
+      // El motor de despacho (server-side) ofrece el pedido a un rider a la vez.
+      // accept_offer asigna el pedido solo si la oferta vigente es para este rider
+      // (atómico: si otro lo tomó o expiró, devuelve false).
+      final accepted = await _sb.rpc("accept_offer", params: {"p_order_id": orderId});
+      if (accepted != true) {
+        await _sb.from("notifications").update({"is_read": true}).eq("id", id);
+        await _load();
+        if (mounted) _showSnack("Este pedido ya no está disponible", AppColors.warning);
+        return;
       }
       await _sb.from("notifications").update({"is_read": true}).eq("id", id);
       rider.loadActiveOrders();

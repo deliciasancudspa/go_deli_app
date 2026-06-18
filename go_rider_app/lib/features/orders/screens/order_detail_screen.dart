@@ -25,7 +25,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   double? _riderLat, _riderLng; // ubicación en vivo del rider para el mapa
   double? _routeKm;             // distancia de la ruta calculada
   String? _routeEta;            // tiempo estimado (ej: "12 min")
+  bool _hasOrderAhead = false;  // el rider tiene otro pedido en curso por delante
   Timer? _gpsTimer;
+
+  // Pedido en cola: aceptado mientras el rider aún tiene otro pedido en ruta.
+  // No se navega hasta entregar el de adelante.
+  bool get _isQueued => _hasOrderAhead && _order?["status"] == "assigned";
   RealtimeChannel? _orderChannel;
   final _sb = Supabase.instance.client;
   final _deliveryCodeCtrl = TextEditingController();
@@ -64,13 +69,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Future<void> _load() async {
     try {
+      final riderId = context.read<RiderProvider>().riderId;
       final o = await _sb.from("orders")
         .select("*, stores(name,emoji,address,phone,lat,lng), users!client_id(name,phone), order_items(item_name,quantity,item_price)")
         .eq("id", widget.orderId)
         .single();
+      // ¿El rider tiene otro pedido en curso por delante? (para la cola)
+      bool ahead = false;
+      if (riderId.isNotEmpty) {
+        final others = await _sb.from("orders").select("id")
+            .eq("deliverer_id", riderId)
+            .inFilter("status", ["picked_up", "on_the_way"])
+            .neq("id", widget.orderId);
+        ahead = (others as List).isNotEmpty;
+      }
       if (mounted) {
-        setState(() { _order = o; _loading = false; });
-        if (_activeStatuses.contains(o["status"])) _startGps();
+        setState(() { _order = o; _hasOrderAhead = ahead; _loading = false; });
+        // No iniciar GPS para un pedido en cola: la navegación es del de adelante
+        if (_activeStatuses.contains(o["status"]) && !_isQueued) _startGps();
       }
     } catch (_) { if (mounted) setState(() => _loading = false); }
   }
@@ -228,7 +244,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final total = (_order!["total"] as num?)?.toDouble() ?? 0;
     final payMethod = _order!["payment_method"] as String?;
     final pickupCode = _order!["pickup_code"] as String?;
-    final mapSection = _routeMapSection(status);
+    // Mientras esté en cola no se navega: se muestra aviso en vez del mapa de ruta.
+    final mapSection = _isQueued ? null : _routeMapSection(status);
 
     final statusEmojis  = {"assigned":"🛵","picked_up":"📦","on_the_way":"🚀","delivered":"✅","cancelled":"❌"};
     final statusLabels  = {"assigned":"Ve al restaurante","picked_up":"Pedido recogido","on_the_way":"En camino al cliente","delivered":"Entregado","cancelled":"Cancelado"};
@@ -279,6 +296,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ]),
         ),
         const SizedBox(height: 16),
+
+        // Aviso de pedido en cola (aceptado mientras hay otro en ruta)
+        if (_isQueued)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.info.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.info.withOpacity(0.4)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.schedule, color: AppColors.info, size: 22),
+              SizedBox(width: 10),
+              Expanded(child: Text(
+                "Pedido en cola. Termina primero tu entrega en curso; al confirmarla se activará la navegación de este pedido.",
+                style: TextStyle(color: AppColors.info, fontWeight: FontWeight.w600, fontSize: 13),
+              )),
+            ]),
+          ),
 
         // Mapa con la ruta según el estado del pedido
         if (mapSection != null) mapSection,

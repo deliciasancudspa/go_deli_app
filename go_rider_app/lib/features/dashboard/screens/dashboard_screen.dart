@@ -293,7 +293,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 Text(rider.isOnline ? "Sin pedidos asignados" : "Activa tu modo online", style: const TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w600)),
               ]))
             else
-              ...rider.activeOrders.map((o) => _orderCard(o, context)),
+              ...() {
+                final hasAhead = rider.activeOrders.any((o) => o["status"] == "picked_up" || o["status"] == "on_the_way");
+                return rider.activeOrders.map((o) => _orderCard(o, context, queued: hasAhead && o["status"] == "assigned"));
+              }(),
           ]),
         )),
       ])),
@@ -311,10 +314,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     ]),
   );
 
-  Widget _orderCard(Map<String, dynamic> o, BuildContext context) {
+  Widget _orderCard(Map<String, dynamic> o, BuildContext context, {bool queued = false}) {
     final statusColors = {"assigned": AppColors.warning, "picked_up": AppColors.info, "on_the_way": AppColors.accent};
     final statusLabels = {"assigned": "Ve al restaurante", "picked_up": "Lleva al cliente", "on_the_way": "En camino"};
-    final color = statusColors[o["status"]] ?? AppColors.textLight;
+    final color = queued ? AppColors.info : (statusColors[o["status"]] ?? AppColors.textLight);
     return GestureDetector(
       onTap: () => context.push("/order/${o["id"]}"),
       child: Container(
@@ -329,7 +332,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               Text(o["stores"]?["name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               Text(o["stores"]?["address"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
             ])),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(statusLabels[o["status"]] ?? o["status"], style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800))),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(queued ? "🕒 En cola" : (statusLabels[o["status"]] ?? o["status"]), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800))),
           ]),
           const SizedBox(height: 10),
           Row(children: [
