@@ -1,4 +1,4 @@
-name: Build Go Deli APK
+name: Build APKs (GoDeli + GoRider)
 on:
   push:
     branches: [ main ]
@@ -6,6 +6,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: godeli      # app del cliente (raíz del repo)
+            dir: .
+          - name: gorider     # app del repartidor
+            dir: go_rider_app
     steps:
       - uses: actions/checkout@v4
 
@@ -26,11 +34,16 @@ jobs:
           flutter-version: '3.44.0'
           channel: 'stable'
 
-      - run: flutter pub get
+      - name: Flutter pub get
+        run: flutter pub get
+        working-directory: ${{ matrix.dir }}
 
-      - run: flutter build apk --release
+      - name: Build APK
+        run: flutter build apk --release
+        working-directory: ${{ matrix.dir }}
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: go-deli-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: ${{ matrix.name }}-apk
+          path: ${{ matrix.dir }}/build/app/outputs/flutter-apk/app-release.apk
