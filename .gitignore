@@ -54,3 +54,9 @@ go_rider_app/*.apk
 
 # Supabase CLI
 supabase/.temp/
+
+# Claves de firma — NUNCA subir al repo (es público)
+*.jks
+*.keystore
+**/key.properties
+*.base64.txt
