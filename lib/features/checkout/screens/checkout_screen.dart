@@ -272,8 +272,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_deliveryType == "delivery") {
       if (_distanceMeters != null) {
         delivFee  = _calcAllFees(_distanceMeters!).client;
-        final km  = (_distanceMeters! / 1000).toStringAsFixed(1);
-        delivLabel = "🛵 Envío ($km km)";
+        delivLabel = "🛵 Envío";
       } else {
         final clientFee = (_storeData?["delivery_fee_client"] as num?)?.toInt() ?? 0;
         delivFee  = min(clientFee, _kMaxClient.toInt());
