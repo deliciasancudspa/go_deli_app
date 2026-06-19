@@ -185,7 +185,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Column(children: [
         SizedBox(
-          height: 160,
+          height: 180,
           child: PageView.builder(
             controller: _bannerPageCtrl,
             itemCount: _banners.length,
