@@ -16,5 +16,5 @@ update public.config
  where key = 'delivery_fees';
 
 insert into public.config (key, value)
-select 'delivery_fees', '{"base_fee":1500,"fee_per_100m":35,"max_distance_km":8}'
+select 'delivery_fees', '{"base_fee":1500,"fee_per_100m":35,"max_distance_km":8,"service_fees":{"upto3":0,"upto4":480,"upto5":880,"upto6":990,"upto7":1250,"upto8":1490}}'
 where not exists (select 1 from public.config where key = 'delivery_fees');

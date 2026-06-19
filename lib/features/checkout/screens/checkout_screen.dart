@@ -46,6 +46,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double _baseFee  = _kDefBaseFee;
   double _per100m  = _kDefPer100m;
   double _maxDistM = _kDefMaxDistKm * 1000;
+  // Tramos de tarifa de servicio (configurables desde admin; defaults abajo)
+  Map<String, int> _serviceTiers = {
+    "upto3": 0, "upto4": 480, "upto5": 880, "upto6": 990, "upto7": 1250, "upto8": 1490,
+  };
   Map<String, dynamic>? _storeData;
   bool _needsPrescription = false;
   Uint8List? _prescriptionBytes;
@@ -70,6 +74,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _per100m = (cfg["fee_per_100m"] as num?)?.toDouble() ?? _per100m;
         final maxKm = (cfg["max_distance_km"] as num?)?.toDouble();
         if (maxKm != null && maxKm > 0) _maxDistM = maxKm * 1000;
+        final sf = cfg["service_fees"];
+        if (sf is Map) {
+          for (final k in _serviceTiers.keys) {
+            final v = (sf[k] as num?)?.toInt();
+            if (v != null) _serviceTiers[k] = v;
+          }
+        }
       });
     } catch (_) {}
   }
@@ -138,12 +149,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   //   0–3 km: $0 · 3–4: $480 · 4–5: $880 · 5–6: $990 · 6–7: $1250 · 7–8: $1490
   int _calcServiceFee(double distMeters) {
     final km = distMeters / 1000;
-    if (km <= 3) return 0;
-    if (km <= 4) return 480;
-    if (km <= 5) return 880;
-    if (km <= 6) return 990;
-    if (km <= 7) return 1250;
-    return 1490; // 7–8 km
+    if (km <= 3) return _serviceTiers["upto3"]!;
+    if (km <= 4) return _serviceTiers["upto4"]!;
+    if (km <= 5) return _serviceTiers["upto5"]!;
+    if (km <= 6) return _serviceTiers["upto6"]!;
+    if (km <= 7) return _serviceTiers["upto7"]!;
+    return _serviceTiers["upto8"]!; // 7–8 km
   }
 
   String _generateCode() => (1000 + Random().nextInt(9000)).toString();
