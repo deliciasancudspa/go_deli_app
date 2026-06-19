@@ -37,7 +37,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
   bool get _bannerStale => _bannerCachedAt == null ||
       DateTime.now().difference(_bannerCachedAt!) > _bannerTtl;
 
-  // Service category cache
+  // Category cache — ahora usa tabla categories con filtro screens='servicios'
   static List<Map<String, dynamic>>? _cachedServiceCats;
   static DateTime?                   _catCachedAt;
   bool get _catStale => _catCachedAt == null ||
@@ -116,14 +116,19 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
     }
     if (mounted) setState(() => _banners = List<Map<String,dynamic>>.from(_cachedBanners ?? []));
 
-    // Load service categories from DB (30-min cache)
+    // Load categories filtradas por screens='servicios' (misma tabla que home/mercados)
     if (forceRefresh || _catStale) {
       try {
-        final raw = await _sb.from("service_categories")
+        final raw = await _sb.from("categories")
             .select()
             .eq("is_active", true)
             .order("sort_order");
-        _cachedServiceCats = List<Map<String,dynamic>>.from(raw as List);
+        final allCats = List<Map<String,dynamic>>.from(raw as List);
+        // Filtrar solo las que aplican a servicios (mismo patrón que home y mercados)
+        _cachedServiceCats = allCats.where((c) {
+          final s = (c["screens"] as String?) ?? "all";
+          return s == "all" || s.split(",").map((x) => x.trim()).contains("servicios");
+        }).toList();
         _catCachedAt = DateTime.now();
       } catch (_) {}
     }
