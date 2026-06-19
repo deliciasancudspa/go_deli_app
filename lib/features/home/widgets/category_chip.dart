@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/utils/color_utils.dart";
 
 class CategoryChip extends StatelessWidget {
   final Map<String, dynamic> category;
@@ -9,11 +10,7 @@ class CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color iconBg = const Color(0xFFFFF3E8);
-    try {
-      final hex = (category["color"] as String?)?.replaceAll("#", "");
-      if (hex != null && hex.length == 6) iconBg = Color(int.parse("FF$hex", radix: 16));
-    } catch (_) {}
+    final iconBg = parseHexColor(category["color"] as String?, fallback: const Color(0xFFFFF3E8));
 
     return GestureDetector(
       onTap: onTap,

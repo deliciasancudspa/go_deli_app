@@ -5,5 +5,5 @@ class AppConfig {
   static const String appName = "Go Rider";
   static const double riderCommissionPct = 15.0;
   // ⚠️ Configurar con el número real de WhatsApp de soporte (código país + número, sin + ni espacios)
-  static const String adminWhatsApp = "569XXXXXXXX";
+  static const String adminWhatsApp = "56955201833";
 }

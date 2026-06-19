@@ -1,3 +1,8 @@
+// ⚠️ DEPRECATED — Este archivo es código muerto.
+// El mapa real se usa desde features/map/screens/map_screen.dart (con Google Maps).
+// app_routes.dart enruta /map/:orderId a features/map/, no a este archivo.
+// Conservado solo como referencia; eliminar en próxima limpieza.
+
 import "package:flutter/material.dart";
 import "dart:async";
 import "package:supabase_flutter/supabase_flutter.dart";

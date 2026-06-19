@@ -1,6 +1,7 @@
 import "dart:async";
 import "package:flutter/material.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/utils/color_utils.dart";
 
 class HomeBanner extends StatefulWidget {
   final List<Map<String, dynamic>> banners;
@@ -43,11 +44,7 @@ class _HomeBannerState extends State<HomeBanner> {
           itemBuilder: (_, i) {
             final b      = widget.banners[i];
             final imgUrl = b["image_url"] as String?;
-            Color bg     = AppColors.homeOrange;
-            try {
-              final hex = (b["bg_color"] as String?)?.replaceAll("#", "");
-              if (hex != null && hex.length == 6) bg = Color(int.parse("FF$hex", radix: 16));
-            } catch (_) {}
+            final bg = parseHexColor(b["bg_color"] as String?, fallback: AppColors.homeOrange);
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
