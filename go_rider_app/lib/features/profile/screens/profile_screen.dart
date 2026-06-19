@@ -7,8 +7,8 @@ import "../../../core/constants/banks.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
 
-// Admin WhatsApp number — update as needed
-const _adminWhatsApp = "56XXXXXXXXX";
+// Admin WhatsApp — configurable en go_rider_app/lib/config/app_config.dart
+import "../../../config/app_config.dart";
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -79,7 +79,7 @@ class ProfileScreen extends StatelessWidget {
             label: "WhatsApp",
             icon: Icons.chat_outlined,
             onTap: () async {
-              final uri = Uri.parse("https://wa.me/$_adminWhatsApp");
+              final uri = Uri.parse("https://wa.me/${AppConfig.adminWhatsApp}");
               if (await canLaunchUrl(uri)) {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
               }

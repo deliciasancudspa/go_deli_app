@@ -158,7 +158,13 @@ using (public.is_admin());
 
 drop policy if exists deliverers_select on public.deliverers;
 create policy deliverers_select on public.deliverers for select to authenticated
-using (true);  -- tiendas eligen riders online; clientes ven ubicación en tracking
+using (
+  -- Solo admins ven todos los riders. Los demás solo ven riders asignados a sus pedidos.
+  public.is_admin()
+  or id in (select deliverer_id from orders where client_id = public.app_user_id())
+  or id in (select deliverer_id from orders where store_id in (select public.my_store_ids()))
+  or user_id = public.app_user_id()  -- el propio rider se ve a sí mismo
+);
 
 drop policy if exists deliverers_insert on public.deliverers;
 create policy deliverers_insert on public.deliverers for insert to authenticated
@@ -344,7 +350,16 @@ using (
 
 drop policy if exists notifications_insert on public.notifications;
 create policy notifications_insert on public.notifications for insert to authenticated
-with check (true);  -- apps crean notificaciones cruzadas (tienda→rider, rider→admin…)
+with check (
+  -- Solo el propio usuario puede insertar notificaciones dirigidas a sí mismo,
+  -- o el sistema (security definer) inserta notificaciones cruzadas.
+  -- Restricción: el target debe ser el usuario, su rider, su tienda, o admin.
+  target = public.app_user_id()::text
+  or target = public.my_rider_id()::text
+  or target in (select id::text from stores where owner_id = public.app_user_id())
+  or (target = 'admin' and public.is_admin())
+  or public.is_admin()
+);
 
 drop policy if exists notifications_update on public.notifications;
 create policy notifications_update on public.notifications for update to authenticated
@@ -499,7 +514,10 @@ using (bucket_id in ('avatars','store-images','public'));
 
 drop policy if exists storage_auth_write on storage.objects;
 create policy storage_auth_write on storage.objects for insert to authenticated
-with check (bucket_id in ('avatars','store-images','public','prescriptions'));
+with check (
+  bucket_id in ('avatars','store-images','public','prescriptions')
+  and owner = auth.uid()  -- solo el propietario puede crear sus propios archivos
+);
 
 drop policy if exists storage_owner_update on storage.objects;
 create policy storage_owner_update on storage.objects for update to authenticated
@@ -629,7 +647,73 @@ alter table public.order_items add constraint order_items_menu_item_id_fkey
   foreign key (menu_item_id) references public.menu_items(id) on delete set null;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 17. NOTA: store_bank_info y store_contracts se crearon después del primer
+-- 17. order_items UPDATE — faltaba; solo admin puede modificar items ya creados
+-- ────────────────────────────────────────────────────────────────────────────
+drop policy if exists order_items_update on public.order_items;
+create policy order_items_update on public.order_items for update to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 18. order_dispatch_attempts — solo participantes del pedido y admin
+-- ────────────────────────────────────────────────────────────────────────────
+alter table public.order_dispatch_attempts enable row level security;
+drop policy if exists oda_select on public.order_dispatch_attempts;
+create policy oda_select on public.order_dispatch_attempts for select to authenticated
+using (
+  public.is_admin()
+  or order_id in (select id from orders where client_id = public.app_user_id())
+  or order_id in (select id from orders where deliverer_id = public.my_rider_id())
+  or order_id in (select id from orders where store_id in (select public.my_store_ids()))
+);
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 19. Trigger: Restringir columnas modificables en orders según rol
+--     Evita que clientes cambien deliverer_id, total, fees, etc.
+-- ────────────────────────────────────────────────────────────────────────────
+create or replace function public.check_order_update_columns()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_is_admin boolean;
+  v_is_rider boolean;
+  v_is_store boolean;
+begin
+  v_is_admin := public.is_admin();
+  if v_is_admin then return new; end if;
+
+  v_is_rider := public.my_rider_id() is not null and new.deliverer_id = public.my_rider_id();
+  v_is_store := exists (select 1 from orders o
+    join stores s on s.id = o.store_id
+    where o.id = new.id and s.owner_id = public.app_user_id());
+
+  -- Cliente solo puede cambiar rating
+  if not v_is_admin and not v_is_rider and not v_is_store then
+    if new.rated != old.rated or new.rated_at != old.rated_at then
+      return new; -- solo rating
+    end if;
+    raise exception 'Clientes solo pueden calificar pedidos';
+  end if;
+
+  -- Rider solo puede cambiar status y location
+  if v_is_rider and not v_is_admin then
+    if new.status != old.status
+       or new.rider_lat != old.rider_lat or new.rider_lng != old.rider_lng
+    then
+      return new;
+    end if;
+    raise exception 'Riders solo pueden cambiar status y ubicación';
+  end if;
+
+  return new;
+end $$;
+
+drop trigger if exists trg_check_order_update on public.orders;
+create trigger trg_check_order_update
+  before update on public.orders
+  for each row execute function public.check_order_update_columns();
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 20. NOTA: store_bank_info y store_contracts se crearon después del primer
 --     despliegue de RLS y quedaron SIN protección (datos bancarios y
 --     contratos legibles/escribibles por cualquiera). Este script ya las
 --     incluye en las secciones 2 y 5 — basta re-ejecutarlo completo.

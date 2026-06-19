@@ -343,7 +343,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
     if (confirm != true || !mounted) return;
     final auth = context.read<AuthProvider>();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    // Solo borrar keys de autenticación, no preferencias de usuario (idioma, tema, etc.)
+    await prefs.remove("supabase_session");
     await auth.signOut();
     if (mounted) context.go("/login");
   }

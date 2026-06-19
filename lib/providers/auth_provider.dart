@@ -1,3 +1,4 @@
+import "dart:async";
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/material.dart";
 import "package:google_sign_in/google_sign_in.dart";
@@ -9,6 +10,7 @@ class AuthProvider extends ChangeNotifier {
   User? _user;
   Map<String, dynamic>? _profile;
   bool _loading = false;
+  StreamSubscription<String>? _fcmTokenSub; // para cancelar en signOut
 
   User? get user => _user;
   Map<String, dynamic>? get profile => _profile;
@@ -39,7 +41,9 @@ class AuthProvider extends ChangeNotifier {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null) return;
       await _sb.from("users").update({"fcm_token": token}).eq("id", userId);
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+      // Guardamos el stream subscription para cancelarlo en signOut
+      await _fcmTokenSub?.cancel();
+      _fcmTokenSub = FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
         _sb.from("users").update({"fcm_token": newToken}).eq("id", userId);
       });
     } catch (_) {}
@@ -190,6 +194,8 @@ class AuthProvider extends ChangeNotifier {
   Future<void> signOut() async {
     NotificationService().stopOrderListener();
     NotificationService().stopChatListener();
+    await _fcmTokenSub?.cancel();
+    _fcmTokenSub = null;
     await _sb.auth.signOut();
     _user = null;
     _profile = null;

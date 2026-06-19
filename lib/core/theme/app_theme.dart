@@ -133,5 +133,30 @@ class AppTheme {
     ),
   );
 
-  static ThemeData get darkTheme => lightTheme;
+  static ThemeData get darkTheme => ThemeData(
+    brightness: Brightness.dark,
+    primaryColor: AppColors.primary,
+    scaffoldBackgroundColor: const Color(0xFF121212),
+    colorScheme: const ColorScheme.dark(
+      primary: AppColors.primary,
+      secondary: AppColors.accent,
+      surface: Color(0xFF1E1E1E),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Color(0xFF1E1E1E),
+      foregroundColor: Colors.white,
+      elevation: 0,
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Color(0xFF1E1E1E),
+      selectedItemColor: AppColors.primary,
+      unselectedItemColor: Colors.grey,
+    ),
+    cardTheme: CardThemeData(color: const Color(0xFF1E1E1E), elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+    textTheme: const TextTheme(
+      titleLarge: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+      bodyLarge: TextStyle(color: Color(0xFFB0B0B0)),
+      bodyMedium: TextStyle(color: Color(0xFF909090)),
+    ),
+  );
 }

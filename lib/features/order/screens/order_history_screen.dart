@@ -196,19 +196,35 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
   void _rateOrder(BuildContext context, String orderId) {
     int rating = 5;
-    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setState) => AlertDialog(
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) => AlertDialog(
       title: const Text("Calificar pedido"),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text("Como fue tu experiencia?"),
         const SizedBox(height: 16),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) => GestureDetector(
-          onTap: () => setState(() => rating = i + 1),
+          onTap: () => setDialogState(() => rating = i + 1),
           child: Icon(i < rating ? Icons.star : Icons.star_outline, color: Colors.amber, size: 36),
         ))),
       ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
-        ElevatedButton(onPressed: () { Navigator.pop(ctx); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gracias por tu calificacion!"))); }, child: const Text("Enviar")),
+        ElevatedButton(onPressed: () async {
+          Navigator.pop(ctx);
+          try {
+            await Supabase.instance.client.from("orders").update({
+              "rated": rating,
+              "rated_at": DateTime.now().toIso8601String(),
+            }).eq("id", orderId);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gracias por tu calificacion!")));
+              setState(() {}); // refrescar la lista
+            }
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error al guardar calificacion")));
+            }
+          }
+        }, child: const Text("Enviar")),
       ],
     )));
   }

@@ -28,7 +28,6 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   bool _loading  = true;
   bool _sending  = false;
   int  _prevMsgCount = 0;
-  Timer? _pollTimer;
   RealtimeChannel? _channel;
   late final Uint8List _beepWav;
 
@@ -41,7 +40,6 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
     _channel?.unsubscribe();
     _audioPlayer.dispose();
     _msgCtrl.dispose();
@@ -62,8 +60,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       }
       if (mounted) setState(() => _loading = false);
       await _loadMessages();
-      _subscribeRealtime();
-      _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _loadMessages());
+      _subscribeRealtime(); // Realtime ya cubre los nuevos mensajes, no se necesita polling
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }

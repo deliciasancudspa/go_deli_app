@@ -1,3 +1,4 @@
+import "dart:async";
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/material.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -10,6 +11,7 @@ class RiderProvider extends ChangeNotifier {
   bool _loading = false;
   bool _profileLoaded = false;
   List<Map<String, dynamic>> _activeOrders = [];
+  StreamSubscription<String>? _fcmTokenSub;
   List<Map<String, dynamic>> _orderHistory = [];
 
   Map<String, dynamic>? get user => _user;
@@ -65,8 +67,9 @@ class RiderProvider extends ChangeNotifier {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null) return;
       await _sb.from("deliverers").update({"fcm_token": token}).eq("id", riderId);
-      // Refresh token if it rotates
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+      // Cancelar suscripción anterior y guardar la nueva
+      await _fcmTokenSub?.cancel();
+      _fcmTokenSub = FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
         _sb.from("deliverers").update({"fcm_token": newToken}).eq("id", riderId);
       });
     } catch (_) {}
@@ -215,6 +218,8 @@ class RiderProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    await _fcmTokenSub?.cancel();
+    _fcmTokenSub = null;
     await _sb.auth.signOut();
     _user = null; _rider = null; _isOnline = false;
     _activeOrders = []; _orderHistory = [];

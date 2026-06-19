@@ -1,7 +1,8 @@
 {
+  "comment": "⚠️ Este vercel.json es obsoleto — el deploy real usa go_deli_web/vercel.json. Los HTML están en la raíz del repo web, no en /admin/.",
   "routes": [
-    { "src": "/aliados", "dest": "/admin/aliados.html" },
-    { "src": "/admin", "dest": "/admin/admin.html" },
-    { "src": "/web", "dest": "/admin/web.html" }
+    { "src": "/aliados", "dest": "/aliados.html" },
+    { "src": "/admin", "dest": "/admin.html" },
+    { "src": "/web", "dest": "/web.html" }
   ]
 }

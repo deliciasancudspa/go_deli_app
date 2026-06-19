@@ -83,10 +83,10 @@ async function extractMenu(contentBlocks: unknown[], businessType: string) {
     headers: {
       "Content-Type": "application/json",
       "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
+      "anthropic-version": "2025-01-15",
     },
     body: JSON.stringify({
-      model: "claude-opus-4-8",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 16000,
       thinking: { type: "adaptive" },
       system: SYSTEM_PROMPT,

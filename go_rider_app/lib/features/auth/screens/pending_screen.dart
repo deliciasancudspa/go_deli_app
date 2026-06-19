@@ -1,14 +1,65 @@
 import "package:flutter/material.dart";
 import "package:provider/provider.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
 
-class PendingScreen extends StatelessWidget {
+class PendingScreen extends StatefulWidget {
   const PendingScreen({super.key});
+
+  @override
+  State<PendingScreen> createState() => _PendingScreenState();
+}
+
+class _PendingScreenState extends State<PendingScreen> {
+  RealtimeChannel? _channel;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribeApproval();
+  }
+
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    super.dispose();
+  }
+
+  void _subscribeApproval() {
+    final rider = context.read<RiderProvider>();
+    if (rider.riderId.isEmpty) return;
+    _channel = Supabase.instance.client
+        .channel("rider_approval_${rider.riderId}")
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: "public",
+          table: "deliverers",
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: "id",
+            value: rider.riderId,
+          ),
+          callback: (payload) {
+            final status = payload.newRecord["status"] as String?;
+            if (status == "approved" && mounted) {
+              // Recargar perfil para obtener el nuevo estado
+              rider.loadProfile();
+            }
+          },
+        )
+        .subscribe();
+  }
 
   @override
   Widget build(BuildContext context) {
     final rider = context.watch<RiderProvider>();
+    // Si fue aprobado, navegar al dashboard
+    if (rider.isApproved ? "approved" : "pending" == "approved") {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.go("/dashboard");
+      });
+    }
     return Scaffold(
       backgroundColor: AppColors.primary,
       body: SafeArea(child: Center(child: Padding(
@@ -25,9 +76,9 @@ class PendingScreen extends StatelessWidget {
             decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(16)),
             child: Column(children: [
               _step("✓", "Solicitud enviada", true),
-              _step("⏳", "Revision de documentos", false),
-              _step("○", "Aprobacion", false),
-              _step("○", "Listo para trabajar", false),
+              _step(rider.isApproved ? "approved" : "pending" == "approved" ? "✓" : "⏳", "Revision de documentos", rider.isApproved ? "approved" : "pending" == "approved"),
+              _step(rider.isApproved ? "approved" : "pending" == "approved" ? "✓" : "○", "Aprobacion", rider.isApproved ? "approved" : "pending" == "approved"),
+              _step(rider.isApproved ? "approved" : "pending" == "approved" ? "✓" : "○", "Listo para trabajar", rider.isApproved ? "approved" : "pending" == "approved"),
             ]),
           ),
           const SizedBox(height: 32),

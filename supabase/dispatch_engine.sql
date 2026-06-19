@@ -287,8 +287,10 @@ end $$;
 -- 10. Programar el tick con pg_cron ------------------------------------------
 -- (En Supabase: Database -> Extensions -> habilitar pg_cron, o el create de abajo)
 create extension if not exists pg_cron;
--- Cada 15 segundos. Si tu versión de pg_cron no acepta '15 seconds',
--- usa '* * * * *' (cada minuto).
+-- Ejecuta dispatch_tick cada minuto. pg_cron NO soporta sub-minutos ('15 seconds'),
+-- así que usamos el formato cron estándar. El timeout real de oferta es 45s, pero
+-- ejecutar cada 60s es aceptable: la diferencia máxima es 15s adicionales.
+-- Para mejor granularidad se puede usar un scheduler externo (Edge Function + cron).
 select cron.unschedule('godeli-dispatch-tick')
   where exists (select 1 from cron.job where jobname = 'godeli-dispatch-tick');
-select cron.schedule('godeli-dispatch-tick', '15 seconds', $$ select public.dispatch_tick(); $$);
+select cron.schedule('godeli-dispatch-tick', '* * * * *', $$ select public.dispatch_tick(); $$);

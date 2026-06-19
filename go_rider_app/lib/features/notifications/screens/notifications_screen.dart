@@ -7,7 +7,7 @@ import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
 import "../../orders/screens/offer_map_screen.dart";
 
-const _kTimeout = 30;
+const _kTimeout = 45; // debe coincidir con v_timeout en dispatch_engine.sql
 
 class NotificationsScreen extends StatefulWidget {
   final bool autoOpen;

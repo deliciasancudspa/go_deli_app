@@ -99,12 +99,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (rider.riderId.isEmpty) return;
     final today = DateTime.now().toIso8601String().split("T")[0];
     try {
-      final orders = await _sb.from("orders").select("total, payment_method, status").eq("deliverer_id", rider.riderId).gte("created_at", today);
+      final orders = await _sb.from("orders").select("total, rider_fee, payment_method, status").eq("deliverer_id", rider.riderId).gte("created_at", today);
       final list = List<Map<String, dynamic>>.from(orders);
       final delivered = list.where((o) => o["status"] == "delivered").toList();
-      final totalEarned = delivered.fold(0.0, (s, o) => s + ((o["total"] as num) * 0.15));
+      final totalEarned = delivered.fold(0.0, (s, o) => s + ((o["rider_fee"] as num?)?.toDouble() ?? ((o["total"] as num) * 0.15)));
       final cashReceived = delivered.where((o) => o["payment_method"] == "cash").fold(0.0, (s, o) => s + (o["total"] as num));
-      if (mounted) setState(() { _stats = {"orders": delivered.length, "earned": totalEarned, "cash": cashReceived, "toDeposit": totalEarned - cashReceived}; });
+      if (mounted) setState(() { _stats = {"orders": delivered.length, "earned": totalEarned, "cash": cashReceived, "toDeposit": (totalEarned - cashReceived).abs()}; });
     } catch (_) {}
   }
 
