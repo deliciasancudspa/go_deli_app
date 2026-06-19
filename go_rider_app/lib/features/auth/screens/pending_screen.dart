@@ -45,7 +45,7 @@ class _PendingScreenState extends State<PendingScreen> {
             final status = payload.newRecord["status"] as String?;
             if (status == "approved" && mounted) {
               // Recargar perfil para obtener el nuevo estado
-              rider.loadProfile();
+              rider.reloadProfile();
             }
           },
         )
@@ -56,7 +56,7 @@ class _PendingScreenState extends State<PendingScreen> {
   Widget build(BuildContext context) {
     final rider = context.watch<RiderProvider>();
     // Si fue aprobado, navegar al dashboard
-    if (rider.isApproved ? "approved" : "pending" == "approved") {
+    if (rider.isApproved) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.go("/dashboard");
       });
@@ -77,9 +77,9 @@ class _PendingScreenState extends State<PendingScreen> {
             decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(16)),
             child: Column(children: [
               _step("✓", "Solicitud enviada", true),
-              _step(rider.isApproved ? "approved" : "pending" == "approved" ? "✓" : "⏳", "Revision de documentos", rider.isApproved ? "approved" : "pending" == "approved"),
-              _step(rider.isApproved ? "approved" : "pending" == "approved" ? "✓" : "○", "Aprobacion", rider.isApproved ? "approved" : "pending" == "approved"),
-              _step(rider.isApproved ? "approved" : "pending" == "approved" ? "✓" : "○", "Listo para trabajar", rider.isApproved ? "approved" : "pending" == "approved"),
+              _step(rider.isApproved ? "✓" : "⏳", "Revision de documentos", rider.isApproved),
+              _step(rider.isApproved ? "✓" : "○", "Aprobacion", rider.isApproved),
+              _step(rider.isApproved ? "✓" : "○", "Listo para trabajar", rider.isApproved),
             ]),
           ),
           const SizedBox(height: 32),
