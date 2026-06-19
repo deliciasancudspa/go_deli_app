@@ -8,6 +8,7 @@ import "package:supabase_flutter/supabase_flutter.dart";
 import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/category_match.dart";
+import "../../../core/utils/color_utils.dart";
 import "../../../providers/cart_provider.dart";
 
 const _kDark   = AppColors.homeDark;
@@ -439,11 +440,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
             itemBuilder: (_, i) {
               final b      = _banners[i];
               final imgUrl = b["image_url"] as String?;
-              Color bg     = _kOrange;
-              try {
-                final hex = (b["bg_color"] as String?)?.replaceAll("#", "");
-                if (hex != null && hex.length == 6) bg = Color(int.parse("FF$hex", radix: 16));
-              } catch (_) {}
+              final bg = parseHexColor(b["bg_color"] as String?, fallback: _kOrange);
               return GestureDetector(
                 onTap: () => _handleBannerTap(b),
                 child: Container(

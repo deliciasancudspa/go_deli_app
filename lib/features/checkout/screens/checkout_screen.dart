@@ -165,10 +165,43 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _applyCoupon() async {
     final code = _couponCtrl.text.trim().toUpperCase();
-    if (code == "BIENVENIDO") {
-      setState(() { _discount = 0.10; _couponCode = code; _couponValid = true; _couponMsg = "✅ 10% de descuento aplicado"; });
-    } else {
-      setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón no válido"; });
+    if (code.isEmpty) return;
+    try {
+      // Consultar cupón en la base de datos
+      final res = await _sb.from("coupons").select("*")
+          .eq("code", code).eq("is_active", true).maybeSingle();
+      if (res == null) {
+        setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón no válido"; });
+        return;
+      }
+      // Validar vigencia
+      if (res["expires_at"] != null) {
+        final exp = DateTime.tryParse(res["expires_at"] as String);
+        if (exp != null && exp.isBefore(DateTime.now())) {
+          setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón expirado"; });
+          return;
+        }
+      }
+      // Validar uso máximo
+      final maxUses = res["max_uses"] as int?;
+      final curUses = res["current_uses"] as int?;
+      if (maxUses != null && curUses != null && curUses >= maxUses) {
+        setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón agotado"; });
+        return;
+      }
+      final pct = (res["discount_percent"] as num?)?.toDouble() ?? 0;
+      if (pct <= 0) {
+        setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón no válido"; });
+        return;
+      }
+      setState(() {
+        _discount = pct / 100;
+        _couponCode = code;
+        _couponValid = true;
+        _couponMsg = "✅ ${pct.toStringAsFixed(0)}% de descuento aplicado";
+      });
+    } catch (_) {
+      setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Error al validar cupón"; });
     }
   }
 

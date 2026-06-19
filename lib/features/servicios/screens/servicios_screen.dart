@@ -4,6 +4,8 @@ import "package:shimmer/shimmer.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/utils/color_utils.dart";
+import "../../../core/utils/price_formatter.dart";
 
 const _kDark   = AppColors.homeDark;
 const _kOrange = AppColors.homeOrange;
@@ -186,11 +188,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
             itemBuilder: (_, i) {
               final b      = _banners[i];
               final imgUrl = b["image_url"] as String?;
-              Color bg     = _kPurple;
-              try {
-                final hex = (b["bg_color"] as String?)?.replaceAll("#", "");
-                if (hex != null && hex.length == 6) bg = Color(int.parse("FF$hex", radix: 16));
-              } catch (_) {}
+              final bg = parseHexColor(b["bg_color"] as String?, fallback: _kPurple);
               return GestureDetector(
                 onTap: () => _handleBannerTap(b),
                 child: Container(
@@ -632,8 +630,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
     );
   }
 
-  String _fmtPrice(num p) =>
-      "\$${p.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
+  String _fmtPrice(num p) => fmtCLP(p.toInt());
 
   void _showContactSheet(Map<String, dynamic> p) {
     showModalBottomSheet(

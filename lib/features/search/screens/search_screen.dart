@@ -53,7 +53,11 @@ class _SearchScreenState extends State<SearchScreen> {
       if (_filter == "open")  stores = stores.where((s) => s["is_open"] == true).toList();
       if (_filter == "rated") stores.sort((a, b) => ((b["rating"] ?? 0) as num).compareTo((a["rating"] ?? 0) as num));
       if (_filter == "cheap") stores.sort((a, b) => ((a["delivery_fee"] ?? 0) as num).compareTo((b["delivery_fee"] ?? 0) as num));
-      if (_filter == "fast")  stores.sort((a, b) => ((a["delivery_time"] ?? "") as String).compareTo((b["delivery_time"] ?? "") as String));
+      if (_filter == "fast")  stores.sort((a, b) {
+        final pa = int.tryParse(((a["delivery_time"] ?? "999") as String).split("-").first) ?? 999;
+        final pb = int.tryParse(((b["delivery_time"] ?? "999") as String).split("-").first) ?? 999;
+        return pa.compareTo(pb);
+      });
 
       if (mounted) setState(() {
         _storeResults  = stores;
