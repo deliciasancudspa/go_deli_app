@@ -17,7 +17,7 @@ import "address_picker_screen.dart";
 // La tarifa base se cobra desde 0 km y suma por cada 0.1 km (100 m).
 const _kDefBaseFee   = 1500.0; // tarifa base al rider (desde 0 km)
 const _kDefPer100m   = 35.0;   // pesos por cada 0.1 km (100 m)
-const _kDefMaxDistKm = 6.0;    // distancia máxima permitida (km)
+const _kDefMaxDistKm = 8.0;    // distancia máxima permitida (km)
 const _kMaxClient    = 3500.0; // tope que paga el cliente (no configurable aquí)
 
 class CheckoutScreen extends StatefulWidget {
@@ -133,6 +133,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return (client: client, rider: rider, storeAbsorbs: storeAbsorbs, platform: platform);
   }
 
+  // Tarifa de servicio Go Deli por tramos de distancia (interna: el cliente y
+  // el rider la ven en el total, pero el aliado NO la ve en su ticket/reportes).
+  //   0–3 km: $0 · 3–4: $480 · 4–5: $880 · 5–6: $990 · 6–7: $1250 · 7–8: $1490
+  int _calcServiceFee(double distMeters) {
+    final km = distMeters / 1000;
+    if (km <= 3) return 0;
+    if (km <= 4) return 480;
+    if (km <= 5) return 880;
+    if (km <= 6) return 990;
+    if (km <= 7) return 1250;
+    return 1490; // 7–8 km
+  }
+
   String _generateCode() => (1000 + Random().nextInt(9000)).toString();
 
   String _fmt(num p) => "\$${p.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
@@ -183,7 +196,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final finalSub   = subtotal - discAmt;
       final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 7) as num) / 100).round();
       final fixedFee   = (_storeData?["fixed_fee"] ?? 3000) as num;
-      int delivFee = 0, riderFee = 0, storeDelivFee = 0, platformDelivFee = 0;
+      int delivFee = 0, riderFee = 0, storeDelivFee = 0, platformDelivFee = 0, serviceFee = 0;
       if (_deliveryType == "delivery") {
         final dist = _distanceMeters ?? 0.0;
         final fees = _calcAllFees(dist);
@@ -191,8 +204,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         riderFee       = fees.rider;
         storeDelivFee  = fees.storeAbsorbs;
         platformDelivFee = fees.platform;
+        serviceFee     = _calcServiceFee(dist);
       }
-      final total = finalSub + delivFee;
+      // El total (lo que paga el cliente y cobra el rider) incluye la tarifa de
+      // servicio. El aliado NO la ve: su total = finalSub + delivFee.
+      final total = finalSub + delivFee + serviceFee;
       // retiro: cliente muestra pickup_code a la tienda
       // delivery: delivery_code lo da el cliente al rider; pickup_code lo genera el sistema al asignar rider
       final pickupCode = _deliveryType == "pickup" ? _generateCode() : null;
@@ -225,6 +241,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "delivery_distance": _distanceMeters != null ? _distanceMeters!.round() : null,
         "platform_fee": platformFee,
         "fixed_fee": fixedFee,
+        "service_fee": serviceFee,
         "total": total,
         "delivery_address": _deliveryType == "delivery" ? _addressCtrl.text.trim() : null,
         "delivery_lat": _deliveryType == "delivery" ? _deliveryLat : null,
@@ -268,10 +285,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final finalSub  = subtotal - discAmt;
     final bool outOfRange = _deliveryType == "delivery" && _distanceMeters != null && _distanceMeters! > _maxDistM;
     int delivFee = 0;
+    int serviceFee = 0;
     String? delivLabel;
     if (_deliveryType == "delivery") {
       if (_distanceMeters != null) {
         delivFee  = _calcAllFees(_distanceMeters!).client;
+        serviceFee = _calcServiceFee(_distanceMeters!);
         delivLabel = "🛵 Envío";
       } else {
         final clientFee = (_storeData?["delivery_fee_client"] as num?)?.toInt() ?? 0;
@@ -279,7 +298,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         delivLabel = "🛵 Envío";
       }
     }
-    final total = finalSub + delivFee;
+    final total = finalSub + delivFee + serviceFee;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -453,6 +472,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 outOfRange ? "Fuera de cobertura" : delivFee == 0 ? "Gratis" : _fmt(delivFee),
                 color: outOfRange ? AppColors.error : delivFee == 0 ? AppColors.success : null,
               ),
+            if (_deliveryType == "delivery" && !outOfRange && serviceFee > 0)
+              _summaryRow("Tarifa de servicio", _fmt(serviceFee)),
             const Divider(thickness: 2),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text("Total", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
