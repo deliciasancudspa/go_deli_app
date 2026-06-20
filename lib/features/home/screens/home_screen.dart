@@ -30,8 +30,6 @@ const _kPurple = AppColors.homePurple;
 const _kBg     = AppColors.homeBackground;
 const _kBorder = AppColors.homeCardBorder;
 
-const _kAliadosUrl = "https://aliados.godeli.cl"; // actualizar con URL real
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -507,9 +505,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   : _buildStoreSection(sec),
             )),
 
-          // ── Banner aliado ───────────────────────────────────────────────────
-          SliverToBoxAdapter(child: _buildAliadoBanner()),
-
           // ── Cerca de ti ────────────────────────────────────────────────────
           const SliverToBoxAdapter(child: Padding(
             padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
@@ -976,40 +971,6 @@ class _HomeScreenState extends State<HomeScreen> {
   );
 
   // ── "Únete como Aliado" banner ─────────────────────────────────────────────
-  Widget _buildAliadoBanner() => GestureDetector(
-    onTap: () => launchUrl(Uri.parse(_kAliadosUrl), mode: LaunchMode.externalApplication),
-    child: Container(
-      margin: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: AppColors.darkGradient,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: _kPurple.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 6))],
-      ),
-      child: Row(children: [
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("¿Tienes un negocio?",
-              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          const Text("Únete como Aliado",
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, fontFamily: "Nunito")),
-          const SizedBox(height: 6),
-          Text("Llega a más clientes con Go Deli",
-              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13)),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(color: _kOrange, borderRadius: BorderRadius.circular(10)),
-            child: const Text("Registrar mi negocio",
-                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
-          ),
-        ])),
-        const SizedBox(width: 12),
-        const Text("🏪", style: TextStyle(fontSize: 52)),
-      ]),
-    ),
-  );
-
   // ── Nearby stores (vertical list) ─────────────────────────────────────────
   Widget _nearbyCard(Map<String, dynamic> s) {
     final logoUrl = s["logo_url"] as String?;
