@@ -338,6 +338,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         _infoCard("Cliente", "👤", _order!["users"]?["name"] ?? "Cliente", _order!["delivery_address"] ?? "", _order!["users"]?["phone"], _order!["delivery_address"],
           lat: (_order!["delivery_lat"] as num?)?.toDouble(),
           lng: (_order!["delivery_lng"] as num?)?.toDouble(),
+          reference: _order!["delivery_reference"] as String?,
         ),
         const SizedBox(height: 12),
 
@@ -554,7 +555,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _infoCard(String title, String emoji, String name, String subtitle, String? phone, String? address, {double? lat, double? lng}) =>
+  Widget _infoCard(String title, String emoji, String name, String subtitle, String? phone, String? address, {double? lat, double? lng, String? reference}) =>
     Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
@@ -569,6 +570,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           if (subtitle.isNotEmpty) Text(subtitle, style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
         ])),
       ]),
+      // Referencia de entrega (visible solo para el rider)
+      if (reference != null && reference.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.warning.withOpacity(0.35)),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.info_outline, color: AppColors.warning, size: 16),
+            const SizedBox(width: 8),
+            Expanded(child: Text(
+              reference,
+              style: const TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600, fontSize: 13, height: 1.35),
+            )),
+          ]),
+        ),
+      ],
       const SizedBox(height: 12),
       Row(children: [
         if (phone != null) Expanded(child: OutlinedButton.icon(

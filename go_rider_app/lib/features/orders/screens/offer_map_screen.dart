@@ -34,7 +34,7 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
       // todavía (deliverer_id NULL). En ese caso _order queda null y la pantalla
       // muestra los datos que vienen en la notificación.
       final o = await _sb.from("orders")
-          .select("delivery_lat,delivery_lng,delivery_address,rider_fee,total,delivery_distance,payment_method,stores(name,emoji,lat,lng,address)")
+          .select("delivery_lat,delivery_lng,delivery_address,delivery_reference,rider_fee,total,delivery_distance,payment_method,stores(name,emoji,lat,lng,address)")
           .eq("id", widget.orderId)
           .maybeSingle();
       if (mounted) setState(() { _order = o; _loading = false; });
@@ -77,6 +77,7 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
     final storeName = store?["name"] as String? ?? widget.offerData["store_name"] as String? ?? "Tienda";
     final storeEmoji = store?["emoji"] as String? ?? widget.offerData["store_emoji"] as String? ?? "🏪";
     final delivAddr = _order?["delivery_address"] as String? ?? widget.offerData["delivery_address"] as String? ?? "";
+    final delivRef  = _order?["delivery_reference"] as String? ?? widget.offerData["delivery_reference"] as String?;
     final payMethod = _order?["payment_method"] as String?;
     final total = (_order?["total"] as num?)?.toDouble() ?? (widget.offerData["total"] as num?)?.toDouble() ?? 0;
 
@@ -162,6 +163,26 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
                           Text(delivAddr, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                         ])),
                       ]),
+                    ],
+                    if (delivRef != null && delivRef.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.warning.withOpacity(0.35)),
+                        ),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Icon(Icons.info_outline, color: AppColors.warning, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(
+                            delivRef,
+                            style: const TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600, fontSize: 13, height: 1.35),
+                          )),
+                        ]),
+                      ),
                     ],
 
                     if (payMethod == "cash") ...[

@@ -143,6 +143,7 @@ begin
              'order_id', p_order_id,
              'store_name', s.name, 'store_emoji', s.emoji,
              'delivery_address', o.delivery_address,
+             'delivery_reference', o.delivery_reference,
              'total', o.total, 'payment_method', o.payment_method,
              'rider_fee', o.rider_fee,
              'distance_km', case when o.delivery_distance is not null
