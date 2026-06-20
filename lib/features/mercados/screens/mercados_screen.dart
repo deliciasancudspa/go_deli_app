@@ -431,8 +431,8 @@ class _MercadosScreenState extends State<MercadosScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Column(children: [
-        SizedBox(
-          height: 180,
+        AspectRatio(
+          aspectRatio: 2,
           child: PageView.builder(
             controller: _bannerPageCtrl,
             itemCount: _banners.length,

@@ -35,8 +35,8 @@ class _HomeBannerState extends State<HomeBanner> {
   Widget build(BuildContext context) {
     if (widget.banners.isEmpty) return _defaultBanner();
     return Column(children: [
-      SizedBox(
-        height: 180,
+      AspectRatio(
+        aspectRatio: 2,
         child: PageView.builder(
           controller: _ctrl,
           itemCount: widget.banners.length,
@@ -126,24 +126,26 @@ class _HomeBannerState extends State<HomeBanner> {
     ]);
   }
 
-  Widget _defaultBanner() => Container(
-    height: 180,
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-          colors: [AppColors.homeDark, Color(0xFF3D0080)],
-          begin: Alignment.topLeft, end: Alignment.bottomRight),
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: const Padding(
-      padding: EdgeInsets.all(24),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text("Oferta especial", style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700)),
-        SizedBox(height: 6),
-        Text("Descubre Go Deli", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-        SizedBox(height: 6),
-        Text("Los mejores locales cerca de ti", style: TextStyle(color: Colors.white60, fontSize: 13)),
-      ]),
+  Widget _defaultBanner() => AspectRatio(
+    aspectRatio: 2,
+    child: Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+            colors: [AppColors.homeDark, Color(0xFF3D0080)],
+            begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text("Oferta especial", style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700)),
+          SizedBox(height: 6),
+          Text("Descubre Go Deli", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+          SizedBox(height: 6),
+          Text("Los mejores locales cerca de ti", style: TextStyle(color: Colors.white60, fontSize: 13)),
+        ]),
+      ),
     ),
   );
 }

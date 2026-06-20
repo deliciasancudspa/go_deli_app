@@ -184,8 +184,8 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Column(children: [
-        SizedBox(
-          height: 180,
+        AspectRatio(
+          aspectRatio: 2,
           child: PageView.builder(
             controller: _bannerPageCtrl,
             itemCount: _banners.length,
@@ -447,8 +447,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
     highlightColor: const Color(0xFFF5F0FF),
     child: Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      height: 180,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: const AspectRatio(aspectRatio: 2, child: SizedBox.expand()),
     ),
   );
 

@@ -561,7 +561,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _bannerShimmer() => Padding(
     padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
     child: Shimmer.fromColors(baseColor: _shimmerBase, highlightColor: _shimmerHighlight,
-      child: Container(height: 180, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)))),
+      child: const AspectRatio(aspectRatio: 2, child: SizedBox.expand()),
+    ),
   );
 
   Widget _catsShimmer() => SizedBox(
@@ -594,8 +595,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Column(children: [
-        SizedBox(
-          height: 180,
+        AspectRatio(
+          aspectRatio: 2,
           child: PageView.builder(
             controller: _bannerCtrl,
             itemCount: _banners.length,
