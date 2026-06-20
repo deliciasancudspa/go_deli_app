@@ -551,10 +551,11 @@ begin
      or coalesce(new.discount,0) < 0 or coalesce(new.delivery_fee,0) < 0 then
     raise exception 'Montos inválidos en el pedido';
   end if;
-  -- Fórmula de ambos checkouts (app y web): total = subtotal + delivery_fee
-  -- (el descuento ya viene restado del subtotal; platform_fee/fixed_fee son
-  -- comisiones del lado tienda y no se cobran al cliente)
-  if abs(new.total - (new.subtotal + coalesce(new.delivery_fee,0))) > 1 then
+  -- Fórmula de ambos checkouts (app y web):
+  --   total = subtotal + delivery_fee + service_fee
+  -- (el descuento ya viene restado del subtotal; platform_fee/fixed_fee y
+  --  service_fee son internos — el cliente los paga en el total, el aliado no los ve)
+  if abs(new.total - (new.subtotal + coalesce(new.delivery_fee,0) + coalesce(new.service_fee,0))) > 1 then
     raise exception 'Total del pedido incoherente con sus componentes';
   end if;
   return new;
