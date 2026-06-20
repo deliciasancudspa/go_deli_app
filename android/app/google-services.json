@@ -12,7 +12,16 @@
           "package_name": "com.godeli.go_deli"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "453209088911-dav1dtijb3ot1iac9m0ab034brpnr8hk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.godeli.go_deli",
+            "certificate_hash": "BCB16566A35C0E62062BCD102DCE47B38D8A235F"
+          }
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCHobf_56sLNTnxqP-J5naqni-bU0LWhq0"
