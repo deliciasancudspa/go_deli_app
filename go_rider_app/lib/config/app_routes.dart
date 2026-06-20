@@ -25,7 +25,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: "/order/:id",          builder: (c,s) => OrderDetailScreen(orderId: s.pathParameters["id"]!)),
     GoRoute(path: "/chat/:orderId",      builder: (c,s) => RiderChatScreen(orderId: s.pathParameters["orderId"]!)),
     GoRoute(path: "/chat-admin/:adminId",builder: (c,s) => AdminChatScreen(adminId: s.pathParameters["adminId"]!)),
-    GoRoute(path: "/notifications",      builder: (c,s) => NotificationsScreen(autoOpen: s.uri.queryParameters["open"] == "1")),
+    GoRoute(path: "/notifications",      builder: (c,s) => NotificationsScreen(
+      autoOpen: s.uri.queryParameters["open"] == "1",
+      directOrderId: s.uri.queryParameters["order_id"],
+    )),
 
     // Pantallas principales — con bottom nav persistente
     ShellRoute(

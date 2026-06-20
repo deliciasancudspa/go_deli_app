@@ -11,7 +11,8 @@ const _kTimeout = 45; // debe coincidir con v_timeout en dispatch_engine.sql
 
 class NotificationsScreen extends StatefulWidget {
   final bool autoOpen;
-  const NotificationsScreen({super.key, this.autoOpen = false});
+  final String? directOrderId;
+  const NotificationsScreen({super.key, this.autoOpen = false, this.directOrderId});
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
@@ -41,8 +42,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       // oferta más reciente directamente.
       if (widget.autoOpen && !_dialogShown && _notifications.isNotEmpty && mounted) {
         _dialogShown = true;
+        // Si hay directOrderId, buscar esa notificación específica primero
+        Map<String, dynamic>? target;
+        if (widget.directOrderId != null) {
+          target = _notifications.cast<Map<String, dynamic>?>().firstWhere(
+            (n) => (n?["data"] as Map?)?["order_id"] == widget.directOrderId,
+            orElse: () => null,
+          );
+        }
+        target ??= _notifications.first;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _openOffer(_notifications.first);
+          if (mounted) _openOffer(target!);
         });
       }
     } catch (_) { if (mounted) setState(() => _loading = false); }

@@ -1,3 +1,4 @@
+import "dart:convert" show jsonEncode, jsonDecode;
 import "dart:ui" show Color;
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
@@ -35,7 +36,9 @@ class NotificationService {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       final n = message.notification;
       if (n != null) {
-        await show(title: n.title ?? "Go Rider", body: n.body ?? "", payload: "notifications");
+        // Pass full FCM data as JSON payload so _onTap can navigate directly
+        final payload = jsonEncode(message.data);
+        await show(title: n.title ?? "Go Rider", body: n.body ?? "", payload: payload);
       }
     });
   }
@@ -43,10 +46,25 @@ class NotificationService {
   // Ruta pendiente cuando la app se abre desde una notificación (app cerrada)
   static String? pendingRoute;
 
-  // Tap en una notificación local → navega al payload o abre las ofertas.
+  // Tap en una notificación local → navega directo a la oferta o al payload.
   static void _onTap(NotificationResponse response) {
     final payload = response.payload;
     if (payload == null) return;
+    // ¿Payload JSON con datos de FCM?
+    try {
+      final data = jsonDecode(payload) as Map<String, dynamic>;
+      final route = data["route"] as String?;
+      final orderId = data["order_id"] as String?;
+      if (route == "notifications" && orderId != null && orderId.isNotEmpty) {
+        // Navegar directo a la pantalla de oferta con los datos de la notificación
+        openOffer(orderId, data);
+        return;
+      }
+      if (route != null) {
+        openOffers();
+        return;
+      }
+    } catch (_) { /* no es JSON, seguir con payload clásico */ }
     if (payload == "notifications") {
       openOffers();
     } else {
@@ -64,6 +82,23 @@ class NotificationService {
       appRouter.push("/notifications?open=1");
     } catch (_) {
       pendingRoute = "/notifications?open=1";
+      // App puede estar reanudándose; reintentar tras breve delay
+      Future.delayed(const Duration(milliseconds: 500), () {
+        try {
+          appRouter.push("/notifications?open=1");
+          pendingRoute = null;
+        } catch (_) {}
+      });
+    }
+  }
+
+  // Navega directo a la tarjeta de oferta con los datos del FCM
+  static void openOffer(String orderId, Map<String, dynamic> data) {
+    try {
+      appRouter.push("/notifications?open=1&order_id=$orderId");
+    } catch (_) {
+      // Fallback: abrir notificaciones
+      openOffers();
     }
   }
 

@@ -695,14 +695,12 @@ begin
     raise exception 'Clientes solo pueden calificar pedidos';
   end if;
 
-  -- Rider solo puede cambiar status y location
+  -- Rider solo puede cambiar status
   if v_is_rider and not v_is_admin then
-    if new.status != old.status
-       or new.rider_lat != old.rider_lat or new.rider_lng != old.rider_lng
-    then
+    if new.status != old.status then
       return new;
     end if;
-    raise exception 'Riders solo pueden cambiar status y ubicación';
+    raise exception 'Riders solo pueden cambiar status';
   end if;
 
   return new;

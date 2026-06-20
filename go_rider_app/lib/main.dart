@@ -28,12 +28,23 @@ void main() async {
 
   // Tap en push con la app en segundo plano → abrir diálogo de oferta
   FirebaseMessaging.onMessageOpenedApp.listen((m) {
-    if ((m.data["route"] ?? "") == "notifications") NotificationService.openOffers();
+    final route = m.data["route"] ?? "";
+    final orderId = m.data["order_id"] ?? "";
+    if (route == "notifications") {
+      if (orderId.isNotEmpty) {
+        NotificationService.openOffer(orderId, m.data);
+      } else {
+        NotificationService.openOffers();
+      }
+    }
   });
   // App abierta DESDE una push (estaba cerrada): navegar tras el splash
   final initialMsg = await FirebaseMessaging.instance.getInitialMessage();
   if (initialMsg != null && (initialMsg.data["route"] ?? "") == "notifications") {
-    NotificationService.pendingRoute = "/notifications?open=1";
+    final oid = initialMsg.data["order_id"] ?? "";
+    NotificationService.pendingRoute = oid.isNotEmpty
+        ? "/notifications?open=1&order_id=$oid"
+        : "/notifications?open=1";
   }
 
   runApp(const GoRiderApp());

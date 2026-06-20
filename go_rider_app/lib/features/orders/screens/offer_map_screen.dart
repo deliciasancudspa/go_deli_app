@@ -63,11 +63,14 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
   }
 
   String get _distanceLabel {
-    if (_routeKm != null) return "${_routeKm!.toStringAsFixed(1)} km";
+    // Prioridad 1: delivery_distance del pedido (haversine, usada para fees y cobertura)
     final meters = (_order?["delivery_distance"] as num?)?.toDouble();
     if (meters != null) return "${(meters / 1000).toStringAsFixed(1)} km";
+    // Prioridad 2: distance_km del payload de la notificación
     final fromOffer = widget.offerData["distance_km"]?.toString();
     if (fromOffer != null) return "$fromOffer km";
+    // Prioridad 3: ruta calculada por Google Directions (distancia real de manejo)
+    if (_routeKm != null) return "~${_routeKm!.toStringAsFixed(1)} km (ruta)";
     return "—";
   }
 

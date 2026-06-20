@@ -77,6 +77,7 @@ serve(async (req) => {
     let rider_id: string;
     let title: string;
     let body: string;
+    let order_id: string | null = null;
 
     if (rawPayload.record) {
       const rec = rawPayload.record;
@@ -84,10 +85,12 @@ serve(async (req) => {
       rider_id = rec.target as string;
       title    = (rec.title   as string) ?? "🛵 Nuevo pedido disponible";
       body     = (rec.message as string) ?? "Tienes un nuevo pedido. Ábrela para aceptarlo.";
+      order_id = rec.data?.order_id as string ?? null;
     } else {
       rider_id = rawPayload.rider_id as string;
       title    = rawPayload.title    as string;
       body     = rawPayload.body     as string;
+      order_id = rawPayload.order_id as string ?? null;
     }
 
     if (!rider_id) return new Response("missing rider_id", { status: 400 });
@@ -129,7 +132,7 @@ serve(async (req) => {
                 sound: "default",
               },
             },
-            data: { route: "notifications" },
+            data: { route: "notifications", order_id: order_id ?? "" },
           },
         }),
       },
