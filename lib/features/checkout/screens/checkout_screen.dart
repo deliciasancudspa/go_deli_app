@@ -275,9 +275,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         prescriptionUrl = _sb.storage.from("prescriptions").getPublicUrl(path);
       }
 
-      // Obtener commune_id de SharedPreferences (detectado en onboarding/address picker)
+      // Obtener commune_id de SharedPreferences, con fallback al de la tienda
       final savedCommune = await LocationService.loadSavedCommune();
-      final communeId = savedCommune?['commune_id'];
+      var communeId = savedCommune?['commune_id'];
+      if (communeId == null && cart.currentStoreId != null) {
+        // Fallback: usar el commune_id de la tienda
+        final store = await _sb.from("stores").select("commune_id")
+            .eq("id", cart.currentStoreId!).maybeSingle();
+        communeId = store?['commune_id'] as String?;
+      }
 
       final order = await _sb.from("orders").insert({
         "client_id": u["id"],
