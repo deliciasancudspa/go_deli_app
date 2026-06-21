@@ -137,11 +137,16 @@ serve(async (req) => {
       const bBody  = String(rawPayload.body ?? "");
       if (!bBody) return new Response("missing body", { status: 400, headers: corsHeaders });
 
-      const { data: clients } = await sb
+      // Si se especifica comuna, filtrar solo clientes de esa comuna
+      let clientsQuery = sb
         .from("users")
         .select("fcm_token")
         .eq("role", "client")
         .not("fcm_token", "is", null);
+      if (rawPayload.commune_id) {
+        clientsQuery = clientsQuery.eq("commune_id", rawPayload.commune_id);
+      }
+      const { data: clients } = await clientsQuery;
       const tokens = [...new Set((clients ?? []).map((c) => c.fcm_token).filter(Boolean))];
 
       const accessToken = await getAccessToken();
