@@ -640,12 +640,16 @@ class _MercadosScreenState extends State<MercadosScreen> {
                   const Text(" · ",
                       style: TextStyle(color: AppColors.textLight, fontSize: 11)),
                   fee == 0
-                      ? Text("Envío gratis",
-                          style: TextStyle(fontSize: 11,
-                              color: _kPurple, fontWeight: FontWeight.w700))
-                      : Text(_fmt(fee),
-                          style: const TextStyle(
-                              fontSize: 11, color: AppColors.textLight)),
+                      ? Flexible(
+                          child: Text("Envío gratis",
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11,
+                                  color: _kPurple, fontWeight: FontWeight.w700)))
+                      : Flexible(
+                          child: Text(_fmt(fee),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 11, color: AppColors.textLight))),
                 ]),
               ],
             )),
