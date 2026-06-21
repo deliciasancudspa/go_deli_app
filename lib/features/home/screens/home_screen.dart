@@ -16,6 +16,7 @@ import "../../../config/app_config.dart";
 import "../../../services/notification_service.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/category_match.dart";
+import "../../../core/services/location_service.dart";
 import "../../../providers/cart_provider.dart";
 import "../../mercados/screens/mercados_screen.dart";
 import "../../servicios/screens/servicios_screen.dart";
@@ -49,6 +50,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, List<Map<String, dynamic>>> _featuredItems = {};
   double? _userLat;
   double? _userLng;
+
+  // Comuna del usuario
+  String? _userCommuneId;
+  String? _userCommuneName;
+  String? _userRegionName;
 
   // Selected category filter (null = Todos)
   Map<String, dynamic>? _selectedCat;
@@ -213,13 +219,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadData({bool forceRefreshCache = false}) async {
     if (mounted) setState(() => _loadingHome = true);
     try {
+      // Cargar comuna guardada
+      final savedCommune = await LocationService.loadSavedCommune();
+      if (savedCommune != null && mounted) {
+        setState(() {
+          _userCommuneId   = savedCommune['commune_id'];
+          _userCommuneName = savedCommune['commune_name'];
+          _userRegionName  = savedCommune['region_name'];
+        });
+      }
+
       // Categories (cached 5 min)
       if (forceRefreshCache || _catStale) {
         final raw = await _sb.from("categories")
             .select()
             .eq("is_active", true)
             .order("sort_order");
-        // Aceptar listas de pantallas ("home,mercados") además de "home"/"all"
         _cachedCategories = List<Map<String, dynamic>>.from(raw).where((c) {
           final s = (c["screens"] as String?) ?? "all";
           return s == "all" || s.split(",").map((x) => x.trim()).contains("home");
@@ -227,10 +242,10 @@ class _HomeScreenState extends State<HomeScreen> {
         _catCachedAt = DateTime.now();
       }
 
-      // Banners (cached 5 min, date-filtered server-side)
+      // Banners (cached 5 min, date-filtered + commune-filtered)
       if (forceRefreshCache || _bannerStale) {
         final now = DateTime.now().toIso8601String();
-        final raw = await _sb.from("banners")
+        var bannerQuery = _sb.from("banners")
             .select()
             .eq("is_active", true)
             .eq("banner_type", "web_home")
@@ -238,27 +253,60 @@ class _HomeScreenState extends State<HomeScreen> {
             .or("end_date.is.null,end_date.gte.$now")
             .order("sort_order")
             .limit(10);
+        // Incluir banners globales (commune_id NULL) + los de la comuna del usuario
+        if (_userCommuneId != null) {
+          bannerQuery = bannerQuery.or("commune_id.is.null,commune_id.eq.$_userCommuneId");
+        }
+        final raw = await bannerQuery;
         _cachedBanners = (raw as List<dynamic>).cast<Map<String, dynamic>>();
         _bannerCachedAt = DateTime.now();
       }
 
-      // Stores (always fresh)
-      final storesRaw = await _sb.from("stores").select().eq("status", "approved").eq("is_active", true);
+      // Stores: filtrar por comuna (con fallback: si no hay comuna, mostrar todas)
+      List<dynamic> storesRaw;
+      if (_userCommuneId != null) {
+        storesRaw = await _sb.from("stores")
+            .select()
+            .eq("status", "approved")
+            .eq("is_active", true)
+            .eq("commune_id", _userCommuneId);
+        // Fallback: si no hay tiendas en la comuna, mostrar todas (el usuario
+        // puede no tener tiendas aún y debe poder ver algo)
+        if (storesRaw.isEmpty) {
+          storesRaw = await _sb.from("stores")
+              .select()
+              .eq("status", "approved")
+              .eq("is_active", true);
+        }
+      } else {
+        storesRaw = await _sb.from("stores").select().eq("status", "approved").eq("is_active", true);
+      }
 
-      // Dynamic home sections
-      final sectionsRaw = await _sb
-          .from("home_sections")
-          .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
-          .or("screen.eq.home,screen.eq.all")
-          .eq("is_active", true)
-          .order("sort_order");
-      final sections = (sectionsRaw as List)
+      // Dynamic home sections (con filtro de comuna o global)
+      List<dynamic> sectionsRaw;
+      if (_userCommuneId != null) {
+        sectionsRaw = await _sb
+            .from("home_sections")
+            .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
+            .or("screen.eq.home,screen.eq.all")
+            .eq("is_active", true)
+            .or("commune_id.is.null,commune_id.eq.$_userCommuneId")
+            .order("sort_order");
+      } else {
+        sectionsRaw = await _sb
+            .from("home_sections")
+            .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
+            .or("screen.eq.home,screen.eq.all")
+            .eq("is_active", true)
+            .order("sort_order");
+      }
+      final sections = (sectionsRaw)
           .map((s) => _HomeSection.fromJson(s as Map<String, dynamic>))
           .toList()
         ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
-      // Featured items for highlighted stores (is_featured OR discount_pct > 0)
-      final allStoresList = (storesRaw as List).cast<Map<String, dynamic>>();
+      // Featured items for highlighted stores
+      final allStoresList = (storesRaw).cast<Map<String, dynamic>>();
       final featIds = allStoresList
           .where((s) => s["featured_order"] != null)
           .map((s) => s["id"] as String)
@@ -546,6 +594,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _deliveryAddress = result);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString("delivery_address", result);
+      // Recargar datos con la nueva comuna
+      _loadData(forceRefreshCache: true);
     }
   }
 
@@ -1224,6 +1274,10 @@ class _ChangeAddressSheetState extends State<_ChangeAddressSheet> {
       } catch (_) {
         address = "${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}";
       }
+
+      // Detectar comuna desde las coordenadas GPS
+      await LocationService().detectAndSaveCommune(pos.latitude, pos.longitude);
+
       if (mounted) Navigator.pop(context, address);
     } catch (_) {
       _showError("No se pudo obtener tu ubicación.");
@@ -1271,6 +1325,10 @@ class _ChangeAddressSheetState extends State<_ChangeAddressSheet> {
         },
       );
       final address = resp.data["result"]?["formatted_address"] as String? ?? "";
+
+      // Detectar comuna desde el place_id
+      await LocationService().detectFromPlaceId(placeId);
+
       if (address.isNotEmpty && mounted) Navigator.pop(context, address);
     } catch (_) {
       _showError("Error al seleccionar la dirección.");

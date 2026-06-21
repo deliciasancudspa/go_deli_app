@@ -1,7 +1,10 @@
 import "dart:async";
+import "dart:convert";
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/material.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "package:http/http.dart" as http;
+import "../config/app_config.dart";
 
 class RiderProvider extends ChangeNotifier {
   final _sb = Supabase.instance.client;
@@ -88,13 +91,13 @@ class RiderProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> register({required String name, required String email, required String password, required String phone, required String rut, required String vehicle, required String plate, required String bankName, required String accountType, required String accountNumber, required String accountHolder, required String accountRut}) async {
+  Future<String?> register({required String name, required String email, required String password, required String phone, required String rut, required String vehicle, required String plate, required String bankName, required String accountType, required String accountNumber, required String accountHolder, required String accountRut, String? communeId}) async {
     try {
       _loading = true; notifyListeners();
       final res = await _sb.auth.signUp(email: email, password: password);
       if (res.user == null) throw Exception("Error al crear cuenta");
       final user = await _sb.from("users").insert({"auth_id": res.user!.id, "email": email, "name": name, "phone": phone, "role": "deliverer"}).select().single();
-      final rider = await _sb.from("deliverers").insert({"user_id": user["id"], "vehicle_type": vehicle, "vehicle_plate": plate, "status": "pending", "is_online": false, "is_available": false}).select().single();
+      final rider = await _sb.from("deliverers").insert({"user_id": user["id"], "vehicle_type": vehicle, "vehicle_plate": plate, "status": "pending", "is_online": false, "is_available": false, "commune_id": communeId}).select().single();
       await _sb.from("deliverer_bank_info").insert({"deliverer_id": rider["id"], "bank_name": bankName, "account_type": accountType, "account_number": accountNumber, "account_holder": accountHolder, "rut": accountRut});
       _user = user; _rider = rider;
       notifyListeners();
@@ -137,7 +140,9 @@ class RiderProvider extends ChangeNotifier {
     await loadActiveOrders();
   }
 
-  // Envía la ubicación GPS del repartidor a Supabase
+  // Envía la ubicación GPS del repartidor a Supabase.
+  // Además detecta y actualiza la comuna cada vez que la ubicación cambia
+  // significativamente (para mantener commune_id actualizado en el despacho).
   Future<void> sendLocation(double lat, double lng) async {
     if (_rider == null || riderId.isEmpty) return;
     try {
@@ -145,6 +150,68 @@ class RiderProvider extends ChangeNotifier {
         "current_lat": lat,
         "current_lng": lng,
       }).eq("id", riderId);
+
+      // Detectar comuna si el rider aún no tiene una o cambió su ubicación
+      await _maybeUpdateCommune(lat, lng);
+    } catch (_) {}
+  }
+
+  /// Detecta la comuna desde coordenadas y actualiza el registro del rider
+  /// si la comuna cambió o no está seteada.
+  Future<void> _maybeUpdateCommune(double lat, double lng) async {
+    try {
+      // Solo actualizar si han pasado al menos 5 min desde la última detección
+      // o si el rider no tiene commune_id
+      final currentCommuneId = _rider?['commune_id'] as String?;
+
+      // Usar Google Geocoding API para obtener la comuna
+      final uri = Uri.parse(
+        'https://maps.googleapis.com/maps/api/geocode/json'
+        '?latlng=${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}'
+        '&key=${AppConfig.googleMapsApiKey}'
+        '&language=es',
+      );
+      final resp = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (resp.statusCode != 200) return;
+
+      final data = jsonDecode(resp.body);
+      final results = data['results'] as List?;
+      if (results == null || results.isEmpty) return;
+
+      String? communeName;
+      String? regionName;
+      for (final r in results.cast<Map<String, dynamic>>()) {
+        final components = r['address_components'] as List? ?? [];
+        for (final comp in components.cast<Map<String, dynamic>>()) {
+          final types = List<String>.from(comp['types'] ?? []);
+          final longName = comp['long_name'] as String? ?? '';
+          if (types.contains('administrative_area_level_3') && communeName == null) {
+            communeName = longName;
+          }
+          if (types.contains('administrative_area_level_2') && regionName == null) {
+            regionName = longName;
+          }
+        }
+        if (communeName != null) break;
+      }
+      if (communeName == null) return;
+
+      // Buscar la comuna en nuestra BD
+      final communeResult = await _sb.rpc('find_commune', params: {
+        'p_name': communeName,
+        'p_region': regionName,
+      });
+      final newCommuneId = communeResult as String?;
+      if (newCommuneId == null || newCommuneId.isEmpty) return;
+      if (newCommuneId == currentCommuneId) return; // no cambió
+
+      // Actualizar la BD y la caché local
+      await _sb.from("deliverers").update({
+        "commune_id": newCommuneId,
+      }).eq("id", riderId);
+
+      _rider!['commune_id'] = newCommuneId;
+      notifyListeners();
     } catch (_) {}
   }
 

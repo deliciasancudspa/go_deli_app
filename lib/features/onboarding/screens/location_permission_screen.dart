@@ -8,6 +8,7 @@ import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../config/app_config.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/services/location_service.dart";
 
 const _kDark   = Color(0xFF1A0033);
 const _kOrange = Color(0xFFFF6B00);
@@ -129,7 +130,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> {
       final location = result?["geometry"]?["location"] as Map?;
       final lat      = (location?["lat"] as num?)?.toDouble();
       final lng      = (location?["lng"] as num?)?.toDouble();
-      await _saveAndNavigate(address, lat, lng);
+      await _saveAndNavigate(address, lat, lng, placeId: placeId);
     } catch (_) {
       _showError("Error al obtener la dirección seleccionada.");
     }
@@ -137,12 +138,20 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> {
 
   // ── Persist & navigate ────────────────────────────────────────────────────
 
-  Future<void> _saveAndNavigate(String address, double? lat, double? lng) async {
+  Future<void> _saveAndNavigate(String address, double? lat, double? lng, {String? placeId}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString("delivery_address", address);
     if (lat != null) await prefs.setDouble("delivery_lat", lat);
     if (lng != null) await prefs.setDouble("delivery_lng", lng);
     await prefs.setBool("location_configured", true);
+
+    // Detectar y guardar la comuna
+    final locService = LocationService();
+    if (placeId != null) {
+      await locService.detectFromPlaceId(placeId);
+    } else if (lat != null && lng != null) {
+      await locService.detectAndSaveCommune(lat, lng);
+    }
 
     try {
       final authUser = Supabase.instance.client.auth.currentUser;

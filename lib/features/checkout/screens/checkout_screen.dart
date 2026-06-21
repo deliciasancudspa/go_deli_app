@@ -8,6 +8,7 @@ import "dart:typed_data";
 import "dart:math";
 import "dart:convert";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/services/location_service.dart";
 import "../../../providers/cart_provider.dart";
 import "../../../providers/auth_provider.dart";
 import "address_picker_screen.dart";
@@ -274,9 +275,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         prescriptionUrl = _sb.storage.from("prescriptions").getPublicUrl(path);
       }
 
+      // Obtener commune_id de SharedPreferences (detectado en onboarding/address picker)
+      final savedCommune = await LocationService.loadSavedCommune();
+      final communeId = savedCommune?['commune_id'];
+
       final order = await _sb.from("orders").insert({
         "client_id": u["id"],
         "store_id": cart.currentStoreId,
+        "commune_id": communeId,
         "subtotal": finalSub,
         "delivery_fee": delivFee,
         "rider_fee": riderFee > 0 ? riderFee : null,
