@@ -192,11 +192,11 @@ class LocationService {
   /// Verifica si un nombre corresponde a una región de Chile.
   Future<bool> _isRegion(String name) async {
     try {
-      final count = await _sb.from('regions')
-          .select('id', const FetchOptions(count: CountOption.exact))
+      final data = await _sb.from('regions')
+          .select('id')
           .ilike('name', name)
           .limit(1);
-      return (count is List && count.isNotEmpty);
+      return (data is List && data.isNotEmpty);
     } catch (_) {
       return false;
     }

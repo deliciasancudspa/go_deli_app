@@ -245,19 +245,19 @@ class _HomeScreenState extends State<HomeScreen> {
       // Banners (cached 5 min, date-filtered + commune-filtered)
       if (forceRefreshCache || _bannerStale) {
         final now = DateTime.now().toIso8601String();
-        var bannerQuery = _sb.from("banners")
+        // Construir filtros con .or() (debe ir antes de .eq() en la cadena)
+        final orFilters = ['start_date.is.null', 'start_date.lte.$now', 'end_date.is.null', 'end_date.gte.$now'];
+        if (_userCommuneId != null) {
+          orFilters.add('commune_id.is.null');
+          orFilters.add('commune_id.eq.${_userCommuneId!}');
+        }
+        final raw = await _sb.from("banners")
             .select()
+            .or(orFilters.join(','))
             .eq("is_active", true)
             .eq("banner_type", "web_home")
-            .or("start_date.is.null,start_date.lte.$now")
-            .or("end_date.is.null,end_date.gte.$now")
             .order("sort_order")
             .limit(10);
-        // Incluir banners globales (commune_id NULL) + los de la comuna del usuario
-        if (_userCommuneId != null) {
-          bannerQuery = bannerQuery.or("commune_id.is.null,commune_id.eq.$_userCommuneId");
-        }
-        final raw = await bannerQuery;
         _cachedBanners = (raw as List<dynamic>).cast<Map<String, dynamic>>();
         _bannerCachedAt = DateTime.now();
       }
@@ -269,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
             .select()
             .eq("status", "approved")
             .eq("is_active", true)
-            .eq("commune_id", _userCommuneId);
+            .eq("commune_id", _userCommuneId!);
         // Fallback: si no hay tiendas en la comuna, mostrar todas (el usuario
         // puede no tener tiendas aún y debe poder ver algo)
         if (storesRaw.isEmpty) {
@@ -283,23 +283,15 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       // Dynamic home sections (con filtro de comuna o global)
-      List<dynamic> sectionsRaw;
-      if (_userCommuneId != null) {
-        sectionsRaw = await _sb
-            .from("home_sections")
-            .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
-            .or("screen.eq.home,screen.eq.all")
-            .eq("is_active", true)
-            .or("commune_id.is.null,commune_id.eq.$_userCommuneId")
-            .order("sort_order");
-      } else {
-        sectionsRaw = await _sb
-            .from("home_sections")
-            .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
-            .or("screen.eq.home,screen.eq.all")
-            .eq("is_active", true)
-            .order("sort_order");
-      }
+      final sectionOrs = _userCommuneId != null
+          ? 'screen.eq.home,screen.eq.all,commune_id.is.null,commune_id.eq.${_userCommuneId!}'
+          : 'screen.eq.home,screen.eq.all';
+      final sectionsRaw = await _sb
+          .from("home_sections")
+          .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
+          .or(sectionOrs)
+          .eq("is_active", true)
+          .order("sort_order");
       final sections = (sectionsRaw)
           .map((s) => _HomeSection.fromJson(s as Map<String, dynamic>))
           .toList()
