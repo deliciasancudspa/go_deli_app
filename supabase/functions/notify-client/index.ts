@@ -63,7 +63,9 @@ async function getAccessToken(): Promise<string> {
   return tokenData.access_token as string;
 }
 
-async function sendFcm(accessToken: string, token: string, title: string, body: string): Promise<boolean> {
+async function sendFcm(accessToken: string, token: string, title: string, body: string, extraData?: Record<string,string>): Promise<boolean> {
+  const data: Record<string,string> = { route: extraData?.route || "orders" };
+  if (extraData) Object.assign(data, extraData);
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`,
     {
@@ -80,7 +82,7 @@ async function sendFcm(accessToken: string, token: string, title: string, body: 
             priority: "high",
             notification: { channel_id: "go_deli_orders", sound: "default" },
           },
-          data: { route: "orders" },
+          data,
         },
       }),
     },
@@ -149,11 +151,32 @@ serve(async (req) => {
       const { data: clients } = await clientsQuery;
       const tokens = [...new Set((clients ?? []).map((c) => c.fcm_token).filter(Boolean))];
 
+      // Armar datos de redirección para el FCM data payload
+      const redirectType = String(rawPayload.redirect_type ?? "home");
+      const fcmData: Record<string,string> = {};
+      switch (redirectType) {
+        case "store":
+          fcmData.route = "store";
+          if (rawPayload.store_id) fcmData.store_id = String(rawPayload.store_id);
+          break;
+        case "product":
+          fcmData.route = "product";
+          if (rawPayload.store_id) fcmData.store_id = String(rawPayload.store_id);
+          if (rawPayload.product_id) fcmData.product_id = String(rawPayload.product_id);
+          break;
+        case "url":
+          fcmData.route = "url";
+          if (rawPayload.url) fcmData.url = String(rawPayload.url);
+          break;
+        default:
+          fcmData.route = "home";
+      }
+
       const accessToken = await getAccessToken();
       let sent = 0, failed = 0;
       for (let i = 0; i < tokens.length; i += 20) {
         await Promise.all(tokens.slice(i, i + 20).map(async (t) => {
-          (await sendFcm(accessToken, t as string, bTitle, bBody)) ? sent++ : failed++;
+          (await sendFcm(accessToken, t as string, bTitle, bBody, fcmData)) ? sent++ : failed++;
         }));
       }
       return new Response(JSON.stringify({ ok: true, sent, failed }), {
