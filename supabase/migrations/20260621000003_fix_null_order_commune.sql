@@ -5,11 +5,16 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 -- 1. Backfill: asignar commune_id a órdenes existentes desde la tienda
+--    (deshabilitar trigger temporalmente — la migración no es un cliente/rider/tienda)
+alter table public.orders disable trigger trg_check_order_update;
+
 update public.orders o set commune_id = s.commune_id
 from public.stores s
 where o.store_id = s.id
   and o.commune_id is null
   and s.commune_id is not null;
+
+alter table public.orders enable trigger trg_check_order_update;
 
 -- 2. Actualizar national_dashboard() para resolver commune_id vía la tienda
 --    cuando la orden no tenga commune_id propio, y agrupar las que sigan siendo
