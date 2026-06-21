@@ -262,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _bannerCachedAt = DateTime.now();
       }
 
-      // Stores: filtrar por comuna (con fallback: si no hay comuna, mostrar todas)
+      // Stores: filtrar por comuna (si no hay comuna, mostrar todas)
       List<dynamic> storesRaw;
       if (_userCommuneId != null) {
         storesRaw = await _sb.from("stores")
@@ -270,14 +270,6 @@ class _HomeScreenState extends State<HomeScreen> {
             .eq("status", "approved")
             .eq("is_active", true)
             .eq("commune_id", _userCommuneId!);
-        // Fallback: si no hay tiendas en la comuna, mostrar todas (el usuario
-        // puede no tener tiendas aún y debe poder ver algo)
-        if (storesRaw.isEmpty) {
-          storesRaw = await _sb.from("stores")
-              .select()
-              .eq("status", "approved")
-              .eq("is_active", true);
-        }
       } else {
         storesRaw = await _sb.from("stores").select().eq("status", "approved").eq("is_active", true);
       }
@@ -1483,7 +1475,20 @@ class _ChangeAddressSheetState extends State<_ChangeAddressSheet> {
                   subtitle: Text(a["address"] ?? "",
                     style: const TextStyle(fontSize: 11, color: AppColors.textLight),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
-                  onTap: () => Navigator.pop(context, a["address"] as String),
+                  onTap: () async {
+                    final address = a["address"] as String? ?? "";
+                    // Detectar comuna desde la dirección guardada
+                    try {
+                      final locs = await locationFromAddress(address);
+                      if (locs.isNotEmpty && mounted) {
+                        await LocationService().detectAndSaveCommune(
+                          locs.first.latitude,
+                          locs.first.longitude,
+                        );
+                      }
+                    } catch (_) {}
+                    if (mounted) Navigator.pop(context, address);
+                  },
                 );
               }),
             ],

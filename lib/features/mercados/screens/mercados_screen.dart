@@ -9,6 +9,7 @@ import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/category_match.dart";
 import "../../../core/utils/color_utils.dart";
+import "../../../core/services/location_service.dart";
 import "../../../providers/cart_provider.dart";
 
 const _kDark   = AppColors.homeDark;
@@ -60,6 +61,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
       DateTime.now().difference(_catCachedAt!) > _catTtl;
 
   List<Map<String, dynamic>> _dbCats = [];
+  String? _communeId;
 
   List<Map<String, dynamic>> get _allCats => [
     const {"key": "Todas", "emoji": "🔍", "label": "Todas"},
@@ -146,8 +148,13 @@ class _MercadosScreenState extends State<MercadosScreen> {
       });
     }
 
-    final key    = _catKey;
-    final cached = _cache[key];
+    // Cargar comuna guardada para filtrar tiendas y armar cache key
+    final savedCommune = await LocationService.loadSavedCommune();
+    _communeId = savedCommune?['commune_id'];
+
+    final key      = _catKey;
+    final cacheKey = '${key}_${_communeId ?? "all"}';
+    final cached = _cache[cacheKey];
     if (!forceRefresh && cached != null &&
         DateTime.now().difference(cached.timestamp) < _ttl) {
       if (mounted) setState(() {
@@ -162,7 +169,9 @@ class _MercadosScreenState extends State<MercadosScreen> {
 
     try {
       // 1 – stores
-      final storesRaw = await _sb.from("stores").select().eq("is_active", true).eq("status", "approved");
+      var storesQuery = _sb.from("stores").select().eq("is_active", true).eq("status", "approved");
+      if (_communeId != null) storesQuery = storesQuery.eq("commune_id", _communeId!);
+      final storesRaw = await storesQuery;
 
       // Filtro tolerante en cliente: los nombres de categoría del aliado no
       // siempre son idénticos a los del admin ("Supermercado" vs "Mercado",
@@ -215,7 +224,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
         }
       }
 
-      _cache[key] = _CacheEntry(
+      _cache[cacheKey] = _CacheEntry(
           stores: stores, subCats: subCats, products: prods,
           timestamp: DateTime.now());
 

@@ -6,6 +6,7 @@ import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/color_utils.dart";
 import "../../../core/utils/price_formatter.dart";
+import "../../../core/services/location_service.dart";
 
 const _kDark   = AppColors.homeDark;
 const _kOrange = AppColors.homeOrange;
@@ -64,6 +65,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
   int    _catIdx    = 0;
   bool   _loading   = true;
   List<Map<String, dynamic>> _providers = [];
+  String? _communeId;
 
   // Banners
   List<Map<String, dynamic>> _banners    = [];
@@ -139,8 +141,13 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
       });
     }
 
+    // Cargar comuna guardada para filtrar y armar cache key
+    final savedCommune = await LocationService.loadSavedCommune();
+    _communeId = savedCommune?['commune_id'];
+
+    final cacheKey = '${_catKey}_${_communeId ?? "all"}';
     if (!forceRefresh) {
-      final cached = _cache[_catKey];
+      final cached = _cache[cacheKey];
       if (cached != null && DateTime.now().difference(cached.timestamp) < _ttl) {
         if (mounted) setState(() { _providers = cached.providers; _loading = false; });
         return;
@@ -152,6 +159,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
           .select()
           .eq("is_active", true)
           .eq("status", "approved");
+      if (_communeId != null) query = query.eq("commune_id", _communeId!);
       if (_catKey != "Todo") query = query.eq("category", _catKey);
       final raw = await query;
       final list = List<Map<String, dynamic>>.from(raw as List);
@@ -164,7 +172,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
         if (afo != bfo) return afo.compareTo(bfo);
         return _cmpRating(a, b);
       });
-      _cache[_catKey] = _CacheEntry(providers: list, timestamp: DateTime.now());
+      _cache[cacheKey] = _CacheEntry(providers: list, timestamp: DateTime.now());
       if (mounted) setState(() { _providers = list; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);

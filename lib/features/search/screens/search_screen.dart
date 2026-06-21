@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/services/location_service.dart";
 import "../../home/widgets/store_card.dart";
 
 class SearchScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _loading = false;
   String _filter = "all";
   final _sb = Supabase.instance.client;
+  String? _communeId;
 
   final _filters = [
     {"id": "all",   "label": "Todos"},
@@ -33,10 +35,17 @@ class _SearchScreenState extends State<SearchScreen> {
     }
     setState(() => _loading = true);
     try {
+      // Cargar comuna guardada para filtrar
+      final savedCommune = await LocationService.loadSavedCommune();
+      _communeId = savedCommune?['commune_id'];
+
       // Run both queries in parallel
+      var storesQuery = _sb.from("stores").select().eq("status", "approved")
+          .or("name.ilike.%$q%,category.ilike.%$q%");
+      if (_communeId != null) storesQuery = storesQuery.eq("commune_id", _communeId!);
+
       final futures = await Future.wait([
-        _sb.from("stores").select().eq("status", "approved")
-            .or("name.ilike.%$q%,category.ilike.%$q%"),
+        storesQuery,
         _sb.from("menu_items")
             .select("id,name,price,emoji,image_url,store_id,stores(id,name,emoji,is_open,status,delivery_fee,delivery_time,rating)")
             .ilike("name", "%$q%")
