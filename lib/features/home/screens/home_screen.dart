@@ -312,9 +312,18 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
+      // Banners asignados a secciones: excluirlos del carrusel principal
+      final sectionBannerIds = sections
+          .where((s) => s.sectionType == 'banner' && s.bannerId != null)
+          .map((s) => s.bannerId)
+          .toSet();
+      final carouselBanners = (List<Map<String, dynamic>>.from(_cachedBanners ?? []))
+          .where((b) => !sectionBannerIds.contains(b['id'] as String?))
+          .toList();
+
       if (mounted) setState(() {
         _categories    = List<Map<String, dynamic>>.from(_cachedCategories ?? []);
-        _banners       = List<Map<String, dynamic>>.from(_cachedBanners    ?? []);
+        _banners       = carouselBanners;
         _allStores     = allStoresList;
         _homeSections  = sections;
         _featuredItems = featItems;
@@ -1142,7 +1151,51 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBannerSection(_HomeSection sec) => _buildBanners();
+  Widget _buildBannerSection(_HomeSection sec) {
+    // Mostrar solo el banner específico de esta sección, no todos los banners
+    if (sec.bannerId == null) return const SizedBox.shrink();
+    final banner = _banners.firstWhere(
+      (b) => b['id'] == sec.bannerId,
+      orElse: () => <String, dynamic>{},
+    );
+    if (banner.isEmpty) return const SizedBox.shrink();
+    final imgUrl = banner["image_url"] as String?;
+    Color bg = _kOrange;
+    try {
+      final hex = (banner["bg_color"] as String?)?.replaceAll("#", "");
+      if (hex != null && hex.length == 6) bg = Color(int.parse("FF$hex", radix: 16));
+    } catch (_) {}
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GestureDetector(
+        onTap: () => _handleBannerTap(banner),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: AspectRatio(
+            aspectRatio: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                color: bg,
+                image: imgUrl != null ? DecorationImage(
+                  image: NetworkImage(imgUrl),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.18), BlendMode.darken),
+                ) : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: bg.withOpacity(0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
