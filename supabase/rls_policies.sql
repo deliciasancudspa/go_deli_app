@@ -326,13 +326,16 @@ create policy order_items_delete on public.order_items for delete to authenticat
 using (public.is_admin());
 
 -- order_rejections: rider registra su rechazo; tienda/admin los leen
+-- IMPORTANTE: el rider que rechaza NO es "participante" del pedido todavía
+-- (deliverer_id es NULL hasta que acepta). Por eso se permite insert/select
+-- con rider_id = my_rider_id().
 drop policy if exists order_rejections_select on public.order_rejections;
 create policy order_rejections_select on public.order_rejections for select to authenticated
-using (public.is_order_participant(order_id) or public.is_admin());
+using (public.is_order_participant(order_id) or rider_id = public.my_rider_id() or public.is_admin());
 
 drop policy if exists order_rejections_insert on public.order_rejections;
 create policy order_rejections_insert on public.order_rejections for insert to authenticated
-with check (public.is_order_participant(order_id) or public.is_admin());
+with check (public.is_order_participant(order_id) or rider_id = public.my_rider_id() or public.is_admin());
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 8. NOTIFICATIONS — target = mi identidad (user/rider/tienda) o 'admin'
