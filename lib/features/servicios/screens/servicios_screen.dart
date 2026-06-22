@@ -1,5 +1,6 @@
 import "dart:async";
 import "package:flutter/material.dart";
+import "package:shared_preferences/shared_preferences.dart";
 import "package:shimmer/shimmer.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -100,19 +101,29 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
   }
 
   Future<void> _loadData({bool forceRefresh = false}) async {
-    // Load banners (5-min cache, date-filtered server-side)
+    // Load banners (5-min cache, date-filtered client-side)
     if (forceRefresh || _bannerStale) {
       try {
-        final now = DateTime.now().toIso8601String();
+        final now = DateTime.now().toUtc();
         final raw = await _sb.from("banners")
             .select()
             .eq("is_active", true)
             .eq("banner_type", "web_servicios")
-            .or("start_date.is.null,start_date.lte.$now")
-            .or("end_date.is.null,end_date.gte.$now")
             .order("sort_order")
-            .limit(5);
-        _cachedBanners = (raw as List<dynamic>).cast<Map<String, dynamic>>();
+            .limit(10);
+        _cachedBanners = (raw as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .where((b) {
+              final startDate = b['start_date'] as String?;
+              final endDate   = b['end_date']   as String?;
+              if (startDate != null && startDate.isNotEmpty) {
+                try { if (now.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
+              }
+              if (endDate != null && endDate.isNotEmpty) {
+                try { if (now.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
+              }
+              return true;
+            }).toList();
         _bannerCachedAt = DateTime.now();
       } catch (_) {}
     }
@@ -144,6 +155,16 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
     // Cargar comuna guardada para filtrar y armar cache key
     final savedCommune = await LocationService.loadSavedCommune();
     _communeId = savedCommune?['commune_id'];
+    // Fallback: si no hay comuna guardada pero sí coordenadas, re-detectar
+    if (_communeId == null) {
+      final prefs = await SharedPreferences.getInstance();
+      final lat = prefs.getDouble("delivery_lat");
+      final lng = prefs.getDouble("delivery_lng");
+      if (lat != null && lng != null) {
+        final detected = await LocationService().detectAndSaveCommune(lat, lng);
+        _communeId = detected?['commune_id'];
+      }
+    }
 
     final cacheKey = '${_catKey}_${_communeId ?? "all"}';
     if (!forceRefresh) {

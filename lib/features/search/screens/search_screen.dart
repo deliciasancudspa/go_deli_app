@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
+import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/services/location_service.dart";
@@ -38,6 +39,16 @@ class _SearchScreenState extends State<SearchScreen> {
       // Cargar comuna guardada para filtrar
       final savedCommune = await LocationService.loadSavedCommune();
       _communeId = savedCommune?['commune_id'];
+      // Fallback: si no hay comuna guardada pero sí coordenadas, re-detectar
+      if (_communeId == null) {
+        final prefs = await SharedPreferences.getInstance();
+        final lat = prefs.getDouble("delivery_lat");
+        final lng = prefs.getDouble("delivery_lng");
+        if (lat != null && lng != null) {
+          final detected = await LocationService().detectAndSaveCommune(lat, lng);
+          _communeId = detected?['commune_id'];
+        }
+      }
 
       // Run both queries in parallel
       var storesQuery = _sb.from("stores").select().eq("status", "approved")

@@ -227,6 +227,22 @@ class _HomeScreenState extends State<HomeScreen> {
           _userCommuneName = savedCommune['commune_name'];
           _userRegionName  = savedCommune['region_name'];
         });
+      } else {
+        // Fallback: si no hay comuna guardada pero sí hay coordenadas (GPS),
+        // re-detectar la comuna desde las coordenadas
+        final prefs = await SharedPreferences.getInstance();
+        final lat = prefs.getDouble("delivery_lat");
+        final lng = prefs.getDouble("delivery_lng");
+        if (lat != null && lng != null) {
+          final detected = await LocationService().detectAndSaveCommune(lat, lng);
+          if (detected != null && mounted) {
+            setState(() {
+              _userCommuneId   = detected['commune_id'];
+              _userCommuneName = detected['commune_name'];
+              _userRegionName  = detected['region_name'];
+            });
+          }
+        }
       }
 
       // Categories (cached 5 min)
@@ -242,23 +258,34 @@ class _HomeScreenState extends State<HomeScreen> {
         _catCachedAt = DateTime.now();
       }
 
-      // Banners (cached 5 min, date-filtered + commune-filtered)
+      // Banners (cached 5 min, date/commune filter client-side)
       if (forceRefreshCache || _bannerStale) {
-        final now = DateTime.now().toIso8601String();
-        // Construir filtros con .or() (debe ir antes de .eq() en la cadena)
-        final orFilters = ['start_date.is.null', 'start_date.lte.$now', 'end_date.is.null', 'end_date.gte.$now'];
-        if (_userCommuneId != null) {
-          orFilters.add('commune_id.is.null');
-          orFilters.add('commune_id.eq.${_userCommuneId!}');
-        }
+        final now = DateTime.now().toUtc();
         final raw = await _sb.from("banners")
             .select()
-            .or(orFilters.join(','))
             .eq("is_active", true)
             .eq("banner_type", "web_home")
             .order("sort_order")
-            .limit(10);
-        _cachedBanners = (raw as List<dynamic>).cast<Map<String, dynamic>>();
+            .limit(20); // Fetch de más para filtrar fechas/comunas
+        _cachedBanners = (raw as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .where((b) {
+              // Date range filter
+              final startDate = b['start_date'] as String?;
+              final endDate   = b['end_date']   as String?;
+              if (startDate != null && startDate.isNotEmpty) {
+                try { if (now.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
+              }
+              if (endDate != null && endDate.isNotEmpty) {
+                try { if (now.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
+              }
+              // Commune filter: global (null) or matches user commune
+              if (_userCommuneId != null) {
+                final bCommune = b['commune_id'] as String?;
+                if (bCommune != null && bCommune != _userCommuneId) return false;
+              }
+              return true;
+            }).toList();
         _bannerCachedAt = DateTime.now();
       }
 
@@ -274,17 +301,23 @@ class _HomeScreenState extends State<HomeScreen> {
         storesRaw = await _sb.from("stores").select().eq("status", "approved").eq("is_active", true);
       }
 
-      // Dynamic home sections (con filtro de comuna o global)
-      final sectionOrs = _userCommuneId != null
-          ? 'screen.eq.home,screen.eq.all,commune_id.is.null,commune_id.eq.${_userCommuneId!}'
-          : 'screen.eq.home,screen.eq.all';
+      // Dynamic home sections: filter by screen server-side, commune client-side
       final sectionsRaw = await _sb
           .from("home_sections")
           .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
-          .or(sectionOrs)
+          .or('screen.eq.home,screen.eq.all')
           .eq("is_active", true)
           .order("sort_order");
       final sections = (sectionsRaw)
+          .cast<Map<String, dynamic>>()
+          .where((s) {
+            if (_userCommuneId != null) {
+              final sCommune = s['commune_id'] as String?;
+              // Mostrar secciones globales (null) o de la comuna del usuario
+              if (sCommune != null && sCommune != _userCommuneId) return false;
+            }
+            return true;
+          })
           .map((s) => _HomeSection.fromJson(s as Map<String, dynamic>))
           .toList()
         ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
@@ -1154,7 +1187,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBannerSection(_HomeSection sec) {
     // Mostrar solo el banner específico de esta sección, no todos los banners
     if (sec.bannerId == null) return const SizedBox.shrink();
-    final banner = _banners.firstWhere(
+    // Buscar en _cachedBanners (lista completa), no en _banners (solo carrusel)
+    final banner = (_cachedBanners ?? <Map<String, dynamic>>[]).firstWhere(
       (b) => b['id'] == sec.bannerId,
       orElse: () => <String, dynamic>{},
     );
