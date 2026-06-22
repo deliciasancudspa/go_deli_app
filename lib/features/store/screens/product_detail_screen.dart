@@ -448,20 +448,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Expanded(child: Text(_item!["name"] as String? ?? "",
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
-                            color: _kDark))),
-                    if (discPct > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                            color: _kOrange, borderRadius: BorderRadius.circular(8)),
-                        child: Text("-$discPct%",
-                            style: const TextStyle(color: Colors.white,
-                                fontSize: 12, fontWeight: FontWeight.w900)),
-                      ),
-                  ]),
+                  Text(_item!["name"] as String? ?? "",
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
+                          color: _kDark)),
                   if (_item!["description"] != null) ...[
                     const SizedBox(height: 6),
                     Text(_item!["description"] as String,
@@ -470,16 +459,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ],
                   ..._productInfoSection(),
                   const SizedBox(height: 10),
-                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.center, children: [
+                      Text(hasVGOrV ? "Desde ${_fmt(_minDisplayPrice)}" : _fmt(_basePrice),
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900,
+                              color: _kOrange)),
+                      if (discPct > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                              color: _kOrange, borderRadius: BorderRadius.circular(8)),
+                          child: Text("-$discPct%",
+                              style: const TextStyle(color: Colors.white,
+                                  fontSize: 12, fontWeight: FontWeight.w900)),
+                        ),
+                      ],
+                    ]),
                     if (showOrig) ...[
+                      const SizedBox(height: 4),
                       Text(_fmt(origPrice),
                           style: const TextStyle(fontSize: 13, color: AppColors.textLight,
                               decoration: TextDecoration.lineThrough)),
-                      const SizedBox(width: 8),
                     ],
-                    Text(hasVGOrV ? "Desde ${_fmt(_minDisplayPrice)}" : _fmt(_basePrice),
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900,
-                            color: _kOrange)),
                   ]),
                 ]),
               ),

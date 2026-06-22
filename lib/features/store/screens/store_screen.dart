@@ -189,13 +189,24 @@ class _StoreScreenState extends State<StoreScreen> {
                 const SizedBox(height: 8),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(priceLabel,
+                          style: const TextStyle(fontWeight: FontWeight.w900,
+                              fontSize: 16, color: AppColors.accent)),
+                      if (discPct > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(6)),
+                          child: Text("-$discPct%",
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+                        ),
+                      ],
+                    ]),
                     if (discPct > 0 && origPrice != null)
                       Text(_fmt(origPrice), style: const TextStyle(
                           fontSize: 11, color: AppColors.textLight,
                           decoration: TextDecoration.lineThrough)),
-                    Text(priceLabel,
-                        style: const TextStyle(fontWeight: FontWeight.w900,
-                            fontSize: 16, color: AppColors.accent)),
                   ]),
                   if (navigateToDetail)
                     Container(
