@@ -28,23 +28,34 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            // CI: variables de entorno (GitHub Actions)
+            var keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
             if (keystorePath != null && keystorePath.isNotEmpty()) {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("ANDROID_KEY_ALIAS")
                 keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            } else {
+                // Local: buscar el keystore en la ruta por defecto
+                val localKeystore = file("C:/Proyectos/_godeli_keys/release.jks")
+                if (localKeystore.exists()) {
+                    keystorePath = localKeystore.absolutePath
+                    storeFile = localKeystore
+                    storePassword = "GoDeliReleaseKey2026"
+                    keyAlias = "godeli"
+                    keyPassword = "GoDeliReleaseKey2026"
+                }
             }
         }
     }
 
     buildTypes {
         release {
-            // Firma con la clave de release si los secretos están disponibles
-            // (CI); de lo contrario usa la clave debug para que `flutter run`
-            // funcione en local sin el keystore.
+            // Firma con release si el keystore está disponible (CI o local);
+            // de lo contrario usa debug para `flutter run`.
             val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
-            signingConfig = if (keystorePath != null && keystorePath.isNotEmpty())
+            val localKeystore = file("C:/Proyectos/_godeli_keys/release.jks")
+            signingConfig = if ((keystorePath != null && keystorePath.isNotEmpty()) || localKeystore.exists())
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
