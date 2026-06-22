@@ -91,7 +91,7 @@ class RiderProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> register({required String name, required String email, required String password, required String phone, required String rut, required String vehicle, required String plate, required String bankName, required String accountType, required String accountNumber, required String accountHolder, required String accountRut, String? communeId}) async {
+  Future<String?> register({required String name, required String email, required String password, required String phone, required String rut, required String vehicle, required String plate, required String bankName, required String accountType, required String accountNumber, required String accountHolder, required String accountRut, String? communeId, String? signerName, String? signerRut, String? signatureImage}) async {
     try {
       _loading = true; notifyListeners();
       final res = await _sb.auth.signUp(email: email, password: password);
@@ -99,6 +99,30 @@ class RiderProvider extends ChangeNotifier {
       final user = await _sb.from("users").insert({"auth_id": res.user!.id, "email": email, "name": name, "phone": phone, "role": "deliverer"}).select().single();
       final rider = await _sb.from("deliverers").insert({"user_id": user["id"], "vehicle_type": vehicle, "vehicle_plate": plate, "status": "pending", "is_online": false, "is_available": false, "commune_id": communeId}).select().single();
       await _sb.from("deliverer_bank_info").insert({"deliverer_id": rider["id"], "bank_name": bankName, "account_type": accountType, "account_number": accountNumber, "account_holder": accountHolder, "rut": accountRut});
+
+      // ── Guardar contrato y consentimientos en notificación admin ──
+      final signedAt = DateTime.now().toIso8601String();
+      try {
+        await _sb.from("notifications").insert({
+          "type": "alert", "emoji": "🛵", "target": "admin", "is_read": false,
+          "title": "🛵 Nuevo repartidor registrado",
+          "message": "$name · $vehicle · $email",
+          "data": {
+            "name": name, "rut": rut, "phone": phone, "email": email,
+            "vehicle": vehicle, "plate": plate,
+            "contract_accepted": true,
+            "privacy_accepted": true,
+            "geolocation_authorized": true,
+            "accepted_at": signedAt,
+            "contract_version": "1.0",
+            "signer_name": signerName,
+            "signer_rut": signerRut,
+            "signed_at": signedAt,
+            "signature_image": signatureImage,
+          }
+        });
+      } catch (_) { /* non-blocking */ }
+
       _user = user; _rider = rider;
       notifyListeners();
       return null;
