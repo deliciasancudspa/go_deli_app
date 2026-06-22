@@ -682,6 +682,10 @@ declare
   v_is_rider boolean;
   v_is_store boolean;
 begin
+  -- Dispatch engine bypass: las funciones de despacho (security definer)
+  -- necesitan actualizar columnas de dispatch sin restricción de rol.
+  if current_setting('dispatch.bypass', true) = '1' then return new; end if;
+
   v_is_admin := public.is_admin();
   if v_is_admin then return new; end if;
 

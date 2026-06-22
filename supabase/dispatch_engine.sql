@@ -74,6 +74,7 @@ declare
   v_timeout    int := 45;   -- segundos para responder una oferta
   v_max_rounds int := 3;    -- rondas completas antes de needs_manual
 begin
+  perform set_config('dispatch.bypass', '1', true);
   select * into v_order from orders where id = p_order_id;
   if not found then return 'not_found'; end if;
   if v_order.rider_search_status is distinct from 'searching' then return 'not_searching'; end if;
@@ -192,6 +193,7 @@ create or replace function public.start_dispatch(p_order_id uuid)
 returns text language plpgsql security definer set search_path = public as $$
 declare v_is_store boolean;
 begin
+  perform set_config('dispatch.bypass', '1', true);
   -- Solo la tienda dueña del pedido o un admin pueden iniciar el despacho
   if not (public.is_admin() or exists (
             select 1 from orders o where o.id = p_order_id
@@ -220,6 +222,7 @@ create or replace function public.accept_offer(p_order_id uuid)
 returns boolean language plpgsql security definer set search_path = public as $$
 declare v_rider uuid; v_n int;
 begin
+  perform set_config('dispatch.bypass', '1', true);
   v_rider := public.my_rider_id();
   if v_rider is null then return false; end if;
 
@@ -247,6 +250,7 @@ create or replace function public.on_rider_rejection()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare v_round int;
 begin
+  perform set_config('dispatch.bypass', '1', true);
   select greatest(coalesce(dispatch_round,1),1) into v_round from orders where id = NEW.order_id;
   insert into order_dispatch_attempts(order_id, rider_id, round, kind)
   values (NEW.order_id, NEW.rider_id, v_round, 'rejected');
@@ -269,6 +273,7 @@ create or replace function public.dispatch_tick()
 returns void language plpgsql security definer set search_path = public as $$
 declare r record;
 begin
+  perform set_config('dispatch.bypass', '1', true);
   -- Ofertas expiradas (rider ignoró): marcar ignored, liberar y ofrecer siguiente
   for r in
     select id, current_offer_rider_id, greatest(coalesce(dispatch_round,1),1) as round
