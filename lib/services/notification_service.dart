@@ -10,6 +10,9 @@ class NotificationService {
   factory NotificationService() => _i;
   NotificationService._();
 
+  /// Datos FCM pendientes de procesar cuando la app fue abierta desde cerrada
+  static Map<String, dynamic>? pendingFcmData;
+
   final _plugin = FlutterLocalNotificationsPlugin();
   RealtimeChannel? _ordersChannel;
   RealtimeChannel? _chatChannel;

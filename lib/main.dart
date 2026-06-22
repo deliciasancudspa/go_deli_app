@@ -1,4 +1,5 @@
 import "package:firebase_core/firebase_core.dart";
+import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter_localizations/flutter_localizations.dart";
@@ -18,6 +19,26 @@ import "services/notification_service.dart";
 // "notification", así que Android los muestra automáticamente cuando la app
 // está en segundo plano o cerrada — mostrarlos también manualmente generaba
 // notificaciones duplicadas/en blanco.
+//
+// Sí manejamos el TAP en la notificación para redirigir según el data payload.
+
+void _handleFcmData(Map<String, dynamic> data) {
+  final route = data["route"] ?? "";
+  final storeId = data["store_id"] ?? "";
+  final productId = data["product_id"] ?? "";
+  final url = data["url"] ?? "";
+
+  if (route == "store" && storeId.isNotEmpty) {
+    appRouter.push("/store/$storeId");
+  } else if (route == "product" && storeId.isNotEmpty) {
+    appRouter.push("/product/$storeId");  // product detail usa store_id como contexto
+  } else if (route == "url" && url.isNotEmpty) {
+    appRouter.push("/home");  // url externa: abrir home; el navegador se abre desde la notificación
+  } else if (route == "home") {
+    appRouter.push("/home");
+  }
+  // "orders" y otros: no redirigir, la app ya tiene listeners
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +51,19 @@ void main() async {
     anonKey: AppConfig.supabaseAnonKey,
   );
   await NotificationService().init();
+
+  // Al tocar una notificación con la app en segundo plano → redirigir
+  FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    _handleFcmData(message.data);
+  });
+
+  // App abierta desde una notificación estando cerrada → redirigir tras splash
+  final initialMsg = await FirebaseMessaging.instance.getInitialMessage();
+  if (initialMsg != null) {
+    // Guardar para ejecutar después del login/splash
+    NotificationService.pendingFcmData = initialMsg.data;
+  }
+
   runApp(const GoDeliApp());
 }
 

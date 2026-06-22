@@ -13,6 +13,8 @@ import "package:shimmer/shimmer.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:url_launcher/url_launcher.dart";
 import "../../../config/app_config.dart";
+import "../../../config/app_routes.dart";
+import "../../../services/notification_service.dart";
 import "../../../services/notification_service.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/category_match.dart";
@@ -134,6 +136,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadData();
     _loadNotifCount();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkLocationConfigured());
+    // Procesar deep link pendiente de FCM (app abierta desde notificación)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final data = NotificationService.pendingFcmData;
+      if (data != null) {
+        NotificationService.pendingFcmData = null;
+        _handleFcmData(data);
+      }
+    });
     _notifSub   = NotificationService().onNewNotification.listen((_) => _loadNotifCount());
     _connectSub = Connectivity().onConnectivityChanged.listen((results) {
       final online = results.any((r) => r != ConnectivityResult.none);
@@ -149,6 +159,22 @@ class _HomeScreenState extends State<HomeScreen> {
     _bannerTimer?.cancel();
     _bannerCtrl.dispose();
     super.dispose();
+  }
+
+  void _handleFcmData(Map<String, dynamic> data) {
+    final route = data["route"] ?? "";
+    final storeId = data["store_id"] ?? "";
+    final productId = data["product_id"] ?? "";
+    final url = data["url"] ?? "";
+    if (route == "store" && storeId.isNotEmpty) {
+      appRouter.push("/store/$storeId");
+    } else if (route == "product" && storeId.isNotEmpty) {
+      appRouter.push("/product/$storeId");
+    } else if (route == "url" && url.isNotEmpty) {
+      appRouter.push("/home");
+    } else if (route == "home") {
+      appRouter.push("/home");
+    }
   }
 
   Future<void> _checkConnectivity() async {

@@ -60,6 +60,20 @@ class LocationService {
       await prefs.setString(_prefsCommuneName, result['commune_name']!);
       await prefs.setString(_prefsRegionName,  result['region_name']!);
       await prefs.setString(_prefsRegionId,    result['region_id']!);
+
+      // Guardar commune_id en la BD para que admin push pueda filtrar por comuna
+      try {
+        final authId = Supabase.instance.client.auth.currentUser?.id;
+        if (authId != null) {
+          await Supabase.instance.client
+            .from('users')
+            .update({'commune_id': result['commune_id']})
+            .eq('auth_id', authId);
+          debugPrint('[LocationService] ✅ commune_id guardado en BD para admin push');
+        }
+      } catch (e) {
+        debugPrint('[LocationService] ⚠️ No se pudo guardar commune_id en BD: $e');
+      }
     } else {
       debugPrint('[LocationService] ❌ No se pudo detectar la comuna');
     }
