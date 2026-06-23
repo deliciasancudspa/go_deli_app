@@ -766,3 +766,23 @@ BEGIN
 END $$;
 
 GRANT EXECUTE ON FUNCTION public.create_user_on_signup(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
+
+-- RPC para que usuarios no-admin puedan notificar al admin (bypassea RLS de notifications)
+-- Usado por: aliados.html al registrar nuevo aliado, web.html al hacer pedidos, etc.
+CREATE OR REPLACE FUNCTION public.notify_admin(
+  p_title TEXT,
+  p_message TEXT,
+  p_type TEXT DEFAULT 'alert',
+  p_emoji TEXT DEFAULT '🚨',
+  p_data JSONB DEFAULT NULL
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_notif_id UUID;
+BEGIN
+  INSERT INTO public.notifications (title, message, type, emoji, target, is_read, data)
+  VALUES (p_title, p_message, p_type, p_emoji, 'admin', false, p_data)
+  RETURNING id INTO v_notif_id;
+  RETURN v_notif_id;
+END $$;
+
+GRANT EXECUTE ON FUNCTION public.notify_admin(TEXT, TEXT, TEXT, TEXT, JSONB) TO authenticated;
