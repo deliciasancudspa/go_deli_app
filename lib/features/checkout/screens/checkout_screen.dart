@@ -326,8 +326,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }).toList());
 
       if (_payMethod == "webpay") {
-        // Inicia transacción WebPay — el carrito se limpia al confirmar el pago
         await _launchWebpay(order["id"] as String);
+      } else if (_payMethod == "khipu") {
+        await _launchKhipu(order["id"] as String);
       } else {
         cart.clearCart();
         if (mounted) context.go("/order-success/${order["id"]}");
@@ -361,6 +362,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // El carrito se limpia dentro de WebpayScreen solo si el pago es aprobado
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error WebPay: $e"), backgroundColor: AppColors.error));
+    }
+  }
+
+  Future<void> _launchKhipu(String orderId) async {
+    try {
+      final res = await _sb.functions.invoke("khipu-create", body: {"order_id": orderId});
+      if (res.data == null || res.data["payment_url"] == null) {
+        throw Exception(res.data?["error"] ?? "Error al iniciar Khipu");
+      }
+      final url = res.data["payment_url"] as String;
+
+      if (!mounted) return;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => WebpayScreen(
+          webpayUrl:   url,
+          webpayToken: "",   // Khipu no usa token en la URL — ya viene incluido en payment_url
+          orderId:     orderId,
+        ),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error Khipu: $e"), backgroundColor: AppColors.error));
     }
   }
 
@@ -478,7 +500,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(height: 8),
         _payMethodCard("webpay", "💳", "WebPay", "Débito o crédito online"),
         const SizedBox(height: 8),
-        _payMethodCard("transfer", "📱", "Transferencia", "Pago digital"),
+        _payMethodCard("khipu", "🏦", "Transferencia", "Desde tu banco — Khipu"),
         const SizedBox(height: 20),
 
         // Cupon

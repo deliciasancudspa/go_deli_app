@@ -46,7 +46,10 @@ class _WebpayScreenState extends State<WebpayScreen> {
         },
       ))
       ..loadRequest(
-        Uri.parse("${widget.webpayUrl}?token_ws=${widget.webpayToken}"),
+        // WebPay requiere token en query param; Khipu ya incluye la URL completa
+        Uri.parse(widget.webpayToken.isEmpty
+            ? widget.webpayUrl
+            : "${widget.webpayUrl}?token_ws=${widget.webpayToken}"),
       );
   }
 
@@ -71,7 +74,7 @@ class _WebpayScreenState extends State<WebpayScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Pago con WebPay"),
+        title: Text(widget.webpayToken.isEmpty ? "Pago con Khipu" : "Pago con WebPay"),
         backgroundColor: Colors.transparent,
         flexibleSpace: const GradientFlexibleSpace(),
         leading: IconButton(
@@ -101,7 +104,7 @@ class _WebpayScreenState extends State<WebpayScreen> {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               CircularProgressIndicator(color: AppColors.primary),
               SizedBox(height: 16),
-              Text("Conectando con WebPay...", style: TextStyle(color: AppColors.textLight)),
+              Text(widget.webpayToken.isEmpty ? "Conectando con Khipu..." : "Conectando con WebPay...", style: TextStyle(color: AppColors.textLight)),
             ]),
           ),
       ]),
