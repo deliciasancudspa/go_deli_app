@@ -83,7 +83,7 @@ async function extractMenu(contentBlocks: unknown[], businessType: string) {
     headers: {
       "Content-Type": "application/json",
       "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2025-01-15",
+      "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
