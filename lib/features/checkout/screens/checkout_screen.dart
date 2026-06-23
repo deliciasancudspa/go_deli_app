@@ -12,6 +12,7 @@ import "../../../core/services/location_service.dart";
 import "../../../providers/cart_provider.dart";
 import "../../../providers/auth_provider.dart";
 import "address_picker_screen.dart";
+import "webpay_screen.dart";
 
 // Valores por defecto del fee de delivery. Son configurables desde el panel
 // admin (tabla `config`, key `delivery_fees`) y se aplican a toda la plataforma.
@@ -324,12 +325,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "subtotal": item.price * item.quantity,
       }).toList());
 
-      cart.clearCart();
-      if (mounted) context.go("/order-success/${order["id"]}");
+      if (_payMethod == "webpay") {
+        // Inicia transacción WebPay — el carrito se limpia al confirmar el pago
+        await _launchWebpay(order["id"] as String);
+      } else {
+        cart.clearCart();
+        if (mounted) context.go("/order-success/${order["id"]}");
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: AppColors.error));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _launchWebpay(String orderId) async {
+    try {
+      final res = await _sb.functions.invoke("webpay-create", body: {"order_id": orderId});
+      if (res.data == null || res.data["token"] == null) {
+        throw Exception(res.data?["error"] ?? "Error al iniciar WebPay");
+      }
+      final token = res.data["token"] as String;
+      final url   = res.data["url"]   as String;
+
+      if (!mounted) return;
+      final cart = context.read<CartProvider>();
+      // Navegar al WebView; el carrito se limpia solo si el pago es aprobado
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => WebpayScreen(
+          webpayUrl:   url,
+          webpayToken: token,
+          orderId:     orderId,
+        ),
+      ));
+      // El carrito se limpia dentro de WebpayScreen solo si el pago es aprobado
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error WebPay: $e"), backgroundColor: AppColors.error));
     }
   }
 
@@ -445,7 +476,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         else
           _payMethodCard("cash", "💵", "Efectivo", "Paga al recibir"),
         const SizedBox(height: 8),
-        _payMethodCard("card", "💳", "Tarjeta", "Débito o crédito"),
+        _payMethodCard("webpay", "💳", "WebPay", "Débito o crédito online"),
         const SizedBox(height: 8),
         _payMethodCard("transfer", "📱", "Transferencia", "Pago digital"),
         const SizedBox(height: 20),
