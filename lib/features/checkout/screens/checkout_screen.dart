@@ -188,12 +188,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       // Validar uso máximo
       final maxUses = res["max_uses"] as int?;
-      final curUses = res["current_uses"] as int?;
-      if (maxUses != null && curUses != null && curUses >= maxUses) {
+      final curUses = (res["uses_count"] as int?) ?? 0;
+      if (maxUses != null && curUses >= maxUses) {
         setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón agotado"; });
         return;
       }
-      final pct = (res["discount_percent"] as num?)?.toDouble() ?? 0;
+      final pct = (res["discount_value"] as num?)?.toDouble() ?? 0;
       if (pct <= 0) {
         setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón no válido"; });
         return;

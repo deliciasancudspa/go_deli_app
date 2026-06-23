@@ -811,7 +811,7 @@ CREATE OR REPLACE FUNCTION public.increment_coupon_uses(p_code TEXT)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   UPDATE public.coupons
-  SET current_uses = COALESCE(current_uses, 0) + 1
+  SET uses_count = COALESCE(uses_count, 0) + 1
   WHERE code = upper(p_code) AND is_active = true;
 END $$;
 
