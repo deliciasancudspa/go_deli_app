@@ -100,11 +100,11 @@ class _WebpayScreenState extends State<WebpayScreen> {
       body: Stack(children: [
         WebViewWidget(controller: _controller),
         if (_loading)
-          const Center(
+          Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              CircularProgressIndicator(color: AppColors.primary),
-              SizedBox(height: 16),
-              Text(widget.webpayToken.isEmpty ? "Conectando con Khipu..." : "Conectando con WebPay...", style: TextStyle(color: AppColors.textLight)),
+              const CircularProgressIndicator(color: AppColors.primary),
+              const SizedBox(height: 16),
+              Text(widget.webpayToken.isEmpty ? "Conectando con Khipu..." : "Conectando con WebPay...", style: const TextStyle(color: AppColors.textLight)),
             ]),
           ),
       ]),
