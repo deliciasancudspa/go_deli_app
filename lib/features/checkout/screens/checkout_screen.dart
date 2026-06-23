@@ -499,8 +499,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _payMethodCard("cash", "💵", "Efectivo", "Paga al recibir"),
         const SizedBox(height: 8),
         _payMethodCard("webpay", "💳", "WebPay", "Débito o crédito online"),
-        const SizedBox(height: 8),
-        _payMethodCard("khipu", "🏦", "Transferencia", "Desde tu banco — Khipu"),
         const SizedBox(height: 20),
 
         // Cupon
