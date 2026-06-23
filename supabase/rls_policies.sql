@@ -234,12 +234,20 @@ begin
 end $$;
 
 -- store_legal_info / store_payments: SOLO dueño + admin
+-- NOTA: También se eliminan políticas legacy permisivas que pudieron quedar de
+-- despliegues antiguos (nombradas "authenticated can select ...", "anon can insert ...")
 do $$
 declare t text;
 begin
   foreach t in array array['store_legal_info','store_payments','store_bank_info','store_contracts'] loop
     if exists (select 1 from pg_tables where schemaname='public' and tablename=t) then
+      -- eliminar TODAS las políticas viejas conocidas (legacy)
+      execute format('drop policy if exists "authenticated can select %I" on public.%I', t, t);
+      execute format('drop policy if exists "authenticated can insert %I" on public.%I', t, t);
+      execute format('drop policy if exists "anon can insert %I" on public.%I', t, t);
+      execute format('drop policy if exists "authenticated can read %I" on public.%I', t, t);
       execute format('drop policy if exists %I_all on public.%I', t, t);
+      -- crear la nueva política segura
       execute format(
         'create policy %I_all on public.%I for all to authenticated
          using (store_id in (select public.my_store_ids()) or public.is_admin())
