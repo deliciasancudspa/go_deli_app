@@ -15,7 +15,13 @@ const TBK_BASE = TBK_ENV === "production"
   ? "https://webpay3g.transbank.cl"
   : "https://webpay3gint.transbank.cl";
 
-const RETURN_URL = `${SUPABASE_URL}/functions/v1/webpay-return`;
+function buildReturnUrl(webUrl?: string): string {
+  let url = `${SUPABASE_URL}/functions/v1/webpay-return`;
+  if (webUrl) {
+    url += `?web_url=${encodeURIComponent(webUrl)}`;
+  }
+  return url;
+}
 
 const CORS = {
   "Access-Control-Allow-Origin":  "*",
@@ -26,7 +32,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { order_id } = await req.json();
+    const { order_id, web_url } = await req.json();
     if (!order_id) {
       return json({ error: "order_id requerido" }, 400);
     }
@@ -41,7 +47,7 @@ serve(async (req) => {
     if (error || !order) return json({ error: "Orden no encontrada" }, 404);
 
     // buy_order debe ser único y ≤ 26 caracteres
-    const buyOrder = `GD${order_id.replace(/-/g, "").slice(0, 20).toUpperCase()}`;
+    const buyOrder = `GD${order.id.replace(/-/g, "").slice(0, 20).toUpperCase()}`;
     const sessionId = `S${Date.now()}`;
 
     const tbkRes = await fetch(
@@ -57,7 +63,7 @@ serve(async (req) => {
           buy_order:  buyOrder,
           session_id: sessionId,
           amount:     order.total,
-          return_url: RETURN_URL,
+          return_url: buildReturnUrl(web_url),
         }),
       },
     );
@@ -68,7 +74,7 @@ serve(async (req) => {
       return json({ error: "Error Transbank", detail: tbkData }, 500);
     }
 
-    // Guardar token para poder identificar la orden al confirmar
+    // Guardar token y web_url para identificar la orden al confirmar
     await sb.from("orders").update({
       webpay_token:   tbkData.token,
       payment_status: "pending_webpay",

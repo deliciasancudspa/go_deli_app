@@ -11,11 +11,12 @@ const TBK_BASE = TBK_ENV === "production"
   ? "https://webpay3g.transbank.cl"
   : "https://webpay3gint.transbank.cl";
 
-// Transbank hace POST con application/x-www-form-urlencoded
+// Transbank hace POST con application/x-www-form-urlencoded (o GET desde navegador)
 serve(async (req) => {
   try {
     let tokenWs: string | null = null;
-    let tbkToken: string | null = null; // enviado por Transbank cuando el usuario cancela
+    let tbkToken: string | null = null;
+    let webUrl: string | null = null;
 
     const ct = req.headers.get("content-type") ?? "";
 
@@ -32,15 +33,16 @@ serve(async (req) => {
       const url = new URL(req.url);
       tokenWs  = url.searchParams.get("token_ws");
       tbkToken = url.searchParams.get("TBK_TOKEN");
+      webUrl   = url.searchParams.get("web_url");
     }
 
     // Usuario canceló en WebPay (Transbank envía TBK_TOKEN sin token_ws)
     if (!tokenWs && tbkToken) {
-      return htmlPage("cancelled", null, null);
+      return htmlPage("cancelled", null, null, webUrl);
     }
 
     if (!tokenWs) {
-      return htmlPage("error", null, null);
+      return htmlPage("error", null, null, webUrl);
     }
 
     // Confirmar transacción con Transbank
@@ -79,10 +81,11 @@ serve(async (req) => {
       approved ? "approved" : "rejected",
       order?.id ?? null,
       result.amount ?? null,
+      webUrl,
     );
   } catch (e) {
     console.error("webpay-return error:", e);
-    return htmlPage("error", null, null);
+    return htmlPage("error", null, null, null);
   }
 });
 
@@ -90,7 +93,18 @@ function htmlPage(
   status: "approved" | "rejected" | "cancelled" | "error",
   orderId: string | null,
   amount: number | null,
+  webUrl: string | null,
 ): Response {
+  // Si hay web_url, es un cliente web → redirigir de vuelta a la app
+  // con los parámetros de resultado en la URL
+  if (webUrl) {
+    const redirectUrl = new URL(webUrl);
+    redirectUrl.searchParams.set("payment_status", status);
+    if (orderId) redirectUrl.searchParams.set("order_id", orderId);
+    return Response.redirect(redirectUrl.toString(), 302);
+  }
+
+  // Cliente móvil (WebView): mostrar HTML con deep link
   const ok        = status === "approved";
   const cancelled = status === "cancelled";
 

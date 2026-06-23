@@ -11,8 +11,9 @@ serve(async (req) => {
   try {
     const url     = new URL(req.url);
     const orderId = url.searchParams.get("order_id");
+    const webUrl  = url.searchParams.get("web_url");
 
-    if (!orderId) return htmlPage("error", null);
+    if (!orderId) return htmlPage("error", null, null);
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SVC_KEY);
     const { data: order } = await sb
@@ -22,15 +23,23 @@ serve(async (req) => {
       .maybeSingle();
 
     const status = order?.payment_status === "paid" ? "approved" : "pending";
-    return htmlPage(status, orderId);
+    return htmlPage(status, orderId, webUrl);
   } catch (_) {
-    return htmlPage("error", null);
+    return htmlPage("error", null, null);
   }
 });
 
-function htmlPage(status: string, orderId: string | null): Response {
+function htmlPage(status: string, orderId: string | null, webUrl: string | null): Response {
   const approved = status === "approved";
   const pending  = status === "pending";
+
+  // Si hay web_url, es un cliente web → redirigir de vuelta a la app
+  if (webUrl) {
+    const redirectUrl = new URL(webUrl);
+    redirectUrl.searchParams.set("payment_status", status);
+    if (orderId) redirectUrl.searchParams.set("order_id", orderId);
+    return Response.redirect(redirectUrl.toString(), 302);
+  }
 
   const icon    = approved ? "✅" : pending ? "⏳" : "❌";
   const title   = approved ? "¡Transferencia recibida!" : pending ? "Verificando pago..." : "Error";

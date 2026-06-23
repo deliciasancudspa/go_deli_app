@@ -1,9 +1,11 @@
+import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:image_picker/image_picker.dart";
 import "package:geolocator/geolocator.dart";
+import "package:url_launcher/url_launcher.dart";
 import "dart:typed_data";
 import "dart:math";
 import "dart:convert";
@@ -342,7 +344,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _launchWebpay(String orderId) async {
     try {
-      final res = await _sb.functions.invoke("webpay-create", body: {"order_id": orderId});
+      // En web, pasar la URL actual para que webpay-return pueda redirigir de vuelta
+      final body = <String, dynamic>{"order_id": orderId};
+      if (kIsWeb) {
+        body["web_url"] = Uri.base.toString();
+      }
+      final res = await _sb.functions.invoke("webpay-create", body: body);
       if (res.data == null || res.data["token"] == null) {
         throw Exception(res.data?["error"] ?? "Error al iniciar WebPay");
       }
@@ -350,37 +357,70 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final url   = res.data["url"]   as String;
 
       if (!mounted) return;
-      final cart = context.read<CartProvider>();
-      // Navegar al WebView; el carrito se limpia solo si el pago es aprobado
-      await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => WebpayScreen(
-          webpayUrl:   url,
-          webpayToken: token,
-          orderId:     orderId,
-        ),
-      ));
-      // El carrito se limpia dentro de WebpayScreen solo si el pago es aprobado
+      if (kIsWeb) {
+        // En web, abrir WebPay en la misma ventana (webpay-return redirige de vuelta)
+        final cart = context.read<CartProvider>();
+        await launchUrl(Uri.parse(url), mode: LaunchMode.platformDefault);
+        // Al volver, verificar el estado del pago desde los query params de la URL
+        if (mounted) _handleWebPaymentReturn(orderId, cart);
+      } else {
+        // En móvil, usar WebView
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => WebpayScreen(
+            webpayUrl:   url,
+            webpayToken: token,
+            orderId:     orderId,
+          ),
+        ));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error WebPay: $e"), backgroundColor: AppColors.error));
     }
   }
 
+  /// Procesa el retorno de pago en web leyendo los query params de la URL actual.
+  Future<void> _handleWebPaymentReturn(String orderId, CartProvider cart) async {
+    // webpay-return redirige a la app web con ?payment_status=...&order_id=...
+    final uri = Uri.base;
+    final status = uri.queryParameters["payment_status"];
+    if (status == "approved") {
+      cart.clearCart();
+      if (mounted) context.go("/order-success/$orderId");
+    } else if (status == "cancelled") {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Pago cancelado"), backgroundColor: AppColors.warning));
+    } else if (status != null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Pago rechazado — intenta con otro método"), backgroundColor: AppColors.error));
+    }
+  }
+
   Future<void> _launchKhipu(String orderId) async {
     try {
-      final res = await _sb.functions.invoke("khipu-create", body: {"order_id": orderId});
+      final body = <String, dynamic>{"order_id": orderId};
+      if (kIsWeb) {
+        body["web_url"] = Uri.base.toString();
+      }
+      final res = await _sb.functions.invoke("khipu-create", body: body);
       if (res.data == null || res.data["payment_url"] == null) {
         throw Exception(res.data?["error"] ?? "Error al iniciar Khipu");
       }
       final url = res.data["payment_url"] as String;
 
       if (!mounted) return;
-      await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => WebpayScreen(
-          webpayUrl:   url,
-          webpayToken: "",   // Khipu no usa token en la URL — ya viene incluido en payment_url
-          orderId:     orderId,
-        ),
-      ));
+      if (kIsWeb) {
+        final cart = context.read<CartProvider>();
+        await launchUrl(Uri.parse(url), mode: LaunchMode.platformDefault);
+        if (mounted) _handleWebPaymentReturn(orderId, cart);
+      } else {
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => WebpayScreen(
+            webpayUrl:   url,
+            webpayToken: "",   // Khipu no usa token en la URL — ya viene incluido en payment_url
+            orderId:     orderId,
+          ),
+        ));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error Khipu: $e"), backgroundColor: AppColors.error));
     }

@@ -8,9 +8,16 @@ const SUPABASE_SVC_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Obtener en: khipu.com → Mis cuentas de cobro → API
 const KHIPU_API_KEY = Deno.env.get("KHIPU_API_KEY") ?? "";
 
-const KHIPU_API = "https://payment-api.khipu.com/v3/payments";
-const RETURN_URL = `${SUPABASE_URL}/functions/v1/khipu-return`;
+const KHIPU_API  = "https://payment-api.khipu.com/v3/payments";
 const NOTIFY_URL = `${SUPABASE_URL}/functions/v1/khipu-notify`;
+
+function buildReturnUrl(orderId: string, webUrl?: string): string {
+  let url = `${SUPABASE_URL}/functions/v1/khipu-return?order_id=${orderId}`;
+  if (webUrl) {
+    url += `&web_url=${encodeURIComponent(webUrl)}`;
+  }
+  return url;
+}
 
 const CORS = {
   "Access-Control-Allow-Origin":  "*",
@@ -21,7 +28,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { order_id } = await req.json();
+    const { order_id, web_url } = await req.json();
     if (!order_id) return json({ error: "order_id requerido" }, 400);
     if (!KHIPU_API_KEY) return json({ error: "KHIPU_API_KEY no configurada" }, 500);
 
@@ -41,10 +48,10 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        subject:    `Pedido Go Deli #${order_id.slice(0, 8).toUpperCase()}`,
+        subject:    `Pedido Go Deli #${order.id.slice(0, 8).toUpperCase()}`,
         currency:   "CLP",
         amount:     order.total,
-        return_url: `${RETURN_URL}?order_id=${order_id}`,
+        return_url: buildReturnUrl(order.id, web_url),
         notify_url: NOTIFY_URL,
         // Expiración en 30 minutos
         expires_date: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
