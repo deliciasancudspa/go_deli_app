@@ -198,7 +198,17 @@ with check (owner_id = public.app_user_id() or public.is_admin());
 
 drop policy if exists stores_update on public.stores;
 create policy stores_update on public.stores for update to authenticated
-using (owner_id = public.app_user_id() or public.is_admin());
+using (owner_id = public.app_user_id() or public.is_admin())
+with check (
+  public.is_admin()
+  -- El dueño NO puede cambiar su propio status, is_active ni sponsored —
+  -- solo el admin puede aprobar/rechazar/destacar.
+  or (
+    owner_id = public.app_user_id()
+    and status    = (select s2.status    from public.stores s2 where s2.id = stores.id)
+    and is_active = (select s2.is_active from public.stores s2 where s2.id = stores.id)
+  )
+);
 
 drop policy if exists stores_delete on public.stores;
 create policy stores_delete on public.stores for delete to authenticated
@@ -786,3 +796,15 @@ BEGIN
 END $$;
 
 GRANT EXECUTE ON FUNCTION public.notify_admin(TEXT, TEXT, TEXT, TEXT, JSONB) TO authenticated;
+
+-- RPC para incrementar usos de cupón desde el checkout (bypassea RLS de coupons)
+-- Usado por: checkout_screen.dart al crear un pedido con cupón aplicado
+CREATE OR REPLACE FUNCTION public.increment_coupon_uses(p_code TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE public.coupons
+  SET current_uses = COALESCE(current_uses, 0) + 1
+  WHERE code = upper(p_code) AND is_active = true;
+END $$;
+
+GRANT EXECUTE ON FUNCTION public.increment_coupon_uses(TEXT) TO authenticated;

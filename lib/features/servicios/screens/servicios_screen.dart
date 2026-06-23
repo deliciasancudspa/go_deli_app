@@ -65,6 +65,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
 
   int    _catIdx    = 0;
   bool   _loading   = true;
+  String? _error;
   List<Map<String, dynamic>> _providers = [];
   String? _communeId;
 
@@ -194,9 +195,10 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
         return _cmpRating(a, b);
       });
       _cache[cacheKey] = _CacheEntry(providers: list, timestamp: DateTime.now());
-      if (mounted) setState(() { _providers = list; _loading = false; });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() { _providers = list; _loading = false; _error = null; });
+    } catch (e) {
+      if (mounted) setState(() { _loading = false; _error = 'No pudimos cargar los datos. Verifica tu conexión.'; });
+      debugPrint('ServiciosScreen _loadData error: $e');
     }
   }
 
@@ -313,6 +315,26 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: _kBg,
+        body: Center(child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.wifi_off_rounded, size: 56, color: AppColors.textLight),
+            const SizedBox(height: 16),
+            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textLight, fontSize: 15)),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => _loadData(forceRefresh: true),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Reintentar'),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white),
+            ),
+          ]),
+        )),
+      );
+    }
     return Scaffold(
       backgroundColor: _kBg,
       body: RefreshIndicator(

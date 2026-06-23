@@ -49,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _allStores  = [];
   List<_HomeSection>          _homeSections = [];
   bool _loadingHome = true;
+  String? _homeError;
   Map<String, List<Map<String, dynamic>>> _featuredItems = {};
   double? _userLat;
   double? _userLng;
@@ -387,9 +388,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _homeSections  = sections;
         _featuredItems = featItems;
         _loadingHome   = false;
+        _homeError     = null;
       });
-    } catch (_) {
-      if (mounted) setState(() => _loadingHome = false);
+    } catch (e) {
+      if (mounted) setState(() { _loadingHome = false; _homeError = 'No pudimos cargar los datos. Verifica tu conexión.'; });
+      debugPrint('_loadData error: $e');
     }
   }
 
@@ -468,6 +471,23 @@ class _HomeScreenState extends State<HomeScreen> {
   // TAB 0 — HOME
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildHome(CartProvider cart) {
+    if (_homeError != null) {
+      return Center(child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.wifi_off_rounded, size: 56, color: AppColors.textLight),
+          const SizedBox(height: 16),
+          Text(_homeError!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textLight, fontSize: 15)),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () => _loadData(forceRefreshCache: true),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Reintentar'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white),
+          ),
+        ]),
+      ));
+    }
     return RefreshIndicator(
       onRefresh: () => _loadData(forceRefreshCache: true),
       color: _kOrange,

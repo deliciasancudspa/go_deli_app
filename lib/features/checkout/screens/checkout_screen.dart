@@ -242,8 +242,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final subtotal   = cart.subtotal;
       final discAmt    = (subtotal * _discount).round();
       final finalSub   = subtotal - discAmt;
-      final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 7) as num) / 100).round();
-      final fixedFee   = (_storeData?["fixed_fee"] ?? 3000) as num;
+      final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 8) as num) / 100).round();
+      final fixedFee   = (_storeData?["fixed_fee"] ?? 2500) as num;
       int delivFee = 0, riderFee = 0, storeDelivFee = 0, platformDelivFee = 0, serviceFee = 0;
       if (_deliveryType == "delivery") {
         final dist = _distanceMeters ?? 0.0;
@@ -327,6 +327,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "subtotal": item.price * item.quantity,
       }).toList());
 
+      // Incrementar usos del cupón si se aplicó uno
+      if (_couponCode.isNotEmpty) {
+        try {
+          await _sb.rpc('increment_coupon_uses', { p_code: _couponCode });
+        } catch (_) { /* no bloquea el flujo si falla el contador */ }
+      }
+
       if (_payMethod == "webpay") {
         await _launchWebpay(order["id"] as String);
       } else if (_payMethod == "khipu") {
@@ -336,7 +343,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (mounted) context.go("/order-success/${order["id"]}");
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: AppColors.error));
+      debugPrint('_placeOrder error: $e');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No se pudo crear el pedido. Intenta de nuevo."), backgroundColor: AppColors.error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

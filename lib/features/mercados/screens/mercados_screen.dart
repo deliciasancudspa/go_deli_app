@@ -37,6 +37,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
   Map<String, List<Map<String, dynamic>>>         _currentProds    = {};
   bool _loading         = true;
   bool _loadingProds    = false;
+  String? _error;
 
   // Banners
   List<Map<String, dynamic>> _banners     = [];
@@ -255,9 +256,11 @@ class _MercadosScreenState extends State<MercadosScreen> {
         _featuredProds = prods;
         _currentProds  = prods;
         _loading       = false;
+        _error         = null;
       });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) setState(() { _loading = false; _error = 'No pudimos cargar los datos. Verifica tu conexión.'; });
+      debugPrint('MercadosScreen _loadData error: $e');
     }
   }
 
@@ -303,6 +306,26 @@ class _MercadosScreenState extends State<MercadosScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: _kBg,
+        body: Center(child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.wifi_off_rounded, size: 56, color: AppColors.textLight),
+            const SizedBox(height: 16),
+            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textLight, fontSize: 15)),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => _loadData(forceRefresh: true),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Reintentar'),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white),
+            ),
+          ]),
+        )),
+      );
+    }
     return Scaffold(
       backgroundColor: _kBg,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
