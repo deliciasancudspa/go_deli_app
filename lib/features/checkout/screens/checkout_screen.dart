@@ -673,7 +673,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return GestureDetector(
       onTap: () => setState(() {
         _deliveryType = type;
-        if (type == "pickup") _payMethod = "card";
+        if (type == "pickup") _payMethod = "webpay";
       }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
