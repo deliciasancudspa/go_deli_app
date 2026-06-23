@@ -23,11 +23,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK platform 36
-        run: sdkmanager "platforms;android-36" "build-tools;34.0.0"
+      - name: Accept Android SDK licenses & install platform
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;34.0.0"
 
       - uses: subosito/flutter-action@v2
         with:
