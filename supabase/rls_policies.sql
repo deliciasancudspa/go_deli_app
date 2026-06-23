@@ -723,3 +723,46 @@ create trigger trg_check_order_update
 --     despliegue de RLS y quedaron SIN protección (datos bancarios y
 --     contratos legibles/escribibles por cualquiera). Este script ya las
 --     incluye en las secciones 2 y 5 — basta re-ejecutarlo completo.
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 21. RPC PARA CREAR USUARIO POST-SIGNUP (bypassea RLS)
+--     La política users_insert exige autenticación, pero tras signUp el usuario
+--     puede no tener sesión activa si la confirmación de email está habilitada.
+--     Esta función SECURITY DEFINER inserta en public.users directamente.
+-- ────────────────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.create_user_on_signup(
+  p_auth_id UUID,
+  p_email TEXT,
+  p_name TEXT,
+  p_phone TEXT DEFAULT NULL,
+  p_role TEXT DEFAULT 'client',
+  p_national_id TEXT DEFAULT NULL,
+  p_region TEXT DEFAULT NULL,
+  p_city TEXT DEFAULT NULL
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID;
+BEGIN
+  -- Verificar que el auth user existe
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_auth_id) THEN
+    RAISE EXCEPTION 'El usuario de autenticación no existe';
+  END IF;
+
+  -- Verificar que no exista ya un registro para este auth_id (evita duplicados)
+  IF EXISTS (SELECT 1 FROM public.users WHERE auth_id = p_auth_id) THEN
+    RAISE EXCEPTION 'Ya existe un registro de usuario para este auth_id';
+  END IF;
+
+  -- Nadie puede auto-asignarse admin
+  IF p_role = 'admin' THEN
+    RAISE EXCEPTION 'No se permite auto-asignar el rol admin';
+  END IF;
+
+  INSERT INTO public.users (auth_id, email, name, phone, role, national_id, region, city)
+  VALUES (p_auth_id, p_email, p_name, p_phone, p_role, p_national_id, p_region, p_city)
+  RETURNING id INTO v_user_id;
+
+  RETURN v_user_id;
+END $$;
+
+GRANT EXECUTE ON FUNCTION public.create_user_on_signup(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
