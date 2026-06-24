@@ -45,28 +45,32 @@ Deno.serve(async (req) => {
     let tbkOrdenCompra: string | null = null;
     let webUrl: string | null = null;
 
+    // web_url siempre viene en el query string (no en el body)
+    const reqUrl = new URL(req.url);
+    webUrl = reqUrl.searchParams.get("web_url");
+
     const ct = req.headers.get("content-type") ?? "";
 
     if (ct.includes("application/x-www-form-urlencoded")) {
       const text = await req.text();
       const params = new URLSearchParams(text);
-      tokenWs       = params.get("token_ws");
-      tbkToken      = params.get("TBK_TOKEN");
-      tbkIdSesion   = params.get("TBK_ID_SESION");
+      tokenWs        = params.get("token_ws");
+      tbkToken       = params.get("TBK_TOKEN");
+      tbkIdSesion    = params.get("TBK_ID_SESION");
       tbkOrdenCompra = params.get("TBK_ORDEN_COMPRA");
+      // fallback: Transbank a veces manda token_ws también en query params
+      if (!tokenWs) tokenWs = reqUrl.searchParams.get("token_ws");
     } else if (ct.includes("application/json")) {
       const body = await req.json();
-      tokenWs       = body.token_ws       ?? null;
-      tbkToken      = body.TBK_TOKEN      ?? null;
-      tbkIdSesion   = body.TBK_ID_SESION  ?? null;
+      tokenWs        = body.token_ws        ?? null;
+      tbkToken       = body.TBK_TOKEN       ?? null;
+      tbkIdSesion    = body.TBK_ID_SESION   ?? null;
       tbkOrdenCompra = body.TBK_ORDEN_COMPRA ?? null;
     } else {
-      const url = new URL(req.url);
-      tokenWs       = url.searchParams.get("token_ws");
-      tbkToken      = url.searchParams.get("TBK_TOKEN");
-      tbkIdSesion   = url.searchParams.get("TBK_ID_SESION");
-      tbkOrdenCompra = url.searchParams.get("TBK_ORDEN_COMPRA");
-      webUrl        = url.searchParams.get("web_url");
+      tokenWs        = reqUrl.searchParams.get("token_ws");
+      tbkToken       = reqUrl.searchParams.get("TBK_TOKEN");
+      tbkIdSesion    = reqUrl.searchParams.get("TBK_ID_SESION");
+      tbkOrdenCompra = reqUrl.searchParams.get("TBK_ORDEN_COMPRA");
     }
 
     console.log("WEBPAY_RETURN_PARAMS", JSON.stringify({ tokenWs, tbkToken, tbkIdSesion, tbkOrdenCompra }));
