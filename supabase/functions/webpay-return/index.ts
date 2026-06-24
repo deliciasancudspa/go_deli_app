@@ -27,6 +27,8 @@ Deno.serve(async (req) => {
   try {
     let tokenWs: string | null = null;
     let tbkToken: string | null = null;
+    let tbkIdSesion: string | null = null;
+    let tbkOrdenCompra: string | null = null;
     let webUrl: string | null = null;
 
     const ct = req.headers.get("content-type") ?? "";
@@ -34,26 +36,41 @@ Deno.serve(async (req) => {
     if (ct.includes("application/x-www-form-urlencoded")) {
       const text = await req.text();
       const params = new URLSearchParams(text);
-      tokenWs  = params.get("token_ws");
-      tbkToken = params.get("TBK_TOKEN");
+      tokenWs       = params.get("token_ws");
+      tbkToken      = params.get("TBK_TOKEN");
+      tbkIdSesion   = params.get("TBK_ID_SESION");
+      tbkOrdenCompra = params.get("TBK_ORDEN_COMPRA");
     } else if (ct.includes("application/json")) {
       const body = await req.json();
-      tokenWs  = body.token_ws  ?? null;
-      tbkToken = body.TBK_TOKEN ?? null;
+      tokenWs       = body.token_ws       ?? null;
+      tbkToken      = body.TBK_TOKEN      ?? null;
+      tbkIdSesion   = body.TBK_ID_SESION  ?? null;
+      tbkOrdenCompra = body.TBK_ORDEN_COMPRA ?? null;
     } else {
       const url = new URL(req.url);
-      tokenWs  = url.searchParams.get("token_ws");
-      tbkToken = url.searchParams.get("TBK_TOKEN");
-      webUrl   = url.searchParams.get("web_url");
+      tokenWs       = url.searchParams.get("token_ws");
+      tbkToken      = url.searchParams.get("TBK_TOKEN");
+      tbkIdSesion   = url.searchParams.get("TBK_ID_SESION");
+      tbkOrdenCompra = url.searchParams.get("TBK_ORDEN_COMPRA");
+      webUrl        = url.searchParams.get("web_url");
     }
 
-    // Usuario canceló en WebPay
+    console.log("WEBPAY_RETURN_PARAMS", JSON.stringify({ tokenWs, tbkToken, tbkIdSesion, tbkOrdenCompra }));
+
+    // Timeout: solo llegan TBK_ID_SESION y TBK_ORDEN_COMPRA, sin token
+    if (!tokenWs && !tbkToken && tbkIdSesion) {
+      return buildResponse("cancelled", null, null, webUrl);
+    }
+
+    // Error formulario o cancelación: llega TBK_TOKEN (con o sin token_ws)
     if (!tokenWs && tbkToken) {
       return buildResponse("cancelled", null, null, webUrl);
     }
 
+    // Error formulario con todos los params: token_ws + TBK_TOKEN + TBK_ID_SESION + TBK_ORDEN_COMPRA
+    // En este caso token_ws puede ser inválido — intentamos confirmar pero tratamos error como cancelación
     if (!tokenWs) {
-      return buildResponse("error", null, null, webUrl);
+      return buildResponse("cancelled", null, null, webUrl);
     }
 
     // Confirmar transacción con Transbank
