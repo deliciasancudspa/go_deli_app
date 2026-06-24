@@ -3,6 +3,7 @@ import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "package:url_launcher/url_launcher.dart";
 import "package:webview_flutter/webview_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
@@ -41,12 +42,23 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
         onPageFinished: (_) => setState(() => _loading = false),
         onNavigationRequest: (request) {
           final uri = Uri.tryParse(request.url);
-          if (uri?.scheme == "godeli-webpay") {
-            final status  = uri?.queryParameters["status"]   ?? "error";
-            final orderId = uri?.queryParameters["order_id"] ?? widget.orderId;
+          if (uri == null) return NavigationDecision.navigate;
+
+          // Deep link de retorno desde webpay-return
+          if (uri.scheme == "godeli-webpay") {
+            final status  = uri.queryParameters["status"]   ?? "error";
+            final orderId = uri.queryParameters["order_id"] ?? widget.orderId;
             _handleResult(status, orderId);
             return NavigationDecision.prevent;
           }
+
+          // App del banco u otras apps nativas — abrir externamente y
+          // mantener el WebView vivo para recibir el retorno de Transbank
+          if (uri.scheme != "http" && uri.scheme != "https") {
+            launchUrl(uri, mode: LaunchMode.externalApplication);
+            return NavigationDecision.prevent;
+          }
+
           return NavigationDecision.navigate;
         },
       ))
