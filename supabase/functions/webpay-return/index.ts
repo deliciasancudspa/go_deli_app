@@ -138,7 +138,10 @@ Deno.serve(async (req) => {
         method: "PATCH",
         body: JSON.stringify({
           payment_status:  approved ? "paid" : "failed",
-          status:          approved ? "accepted" : "pending",
+          // Si el pago falla → cancelled (terminal). La orden partió como
+          // pending_payment y no debe volver a "pending" porque la tienda la vería
+          // como una orden activa sin pagar.
+          status:          approved ? "accepted" : "cancelled",
           webpay_response: result,
         }),
       });

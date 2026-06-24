@@ -38,7 +38,7 @@ serve(async (req) => {
     const sb = createClient(SUPABASE_URL, SUPABASE_SVC_KEY);
     await sb.from("orders").update({
       payment_status:  "paid",
-      status:          "confirmed",
+      status:          "accepted",  // consistente con webpay-return (pending_payment → accepted)
       khipu_response:  payment,
     }).eq("khipu_payment_id", paymentId);
 

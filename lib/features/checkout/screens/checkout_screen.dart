@@ -422,7 +422,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "delivery_reference": _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
         "payment_method": _payMethod,
         "order_type": _deliveryType,
-        "status": "pending",
+        // Órdenes con pago en línea parten como pending_payment para que
+        // la tienda no las vea hasta que webpay-return/khipu-notify
+        // confirme el pago y las mueva a "accepted".
+        "status": (_payMethod == "webpay" || _payMethod == "khipu")
+            ? "pending_payment"
+            : "pending",
         "coupon_code": _couponCode.isEmpty ? null : _couponCode,
         "discount": discAmt,
         "pickup_code": pickupCode,
