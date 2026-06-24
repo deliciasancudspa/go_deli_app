@@ -59,6 +59,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _needsPrescription = false;
   Uint8List? _prescriptionBytes;
   String _prescriptionFileName = "";
+  // Orden Webpay pendiente (reutilizar en vez de crear una nueva si el pago falló)
+  String? _pendingWebpayOrderId;
   final _sb = Supabase.instance.client;
   final _imagePicker = ImagePicker();
 
@@ -314,6 +316,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
     setState(() => _loading = true);
+
+    // Si hay una orden Webpay pendiente previa (pago cancelado/fallido),
+    // reutilizarla en vez de crear una nueva
+    if (_payMethod == "webpay" && _pendingWebpayOrderId != null) {
+      try {
+        await _launchWebpay(_pendingWebpayOrderId!);
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
+      return;
+    }
+
     try {
       final cart   = context.read<CartProvider>();
       final auth   = context.read<AuthProvider>();
@@ -429,6 +443,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  // Marcar la orden Webpay pendiente como cancelada y limpiar el estado local
+  Future<void> _cancelPendingWebpayOrder() async {
+    final id = _pendingWebpayOrderId;
+    if (id == null) return;
+    setState(() => _pendingWebpayOrderId = null);
+    try {
+      await _sb.from("orders").update({
+        "status": "cancelled",
+        "payment_status": "failed",
+      }).eq("id", id);
+    } catch (_) {}
+  }
+
   Future<void> _launchWebpay(String orderId) async {
     try {
       // En web, pasar la URL actual para que webpay-return pueda redirigir de vuelta
@@ -452,6 +479,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (mounted) _handleWebPaymentReturn(orderId, cart);
       } else {
         // En móvil, usar WebView
+        // Si WebpayScreen hace context.go("/order-success/..."), nunca retorna aquí.
+        // Si retorna (cancelación/fallo), guardar orderId para reutilizarlo.
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => WebpayScreen(
             webpayUrl:   url,
@@ -459,6 +488,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             orderId:     orderId,
           ),
         ));
+        // Si llegamos aquí = pago no completado; guardar para reutilizar la orden
+        if (mounted) setState(() => _pendingWebpayOrderId = orderId);
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error WebPay: $e"), backgroundColor: AppColors.error));
@@ -823,7 +854,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final selected = _payMethod == method;
     final disabled = _deliveryType == "pickup" && method == "cash";
     return GestureDetector(
-      onTap: disabled ? null : () => setState(() => _payMethod = method),
+      onTap: disabled ? null : () {
+        if (method != "webpay" && _pendingWebpayOrderId != null) {
+          // Cancelar la orden webpay pendiente si el usuario cambia de método de pago
+          _cancelPendingWebpayOrder();
+        }
+        setState(() => _payMethod = method);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
