@@ -39,7 +39,14 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
         onPageStarted: (_) => setState(() => _loading = true),
-        onPageFinished: (_) => setState(() => _loading = false),
+        onPageFinished: (_) {
+          setState(() => _loading = false);
+          // Redirigir window.open() al mismo frame para evitar que
+          // la autenticación 3DS del banco abra el navegador del sistema
+          _controller.runJavaScript(
+            "window.open=function(u,n,f){if(u)window.location.href=u;return window;};",
+          );
+        },
         onNavigationRequest: (request) {
           final uri = Uri.tryParse(request.url);
           if (uri == null) return NavigationDecision.navigate;
@@ -52,10 +59,9 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
             return NavigationDecision.prevent;
           }
 
-          // App del banco u otras apps nativas — abrir externamente y
-          // mantener el WebView vivo para recibir el retorno de Transbank
+          // App nativa del banco (billetera, etc.) — abrir externamente
           if (uri.scheme != "http" && uri.scheme != "https") {
-            launchUrl(uri, mode: LaunchMode.externalApplication);
+            _launchExternal(uri);
             return NavigationDecision.prevent;
           }
 
@@ -73,6 +79,26 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  // Abrir app externa (banco/billetera) con verificación previa
+  Future<void> _launchExternal(Uri uri) async {
+    try {
+      final ok = await canLaunchUrl(uri);
+      if (ok) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("No se encontró la app del banco en este dispositivo"),
+        ));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("No se pudo abrir la app del banco"),
+        ));
+      }
+    }
   }
 
   // Guardar estado pendiente en SharedPreferences
