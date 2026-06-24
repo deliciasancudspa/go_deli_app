@@ -52,9 +52,9 @@ Deno.serve(async (req) => {
     let tbkOrdenCompra: string | null = null;
     let webUrl: string | null = null;
 
-    // web_url siempre viene en el query string (no en el body)
+    // web_url NO viene en el query string — se lee de la orden más abajo
+    // (se guardó en webpay-create porque Transbank no maneja bien query params preexistentes)
     const reqUrl = new URL(req.url);
-    webUrl = reqUrl.searchParams.get("web_url");
 
     const ct = req.headers.get("content-type") ?? "";
 
@@ -127,8 +127,11 @@ Deno.serve(async (req) => {
     const approved = result.response_code === 0 && result.status === "AUTHORIZED";
 
     // Buscar y actualizar la orden (token URL-encodeado por si acaso)
-    const orders = await sbFetch(`/orders?webpay_token=eq.${encodeURIComponent(tokenWs)}&select=id,total`);
+    const orders = await sbFetch(`/orders?webpay_token=eq.${encodeURIComponent(tokenWs)}&select=id,total,web_return_url`);
     const order = Array.isArray(orders) && orders.length > 0 ? orders[0] : null;
+
+    // Recuperar web_url de la orden (se guardó en webpay-create)
+    if (order?.web_return_url) webUrl = order.web_return_url;
 
     if (order) {
       await sbFetch(`/orders?id=eq.${order.id}`, {

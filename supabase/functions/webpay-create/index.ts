@@ -61,8 +61,18 @@ Deno.serve(async (req) => {
     const buyOrder = `GD${order.id.replace(/-/g, "").slice(0, 18).toUpperCase()}${ts}`;
     // session_id también lleva timestamp + random para evitar colisiones
     const sessionId = `S${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
-    let returnUrl = `${SUPABASE_URL}/functions/v1/webpay-return`;
-    if (web_url) returnUrl += `?web_url=${encodeURIComponent(web_url)}`;
+    // NUNCA poner web_url como query param en return_url: Transbank no
+    // concatena bien sus parámetros de redirect si la URL ya tiene query.
+    // En vez de eso, guardamos web_url en la orden y webpay-return lo lee de ahí.
+    const returnUrl = `${SUPABASE_URL}/functions/v1/webpay-return`;
+
+    // Guardar web_return_url en la orden para que webpay-return sepa a dónde redirigir
+    if (web_url) {
+      await sbFetch(`/orders?id=eq.${encodeURIComponent(order.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ web_return_url: web_url }),
+      });
+    }
 
     // Crear transacción en Transbank
     const tbkRes = await fetch(
