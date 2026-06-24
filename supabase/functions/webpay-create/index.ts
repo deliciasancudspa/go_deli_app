@@ -43,14 +43,24 @@ Deno.serve(async (req) => {
     if (!order_id) return json({ error: "order_id requerido" }, 400);
 
     // Buscar la orden
-    const orders = await sbFetch(`/orders?id=eq.${order_id}&select=id,total`);
+    const orders = await sbFetch(`/orders?id=eq.${order_id}&select=id,total,payment_status`);
     if (!Array.isArray(orders) || orders.length === 0) {
       return json({ error: "Orden no encontrada" }, 404);
     }
     const order = orders[0];
 
-    const buyOrder = `GD${order.id.replace(/-/g, "").slice(0, 20).toUpperCase()}`;
-    const sessionId = `S${Date.now()}`;
+    // Evitar crear transacción para órdenes ya pagadas
+    if (order.payment_status === "paid") {
+      return json({ error: "Esta orden ya fue pagada" }, 409);
+    }
+
+    // buy_order debe ser único por intento. Si el usuario reintenta con la misma
+    // orden (pago pendiente reutilizado), añadimos un sufijo temporal para que
+    // Transbank no rechace la transacción por duplicado.
+    const ts = Date.now().toString(36).slice(-4).toUpperCase();
+    const buyOrder = `GD${order.id.replace(/-/g, "").slice(0, 18).toUpperCase()}${ts}`;
+    // session_id también lleva timestamp + random para evitar colisiones
+    const sessionId = `S${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
     let returnUrl = `${SUPABASE_URL}/functions/v1/webpay-return`;
     if (web_url) returnUrl += `?web_url=${encodeURIComponent(web_url)}`;
 
@@ -74,8 +84,12 @@ Deno.serve(async (req) => {
     );
 
     const tbkData = await tbkRes.json();
-    if (!tbkData.token || !tbkData.url) {
-      return json({ error: "Error Transbank", detail: tbkData }, 500);
+
+    // Validar respuesta HTTP y errores de negocio de Transbank
+    if (!tbkRes.ok || !tbkData.token || !tbkData.url) {
+      console.error("TBK_CREATE_ERROR", JSON.stringify({ httpStatus: tbkRes.status, body: tbkData }));
+      const tbkError = tbkData?.error_message ?? tbkRes.statusText ?? "Error desconocido";
+      return json({ error: "Error al crear transacción WebPay", detail: tbkError, raw: tbkData }, 502);
     }
 
     // Actualizar orden con el token

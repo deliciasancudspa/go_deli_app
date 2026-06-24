@@ -9,6 +9,11 @@ const TBK_BASE = TBK_ENV === "production"
   ? "https://webpay3g.transbank.cl"
   : "https://webpay3gint.transbank.cl";
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 async function sbFetch(path: string, options: RequestInit = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     ...options,
@@ -24,6 +29,8 @@ async function sbFetch(path: string, options: RequestInit = {}) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
   // GET request — verificación de disponibilidad del endpoint
   if (req.method === "GET") {
     const url = new URL(req.url);
@@ -33,7 +40,7 @@ Deno.serve(async (req) => {
     if (!tokenWs && !tbkToken && !tbkIdSesion) {
       return new Response(
         "<html><body><h2>Go Deli — Webpay Return OK</h2><p>Endpoint activo y disponible.</p></body></html>",
-        { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+        { status: 200, headers: { ...CORS, "Content-Type": "text/html; charset=utf-8" } }
       );
     }
   }
@@ -107,6 +114,7 @@ Deno.serve(async (req) => {
     const result = await tbkRes.json();
     console.log("WEBPAY_RESULT", JSON.stringify({
       token: tokenWs,
+      httpStatus: tbkRes.status,
       status: result.status,
       response_code: result.response_code,
       vci: result.vci,
@@ -115,10 +123,11 @@ Deno.serve(async (req) => {
       buy_order: result.buy_order,
     }));
 
-    const approved = result.response_code === 0;
+    // Transbank requiere validar AMBOS: response_code === 0 Y status === "AUTHORIZED"
+    const approved = result.response_code === 0 && result.status === "AUTHORIZED";
 
-    // Buscar y actualizar la orden
-    const orders = await sbFetch(`/orders?webpay_token=eq.${tokenWs}&select=id,total`);
+    // Buscar y actualizar la orden (token URL-encodeado por si acaso)
+    const orders = await sbFetch(`/orders?webpay_token=eq.${encodeURIComponent(tokenWs)}&select=id,total`);
     const order = Array.isArray(orders) && orders.length > 0 ? orders[0] : null;
 
     if (order) {
@@ -147,17 +156,23 @@ function buildResponse(
   amount: number | null,
   webUrl: string | null,
 ): Response {
-  // Cliente web → redirigir a la app web
+  // Cliente web → redirigir a la app web con CORS
   if (webUrl) {
     const redirectUrl = new URL(webUrl);
     redirectUrl.searchParams.set("payment_status", status);
     if (orderId) redirectUrl.searchParams.set("order_id", orderId);
-    return Response.redirect(redirectUrl.toString(), 302);
+    return new Response(null, {
+      status: 302,
+      headers: { ...CORS, "Location": redirectUrl.toString() },
+    });
   }
 
   // Cliente móvil → redirect directo al deep link (más confiable que JS en WebView Android)
   const deepLink = `godeli-webpay://done?status=${status}&order_id=${orderId ?? ""}`;
-  return Response.redirect(deepLink, 302);
+  return new Response(null, {
+    status: 302,
+    headers: { ...CORS, "Location": deepLink },
+  });
 }
 
 // HTML de respaldo (no se usa actualmente, reservado para debugging)
@@ -216,6 +231,6 @@ function _htmlPage(
 
   return new Response(html, {
     status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: { ...CORS, "Content-Type": "text/html; charset=utf-8" },
   });
 }

@@ -18,12 +18,7 @@ jobs:
         with:
           version: latest
 
-      - name: Deploy webpay-create
-        run: supabase functions deploy webpay-create --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
-      - name: Deploy webpay-return
-        run: supabase functions deploy webpay-return --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      - name: Deploy all Edge Functions
+        run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

@@ -465,7 +465,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       final res = await _sb.functions.invoke("webpay-create", body: body);
       if (res.data == null || res.data["token"] == null) {
-        throw Exception(res.data?["error"] ?? "Error al iniciar WebPay");
+        final errMsg = res.data?["error"] ?? "Error al iniciar WebPay";
+        final detail = res.data?["detail"];
+        final detailStr = detail is String ? detail : (detail is Map ? detail["error_message"] ?? "" : "");
+        throw Exception(detailStr.isNotEmpty ? "$errMsg: $detailStr" : errMsg.toString());
       }
       final token = res.data["token"] as String;
       final url   = res.data["url"]   as String;
