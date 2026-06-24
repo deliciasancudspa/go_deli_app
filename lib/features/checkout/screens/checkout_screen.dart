@@ -330,7 +330,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Incrementar usos del cupón si se aplicó uno
       if (_couponCode.isNotEmpty) {
         try {
-          await _sb.rpc('increment_coupon_uses', {'p_code': _couponCode});
+          await _sb.rpc('increment_coupon_uses', params: {'p_code': _couponCode});
         } catch (_) { /* no bloquea el flujo si falla el contador */ }
       }
 
