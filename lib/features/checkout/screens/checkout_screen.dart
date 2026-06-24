@@ -463,7 +463,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
     } catch (e) {
       debugPrint('_placeOrder error: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No se pudo crear el pedido. Intenta de nuevo."), backgroundColor: AppColors.error));
+      final errStr = e.toString();
+      // Si el error viene de webpay-create, mostramos el detalle para diagnóstico
+      final msg = errStr.contains("Exception: ")
+          ? errStr.replaceFirst("Exception: ", "")
+          : "No se pudo crear el pedido. Intenta de nuevo.";
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, maxLines: 4), backgroundColor: AppColors.error, duration: const Duration(seconds: 8)));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
