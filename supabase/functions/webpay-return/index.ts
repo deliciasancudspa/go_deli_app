@@ -49,11 +49,11 @@ Deno.serve(async (req) => {
 
     // Usuario canceló en WebPay
     if (!tokenWs && tbkToken) {
-      return htmlPage("cancelled", null, null, webUrl);
+      return buildResponse("cancelled", null, null, webUrl);
     }
 
     if (!tokenWs) {
-      return htmlPage("error", null, null, webUrl);
+      return buildResponse("error", null, null, webUrl);
     }
 
     // Confirmar transacción con Transbank
@@ -97,24 +97,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    return htmlPage(
-      approved ? "approved" : "rejected",
-      order?.id ?? null,
-      result.amount ?? null,
-      webUrl,
-    );
+    const status = approved ? "approved" : "rejected";
+    const finalOrderId = order?.id ?? null;
+    return buildResponse(status, finalOrderId, result.amount ?? null, webUrl);
   } catch (e) {
     console.error("webpay-return error:", e);
-    return htmlPage("error", null, null, null);
+    return buildResponse("error", null, null, null);
   }
 });
 
-function htmlPage(
+function buildResponse(
   status: "approved" | "rejected" | "cancelled" | "error",
   orderId: string | null,
   amount: number | null,
   webUrl: string | null,
 ): Response {
+  // Cliente web → redirigir a la app web
   if (webUrl) {
     const redirectUrl = new URL(webUrl);
     redirectUrl.searchParams.set("payment_status", status);
@@ -122,6 +120,18 @@ function htmlPage(
     return Response.redirect(redirectUrl.toString(), 302);
   }
 
+  // Cliente móvil → redirect directo al deep link (más confiable que JS en WebView Android)
+  const deepLink = `godeli-webpay://done?status=${status}&order_id=${orderId ?? ""}`;
+  return Response.redirect(deepLink, 302);
+}
+
+// HTML de respaldo (no se usa actualmente, reservado para debugging)
+function _htmlPage(
+  status: "approved" | "rejected" | "cancelled" | "error",
+  orderId: string | null,
+  amount: number | null,
+  _webUrl: string | null,
+): Response {
   const ok        = status === "approved";
   const cancelled = status === "cancelled";
   const icon    = ok ? "✅" : cancelled ? "⚠️" : "❌";
