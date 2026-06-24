@@ -65,7 +65,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _imagePicker = ImagePicker();
 
   @override
-  void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); _checkPendingWebpay(); }
+  void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); _checkPendingWebpay(); _checkWebReturnParams(); }
+
+  // En web, después del pago con Webpay/Khipu, la página se recarga con
+  // ?payment_status=...&order_id=... en la URL. Como launchUrl navega fuera
+  // de la app, el Future se pierde y _handleWebPaymentReturn nunca se ejecuta.
+  // Leemos los query params al iniciar para no perder el resultado del pago.
+  void _checkWebReturnParams() {
+    if (!kIsWeb) return;
+    final status = Uri.base.queryParameters["payment_status"];
+    if (status == null) return;
+    final orderId = Uri.base.queryParameters["order_id"];
+    if (status == "approved" && orderId != null) {
+      context.read<CartProvider>().clearCart();
+      context.go("/order-success/$orderId");
+    } else if (status == "cancelled") {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Pago cancelado"), backgroundColor: AppColors.warning));
+    } else if (status == "rejected") {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Pago rechazado — intenta con otro método"), backgroundColor: AppColors.error));
+    }
+  }
 
   // Si el proceso fue matado por Android mientras se pagaba con Webpay,
   // verificar si el pago fue procesado y redirigir apropiadamente.
