@@ -1,18 +1,29 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Sin imports externos — usa fetch nativo de Deno para evitar boot_error
 
 const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SVC_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TBK_COMMERCE_CODE = Deno.env.get("TBK_COMMERCE_CODE") ?? "597055555532";
-const TBK_API_KEY       = Deno.env.get("TBK_API_KEY")       ?? "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C";
-const TBK_ENV           = Deno.env.get("TBK_ENV")           ?? "integration";
-
+const TBK_API_KEY       = Deno.env.get("TBK_API_KEY") ?? "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C";
+const TBK_ENV           = Deno.env.get("TBK_ENV") ?? "integration";
 const TBK_BASE = TBK_ENV === "production"
   ? "https://webpay3g.transbank.cl"
   : "https://webpay3gint.transbank.cl";
 
-// Transbank hace POST con application/x-www-form-urlencoded (o GET desde navegador)
-serve(async (req) => {
+async function sbFetch(path: string, options: RequestInit = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+    ...options,
+    headers: {
+      "apikey": SUPABASE_SVC_KEY,
+      "Authorization": `Bearer ${SUPABASE_SVC_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=representation",
+      ...(options.headers ?? {}),
+    },
+  });
+  return res.json();
+}
+
+Deno.serve(async (req) => {
   try {
     let tokenWs: string | null = null;
     let tbkToken: string | null = null;
@@ -36,7 +47,7 @@ serve(async (req) => {
       webUrl   = url.searchParams.get("web_url");
     }
 
-    // Usuario canceló en WebPay (Transbank envía TBK_TOKEN sin token_ws)
+    // Usuario canceló en WebPay
     if (!tokenWs && tbkToken) {
       return htmlPage("cancelled", null, null, webUrl);
     }
@@ -59,22 +70,31 @@ serve(async (req) => {
     );
 
     const result = await tbkRes.json();
+    console.log("WEBPAY_RESULT", JSON.stringify({
+      token: tokenWs,
+      status: result.status,
+      response_code: result.response_code,
+      vci: result.vci,
+      authorization_code: result.authorization_code,
+      amount: result.amount,
+      buy_order: result.buy_order,
+    }));
+
     const approved = result.response_code === 0;
 
-    const sb = createClient(SUPABASE_URL, SUPABASE_SVC_KEY);
-
-    const { data: order } = await sb
-      .from("orders")
-      .select("id, total")
-      .eq("webpay_token", tokenWs)
-      .maybeSingle();
+    // Buscar y actualizar la orden
+    const orders = await sbFetch(`/orders?webpay_token=eq.${tokenWs}&select=id,total`);
+    const order = Array.isArray(orders) && orders.length > 0 ? orders[0] : null;
 
     if (order) {
-      await sb.from("orders").update({
-        payment_status:  approved ? "paid" : "payment_failed",
-        status:          approved ? "confirmed" : "pending",
-        webpay_response: result,
-      }).eq("id", order.id);
+      await sbFetch(`/orders?id=eq.${order.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          payment_status:  approved ? "paid" : "failed",
+          status:          approved ? "accepted" : "pending",
+          webpay_response: result,
+        }),
+      });
     }
 
     return htmlPage(
@@ -95,8 +115,6 @@ function htmlPage(
   amount: number | null,
   webUrl: string | null,
 ): Response {
-  // Si hay web_url, es un cliente web → redirigir de vuelta a la app
-  // con los parámetros de resultado en la URL
   if (webUrl) {
     const redirectUrl = new URL(webUrl);
     redirectUrl.searchParams.set("payment_status", status);
@@ -104,10 +122,8 @@ function htmlPage(
     return Response.redirect(redirectUrl.toString(), 302);
   }
 
-  // Cliente móvil (WebView): mostrar HTML con deep link
   const ok        = status === "approved";
   const cancelled = status === "cancelled";
-
   const icon    = ok ? "✅" : cancelled ? "⚠️" : "❌";
   const title   = ok ? "¡Pago exitoso!" : cancelled ? "Pago cancelado" : "Pago rechazado";
   const message = ok
@@ -116,7 +132,6 @@ function htmlPage(
     ? "Cancelaste el proceso de pago."
     : "El pago no pudo procesarse. Intenta con otro método.";
 
-  // La app Flutter intercepta el esquema godeli-webpay:// en el WebView
   const deepLink = `godeli-webpay://done?status=${status}&order_id=${orderId ?? ""}`;
 
   const html = `<!DOCTYPE html>
@@ -149,7 +164,6 @@ function htmlPage(
     <a class="btn" href="${deepLink}">Volver a Go Deli</a>
   </div>
   <script>
-    // El WebView de Flutter intercepta godeli-webpay:// automáticamente
     setTimeout(function(){ window.location.href='${deepLink}'; }, 600);
   </script>
 </body>
