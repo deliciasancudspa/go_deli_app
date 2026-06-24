@@ -1,6 +1,8 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
+import "package:shared_preferences/shared_preferences.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 import "package:webview_flutter/webview_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
@@ -21,13 +23,17 @@ class WebpayScreen extends StatefulWidget {
   State<WebpayScreen> createState() => _WebpayScreenState();
 }
 
-class _WebpayScreenState extends State<WebpayScreen> {
+class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver {
   late final WebViewController _controller;
+  final _sb = Supabase.instance.client;
   bool _loading = true;
+  bool _handled = false; // evitar doble manejo del resultado
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _saveState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
@@ -35,7 +41,6 @@ class _WebpayScreenState extends State<WebpayScreen> {
         onPageFinished: (_) => setState(() => _loading = false),
         onNavigationRequest: (request) {
           final uri = Uri.tryParse(request.url);
-          // Interceptar el deep link que envía webpay-return tras confirmar el pago
           if (uri?.scheme == "godeli-webpay") {
             final status  = uri?.queryParameters["status"]   ?? "error";
             final orderId = uri?.queryParameters["order_id"] ?? widget.orderId;
@@ -46,15 +51,65 @@ class _WebpayScreenState extends State<WebpayScreen> {
         },
       ))
       ..loadRequest(
-        // WebPay requiere token en query param; Khipu ya incluye la URL completa
         Uri.parse(widget.webpayToken.isEmpty
             ? widget.webpayUrl
             : "${widget.webpayUrl}?token_ws=${widget.webpayToken}"),
       );
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Guardar estado pendiente en SharedPreferences
+  Future<void> _saveState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("pending_webpay_order_id", widget.orderId);
+    await prefs.setString("pending_webpay_token", widget.webpayToken);
+    await prefs.setString("pending_webpay_url", widget.webpayUrl);
+  }
+
+  // Limpiar estado pendiente
+  Future<void> _clearState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("pending_webpay_order_id");
+    await prefs.remove("pending_webpay_token");
+    await prefs.remove("pending_webpay_url");
+  }
+
+  // Cuando la app vuelve al frente, verificar si el pago ya se procesó
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_handled) {
+      _checkPaymentStatus();
+    }
+  }
+
+  Future<void> _checkPaymentStatus() async {
+    try {
+      final data = await _sb
+          .from("orders")
+          .select("payment_status, status")
+          .eq("id", widget.orderId)
+          .single();
+
+      final payStatus = data["payment_status"] as String? ?? "pending";
+      if (payStatus == "paid" && !_handled) {
+        _handleResult("approved", widget.orderId);
+      } else if (payStatus == "failed" && !_handled) {
+        _handleResult("rejected", widget.orderId);
+      }
+      // Si sigue "pending", el usuario aún no pagó — dejar el WebView activo
+    } catch (_) {}
+  }
+
   void _handleResult(String status, String orderId) {
-    if (!mounted) return;
+    if (!mounted || _handled) return;
+    _handled = true;
+    _clearState();
+
     if (status == "approved") {
       context.read<CartProvider>().clearCart();
       context.go("/order-success/$orderId");
@@ -88,7 +143,11 @@ class _WebpayScreenState extends State<WebpayScreen> {
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(context), child: const Text("Seguir pagando")),
                   TextButton(
-                    onPressed: () { Navigator.pop(context); context.pop(); },
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _clearState();
+                      context.pop();
+                    },
                     child: const Text("Salir", style: TextStyle(color: AppColors.error)),
                   ),
                 ],
@@ -104,7 +163,10 @@ class _WebpayScreenState extends State<WebpayScreen> {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               const CircularProgressIndicator(color: AppColors.primary),
               const SizedBox(height: 16),
-              Text(widget.webpayToken.isEmpty ? "Conectando con Khipu..." : "Conectando con WebPay...", style: const TextStyle(color: AppColors.textLight)),
+              Text(
+                widget.webpayToken.isEmpty ? "Conectando con Khipu..." : "Conectando con WebPay...",
+                style: const TextStyle(color: AppColors.textLight),
+              ),
             ]),
           ),
       ]),

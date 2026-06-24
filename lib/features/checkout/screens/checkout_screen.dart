@@ -2,6 +2,7 @@ import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
+import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:image_picker/image_picker.dart";
 import "package:geolocator/geolocator.dart";
@@ -62,7 +63,85 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _imagePicker = ImagePicker();
 
   @override
-  void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); }
+  void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); _checkPendingWebpay(); }
+
+  // Si el proceso fue matado por Android mientras se pagaba con Webpay,
+  // verificar si el pago fue procesado y redirigir apropiadamente.
+  Future<void> _checkPendingWebpay() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingOrderId = prefs.getString("pending_webpay_order_id");
+      if (pendingOrderId == null) return;
+
+      final data = await _sb
+          .from("orders")
+          .select("payment_status, status")
+          .eq("id", pendingOrderId)
+          .maybeSingle();
+
+      if (data == null) {
+        await prefs.remove("pending_webpay_order_id");
+        await prefs.remove("pending_webpay_token");
+        await prefs.remove("pending_webpay_url");
+        return;
+      }
+
+      final payStatus = data["payment_status"] as String? ?? "pending";
+
+      if (payStatus == "paid") {
+        // El pago fue exitoso mientras la app estaba en fondo — ir a éxito
+        await prefs.remove("pending_webpay_order_id");
+        await prefs.remove("pending_webpay_token");
+        await prefs.remove("pending_webpay_url");
+        if (mounted) {
+          context.read<CartProvider>().clearCart();
+          context.go("/order-success/$pendingOrderId");
+        }
+      } else if (payStatus == "pending") {
+        // Pago aún no completado — ofrecer continuar
+        final token = prefs.getString("pending_webpay_token") ?? "";
+        final url   = prefs.getString("pending_webpay_url")   ?? "";
+        if (token.isNotEmpty && url.isNotEmpty && mounted) {
+          final resume = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => AlertDialog(
+              title: const Text("Pago pendiente"),
+              content: const Text("Tienes un pago con WebPay en proceso. ¿Deseas continuar?"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text("Cancelar"),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text("Continuar"),
+                ),
+              ],
+            ),
+          );
+          if (resume == true && mounted) {
+            await Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => WebpayScreen(
+                webpayUrl: url,
+                webpayToken: token,
+                orderId: pendingOrderId,
+              ),
+            ));
+          } else {
+            await prefs.remove("pending_webpay_order_id");
+            await prefs.remove("pending_webpay_token");
+            await prefs.remove("pending_webpay_url");
+          }
+        }
+      } else {
+        // Pago fallido/cancelado — limpiar
+        await prefs.remove("pending_webpay_order_id");
+        await prefs.remove("pending_webpay_token");
+        await prefs.remove("pending_webpay_url");
+      }
+    } catch (_) {}
+  }
 
   // Carga los parámetros de tarifa de delivery configurados desde el admin.
   // Si no existen aún, se usan los valores por defecto (base 1500, 35/0.1km, 6km).

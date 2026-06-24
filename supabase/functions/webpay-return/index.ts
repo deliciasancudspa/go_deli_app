@@ -24,6 +24,20 @@ async function sbFetch(path: string, options: RequestInit = {}) {
 }
 
 Deno.serve(async (req) => {
+  // GET request — verificación de disponibilidad del endpoint
+  if (req.method === "GET") {
+    const url = new URL(req.url);
+    const tokenWs = url.searchParams.get("token_ws");
+    const tbkToken = url.searchParams.get("TBK_TOKEN");
+    const tbkIdSesion = url.searchParams.get("TBK_ID_SESION");
+    if (!tokenWs && !tbkToken && !tbkIdSesion) {
+      return new Response(
+        "<html><body><h2>Go Deli — Webpay Return OK</h2><p>Endpoint activo y disponible.</p></body></html>",
+        { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
+      );
+    }
+  }
+
   try {
     let tokenWs: string | null = null;
     let tbkToken: string | null = null;
