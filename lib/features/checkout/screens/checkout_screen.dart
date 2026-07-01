@@ -546,14 +546,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final url   = res.data["url"]   as String;
 
       if (!mounted) return;
+      final cart = context.read<CartProvider>();
       if (kIsWeb) {
         // En web, abrir WebPay en la misma ventana (webpay-return redirige de vuelta)
-        final cart = context.read<CartProvider>();
         await launchUrl(Uri.parse(url), mode: LaunchMode.platformDefault);
         // Al volver, verificar el estado del pago desde los query params de la URL
         if (mounted) _handleWebPaymentReturn(orderId, cart);
       } else {
-        // En móvil, usar WebView
+        // En móvil, abrir Chrome externo vía WebpayScreen (que usa externalApplication)
+        // para que deep links a apps bancarias (3DS, wallets) funcionen correctamente.
         // Si WebpayScreen hace context.go("/order-success/..."), nunca retorna aquí.
         // Si retorna (cancelación/fallo), guardar orderId para reutilizarlo.
         await Navigator.of(context).push(MaterialPageRoute(
