@@ -1,3 +1,4 @@
+import "dart:convert" show utf8;
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
@@ -39,9 +40,26 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
   // Indica si Chrome Custom Tab fue abierto al menos una vez
   bool _launched = false;
 
-  String get _payUrl => widget.webpayToken.isEmpty
-      ? widget.webpayUrl
-      : "${widget.webpayUrl}?token_ws=${widget.webpayToken}";
+  // Transbank requiere que token_ws se envíe por POST (formulario HTML),
+  // NO como query param GET. En API v1.2 se puede vía GET pero no es confiable.
+  // Chrome Custom Tabs solo soporta GET vía launchUrl, así que usamos un
+  // data: URI con un formulario HTML que se auto-envía por POST.
+  String get _payUrl {
+    if (widget.webpayToken.isEmpty) return widget.webpayUrl;
+    final html = "<!DOCTYPE html><html><body>"
+        "<form id='f' action='${_escapeHtml(widget.webpayUrl)}' method='POST' accept-charset='UTF-8'>"
+        "<input type='hidden' name='token_ws' value='${_escapeHtml(widget.webpayToken)}'>"
+        "</form><script>document.getElementById('f').submit();</script>"
+        "</body></html>";
+    return Uri.dataFromString(html, mimeType: "text/html", encoding: utf8).toString();
+  }
+
+  String _escapeHtml(String s) => s
+      .replaceAll("&", "&amp;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
 
   bool get _isKhipu => widget.webpayToken.isEmpty;
 
