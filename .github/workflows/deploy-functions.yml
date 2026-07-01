@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'supabase/functions/**'
+      - 'supabase/**'
   workflow_dispatch:
 
 jobs:
