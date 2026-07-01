@@ -7,13 +7,14 @@ import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
 
-// Webpay se abre en Chrome Custom Tab (no WebView) para que:
+// Webpay se abre en navegador externo (Chrome) para que:
 // - la autenticación 3DS del banco funcione nativamente
-// - las apps de billetera se puedan abrir sin problemas
-// - los redirects entre bancos funcionen sin restricciones
+// - las apps de billetera/banca reciban notificaciones push
+// - los deep links entre banco y app bancaria funcionen sin restricciones
+// Chrome Custom Tab NO sirve para esto: no propaga deep links a apps bancarias.
 //
 // Cuando el pago termina, webpay-return redirige a godeli-webpay://done
-// → Chrome Custom Tab se cierra → app vuelve al frente → didChangeAppLifecycleState
+// → Chrome se cierra → app vuelve al frente → didChangeAppLifecycleState
 // → _checkPaymentStatus consulta la DB y navega al resultado.
 
 class WebpayScreen extends StatefulWidget {
@@ -70,9 +71,12 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     if (_handled) return;
     setState(() => _launched = true);
     try {
+      // Chrome Custom Tab no propaga deep links a apps bancarias (3DS, wallets).
+      // externalApplication abre Chrome completo, que sí soporta la redirección
+      // nativa al banco para autenticación y notificaciones push de la app bancaria.
       await launchUrl(
         Uri.parse(_payUrl),
-        mode: LaunchMode.inAppBrowserView,
+        mode: LaunchMode.externalApplication,
       );
     } catch (e) {
       if (mounted) {
