@@ -18,7 +18,21 @@ jobs:
         with:
           version: latest
 
-      - name: Deploy all Edge Functions
-        run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      - name: Deploy public functions (no JWT — called by Transbank/Khipu)
+        run: |
+          supabase functions deploy webpay-return --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          supabase functions deploy khipu-return --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          supabase functions deploy khipu-notify --no-verify-jwt --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Deploy authenticated functions (JWT required)
+        run: |
+          supabase functions deploy webpay-create --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          supabase functions deploy webpay-refund --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          supabase functions deploy khipu-create --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          supabase functions deploy notify-rider --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          supabase functions deploy notify-client --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          supabase functions deploy menu-import --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
