@@ -12,7 +12,7 @@ const _kDark   = AppColors.homeDark;
 const _kOrange = AppColors.homeOrange;
 const _kPurple = AppColors.homePurple;
 
-const _kActiveStatuses  = ["pending","accepted","preparing","ready","assigned","picked_up","on_the_way"];
+const _kActiveStatuses  = ["pending_payment","pending","accepted","preparing","ready","assigned","picked_up","on_the_way"];
 const _kHistoryStatuses = ["delivered","cancelled","returned"];
 
 // 4-step visual progress: which actual statuses count as "done" for each step
@@ -289,6 +289,7 @@ class _PedidosScreenState extends State<PedidosScreen>
     final total  = (o["total"] as num?) ?? 0;
     final hasRider = ["assigned","picked_up","on_the_way"].contains(status);
     final isOnTheWay = status == "on_the_way";
+    final isPendingPayment = status == "pending_payment";
     final orderType = o["order_type"] as String? ?? "delivery";
     final pickupCode   = o["pickup_code"]   as String?;
     final deliveryCode = o["delivery_code"] as String?;
@@ -334,6 +335,29 @@ class _PedidosScreenState extends State<PedidosScreen>
         // Progress bar
         _buildProgressBar(status),
         const SizedBox(height: 12),
+
+        // Indicador de pago pendiente (webpay/khipu no confirmado aún)
+        if (isPendingPayment)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(children: [
+              const Text("⏳", style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text("Esperando confirmación de pago…",
+                    style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+              TextButton(
+                onPressed: () => _retryPayment(o),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text("Pagar", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+              ),
+            ]),
+          ),
 
         // Delivery code: cliente se lo muestra al repartidor cuando llega
         if (showDelivCode) ...[
@@ -652,6 +676,32 @@ class _PedidosScreenState extends State<PedidosScreen>
       ),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cerrar"))],
     ));
+  }
+
+  // ── Retry pending payment ────────────────────────────────────────────────
+  Future<void> _retryPayment(Map<String, dynamic> order) async {
+    final orderId   = order["id"] as String;
+    final payMethod = order["payment_method"] as String? ?? "webpay";
+    final confirmed = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: const Text("Pago pendiente"),
+      content: Text(payMethod == "khipu"
+          ? "Tu transferencia Khipu aún no ha sido confirmada. ¿Deseas cancelar este pedido y volver a intentarlo?"
+          : "El pago con WebPay no se completó. ¿Deseas cancelar este pedido y volver a intentarlo?"),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancelar")),
+        TextButton(onPressed: () => Navigator.pop(context, true),
+          child: const Text("Sí, volver a intentar", style: TextStyle(color: AppColors.error))),
+      ],
+    ));
+    if (confirmed == true) {
+      try {
+        await _sb.from("orders").update({
+          "status": "cancelled",
+          "payment_status": "failed",
+        }).eq("id", orderId);
+      } catch (_) {}
+      if (mounted) setState(() { _orders.removeWhere((o) => o["id"] == orderId); _activeOrder = null; });
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════════
