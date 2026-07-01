@@ -49,7 +49,9 @@ class _HomeBannerState extends State<HomeBanner> {
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                color: bg,
+                // Si hay imagen, fondo blanco para que no se tiña con bg naranja.
+                // Si no hay imagen, usar bg como fondo (texto overlay).
+                color: imgUrl != null ? Colors.white : bg,
                 image: imgUrl != null
                     ? DecorationImage(
                         image: NetworkImage(imgUrl),
