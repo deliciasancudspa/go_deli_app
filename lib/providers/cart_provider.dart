@@ -30,6 +30,8 @@ class CartProvider extends ChangeNotifier {
 
   List<CartItem> get items => _items;
   String? get currentStoreId => _currentStoreId;
+  // Permite restaurar el storeId cuando el carrito se perdió (activity matada por Android)
+  set currentStoreId(String? v) { _currentStoreId = v; notifyListeners(); }
   int get itemCount => _items.fold(0, (s, i) => s + i.quantity);
   int get subtotal => _items.fold(0, (s, i) => s + i.totalPrice);
   bool get isEmpty => _items.isEmpty;

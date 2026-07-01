@@ -159,17 +159,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           );
           if (resume == true && mounted) {
+            final storeId = prefs.getString("pending_webpay_store_id");
             await Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => WebpayScreen(
                 webpayUrl: url,
                 webpayToken: token,
                 orderId: pendingOrderId,
+                storeId: storeId,
               ),
             ));
           } else {
             await prefs.remove("pending_webpay_order_id");
             await prefs.remove("pending_webpay_token");
             await prefs.remove("pending_webpay_url");
+            await prefs.remove("pending_webpay_store_id");
           }
         }
       } else {
@@ -218,7 +221,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _loadStore() async {
     final cart = context.read<CartProvider>();
-    if (cart.currentStoreId == null) return;
+    // Si el carrito se perdió (Android mató la activity durante pago externo),
+    // restaurar el store_id desde SharedPreferences para poder cargar la tienda.
+    if (cart.currentStoreId == null) {
+      final prefs = await SharedPreferences.getInstance();
+      final savedStoreId = prefs.getString("pending_webpay_store_id");
+      if (savedStoreId != null) {
+        cart.currentStoreId = savedStoreId;
+      } else {
+        return;
+      }
+    }
     final store = await _sb.from("stores")
         .select("*, lat, lng, delivery_fee_mode, delivery_fee_store, delivery_fee_client")
         .eq("id", cart.currentStoreId!)
@@ -548,6 +561,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             webpayUrl:   url,
             webpayToken: token,
             orderId:     orderId,
+            storeId:     cart.currentStoreId,
           ),
         ));
         // Si llegamos aquí = pago no completado; guardar para reutilizar la orden
@@ -593,11 +607,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         await launchUrl(Uri.parse(url), mode: LaunchMode.platformDefault);
         if (mounted) _handleWebPaymentReturn(orderId, cart);
       } else {
+        final cart = context.read<CartProvider>();
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => WebpayScreen(
             webpayUrl:   url,
             webpayToken: "",   // Khipu no usa token en la URL — ya viene incluido en payment_url
             orderId:     orderId,
+            storeId:     cart.currentStoreId,
           ),
         ));
       }

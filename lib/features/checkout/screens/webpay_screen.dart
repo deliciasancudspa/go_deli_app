@@ -21,12 +21,14 @@ class WebpayScreen extends StatefulWidget {
   final String webpayUrl;
   final String webpayToken;
   final String orderId;
+  final String? storeId;
 
   const WebpayScreen({
     super.key,
     required this.webpayUrl,
     required this.webpayToken,
     required this.orderId,
+    this.storeId,
   });
 
   @override
@@ -152,6 +154,9 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     await prefs.setString("pending_webpay_order_id", widget.orderId);
     await prefs.setString("pending_webpay_token", widget.webpayToken);
     await prefs.setString("pending_webpay_url", widget.webpayUrl);
+    if (widget.storeId != null) {
+      await prefs.setString("pending_webpay_store_id", widget.storeId!);
+    }
   }
 
   Future<void> _clearState() async {
@@ -159,6 +164,7 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     await prefs.remove("pending_webpay_order_id");
     await prefs.remove("pending_webpay_token");
     await prefs.remove("pending_webpay_url");
+    await prefs.remove("pending_webpay_store_id");
   }
 
   void _confirmCancel() {
