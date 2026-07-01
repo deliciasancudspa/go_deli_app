@@ -31,7 +31,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       context.go("/onboarding");
       return;
     }
-    final prefs             = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
+
+    // Si hay un pago Webpay pendiente (app fue matada mientras el Chrome
+    // Custom Tab estaba abierto), redirigir al checkout para que el usuario
+    // pueda reintentar o ver el estado de su orden.
+    final pendingOrderId = prefs.getString("pending_webpay_order_id");
+    if (pendingOrderId != null && pendingOrderId.isNotEmpty) {
+      if (!mounted) return;
+      context.go("/checkout");
+      return;
+    }
+
     final locationConfigured = prefs.getBool("location_configured") ?? false;
     if (!mounted) return;
     context.go(locationConfigured ? "/home" : "/location");

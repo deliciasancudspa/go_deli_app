@@ -180,21 +180,16 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     final label = _isKhipu ? "Pago con Khipu" : "Pago con WebPay";
     final conectando = _isKhipu ? "Conectando con Khipu..." : "Conectando con WebPay...";
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _confirmCancel();
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(label),
-          backgroundColor: Colors.transparent,
-          flexibleSpace: const GradientFlexibleSpace(),
-          leading: IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: _confirmCancel,
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(label),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: const GradientFlexibleSpace(),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: _confirmCancel,
         ),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -246,6 +241,6 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
           ),
         ),
       ),
-    ));
+    );
   }
 }
