@@ -93,15 +93,20 @@ class _PedidosScreenState extends State<PedidosScreen>
   Future<void> _loadActive() async {
     if (_userId == null) return;
     try {
+      // Carga principal: orden + tienda + items. Sin join a deliverers porque
+      // puede no existir aún (orden recién aceptada) y causar que maybeSingle
+      // retorne null.
       final res = await _sb.from("orders")
-          .select("*, stores(id,name,emoji,is_active,is_open), order_items(menu_item_id,item_name,item_price,quantity), deliverers(id,rating,users(name,phone))")
+          .select("*, stores(id,name,emoji,is_active,is_open), order_items(menu_item_id,item_name,item_price,quantity)")
           .eq("client_id", _userId!)
           .inFilter("status", _kActiveStatuses)
           .order("created_at", ascending: false)
           .limit(1)
           .maybeSingle();
       if (mounted) setState(() => _activeOrder = res);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("[Pedidos] _loadActive error: $e");
+    }
   }
 
   Future<void> _loadHistory({bool reset = false}) async {

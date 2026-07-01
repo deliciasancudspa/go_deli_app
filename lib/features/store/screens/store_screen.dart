@@ -5,6 +5,7 @@ import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
+import "../../../core/utils/price_formatter.dart";
 class StoreScreen extends StatefulWidget {
   final String storeId;
   const StoreScreen({super.key, required this.storeId});
@@ -94,7 +95,7 @@ class _StoreScreenState extends State<StoreScreen> {
             Text(_store?["description"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
           ])),
         ]),
-        const SizedBox(height: 12), Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4), Text("${_store?["rating"] ?? 5.0}", style: const TextStyle(fontWeight: FontWeight.w700)), const SizedBox(width: 12), const Icon(Icons.access_time, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text("${_store?["delivery_time"] ?? "30-45"} min", style: const TextStyle(color: AppColors.textLight)), const SizedBox(width: 12), const Icon(Icons.delivery_dining, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text(_fmt(_store?["delivery_fee_client"] ?? 2990), style: const TextStyle(color: AppColors.textLight))]),
+        const SizedBox(height: 12), Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4), Text("${_store?["rating"] ?? 5.0}", style: const TextStyle(fontWeight: FontWeight.w700)), const SizedBox(width: 12), const Icon(Icons.access_time, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text("${cleanDeliveryTime(_store?["delivery_time"])}", style: const TextStyle(color: AppColors.textLight)), const SizedBox(width: 12), const Icon(Icons.delivery_dining, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text(_fmt(_store?["delivery_fee_client"] ?? 2990), style: const TextStyle(color: AppColors.textLight))]),
       ]))),
       if (_cats.isNotEmpty) SliverToBoxAdapter(child: SizedBox(height: 50, child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), itemCount: _cats.length, itemBuilder: (ctx, i) { final c = _cats[i]; final sel = _selCat == c["id"]; return GestureDetector(onTap: () => setState(() => _selCat = sel ? null : c["id"]), child: Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), decoration: BoxDecoration(gradient: sel ? AppColors.mainGradient : null, color: sel ? null : AppColors.surface, border: Border.all(color: sel ? Colors.transparent : const Color(0xFFE5E0F0)), borderRadius: BorderRadius.circular(20)), child: Text(c["name"], style: TextStyle(fontWeight: FontWeight.w700, color: sel ? Colors.white : const Color(0xFF333333), fontSize: 13)))); }))),
       SliverList(delegate: SliverChildBuilderDelegate((ctx, i) {

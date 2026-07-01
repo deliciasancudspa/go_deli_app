@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/utils/price_formatter.dart";
 
 class StoreCard extends StatelessWidget {
   final Map<String, dynamic> store;
@@ -71,7 +72,7 @@ class StoreCard extends StatelessWidget {
                 ]),
                 const SizedBox(height: 4),
                 Text(
-                  "${store["delivery_time"] ?? "30-45"} min · "
+                  "${cleanDeliveryTime(store["delivery_time"])} · "
                   "${fee == 0 ? "🛵 Gratis" : "🛵 ${_fmt(fee)}"}",
                   style: const TextStyle(fontSize: 11, color: AppColors.textLight),
                 ),

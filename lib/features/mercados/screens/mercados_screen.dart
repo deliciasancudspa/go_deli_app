@@ -10,6 +10,7 @@ import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/category_match.dart";
 import "../../../core/utils/color_utils.dart";
+import "../../../core/utils/price_formatter.dart";
 import "../../../core/services/location_service.dart";
 import "../../../providers/cart_provider.dart";
 
@@ -678,7 +679,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
                       style: TextStyle(color: AppColors.textLight, fontSize: 11)),
                   const Icon(Icons.access_time_rounded,
                       size: 11, color: AppColors.textLight),
-                  Text(" ${store["delivery_time"] ?? "30-45"} min",
+                  Text(" ${cleanDeliveryTime(store["delivery_time"])}",
                       style: const TextStyle(
                           fontSize: 11, color: AppColors.textLight)),
                   const Text(" · ",
@@ -1126,7 +1127,7 @@ class _StoreSearchDelegate extends SearchDelegate<String> {
               style: const TextStyle(fontWeight: FontWeight.w700)),
           subtitle: Text(
             "${s["category"] ?? ""} · "
-            "${s["delivery_time"] ?? "30-45"} min",
+            "${cleanDeliveryTime(s["delivery_time"])}",
             style: const TextStyle(color: AppColors.textLight, fontSize: 12),
           ),
           trailing: const Icon(Icons.arrow_forward_ios,

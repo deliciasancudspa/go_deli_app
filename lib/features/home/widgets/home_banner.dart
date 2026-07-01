@@ -53,9 +53,7 @@ class _HomeBannerState extends State<HomeBanner> {
                 image: imgUrl != null
                     ? DecorationImage(
                         image: NetworkImage(imgUrl),
-                        fit: BoxFit.cover,
-                        colorFilter: ColorFilter.mode(
-                            Colors.black.withOpacity(0.18), BlendMode.darken))
+                        fit: BoxFit.cover)
                     : null,
                 boxShadow: [BoxShadow(
                     color: bg.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 6))],

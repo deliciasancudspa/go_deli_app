@@ -13,3 +13,10 @@ String fmtDecimal(double? n, {int decimals = 0}) {
   parts[0] = parts[0].replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.");
   return "\$${parts.join(",")}";
 }
+
+/// Limpia y formatea el delivery_time de la BD para evitar duplicar "min".
+/// Ejemplo: "30-45 min" → "30-45 min", "30-45" → "30-45 min"
+String cleanDeliveryTime(dynamic raw) {
+  final s = (raw?.toString() ?? "30-45").replaceAll(RegExp(r'\s*min', caseSensitive: false), "").trim();
+  return "$s min";
+}

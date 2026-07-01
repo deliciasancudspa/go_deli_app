@@ -18,6 +18,7 @@ import "../../../services/notification_service.dart";
 import "../../../services/notification_service.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/category_match.dart";
+import "../../../core/utils/price_formatter.dart";
 import "../../../core/services/location_service.dart";
 import "../../../providers/cart_provider.dart";
 import "../../mercados/screens/mercados_screen.dart";
@@ -952,7 +953,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                 const Text(" · ", style: TextStyle(color: AppColors.textLight, fontSize: 11)),
                 const Icon(Icons.access_time_rounded, size: 11, color: AppColors.textLight),
-                Text(" ${store["delivery_time"] ?? "30-45"} min",
+                Text(" ${cleanDeliveryTime(store["delivery_time"])}",
                     style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
                 const Text(" · ", style: TextStyle(color: AppColors.textLight, fontSize: 11)),
                 fee == 0
@@ -1146,7 +1147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Text("·", style: TextStyle(color: AppColors.textLight)),
                   ),
                   const Icon(Icons.access_time_rounded, size: 13, color: AppColors.textLight),
-                  Text(" ${s["delivery_time"] ?? "30-45"} min",
+                  Text(" ${cleanDeliveryTime(s["delivery_time"])}",
                       style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
                 ]),
                 const SizedBox(height: 3),
