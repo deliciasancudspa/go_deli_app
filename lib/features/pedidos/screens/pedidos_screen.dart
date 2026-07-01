@@ -313,11 +313,15 @@ class _PedidosScreenState extends State<PedidosScreen>
           child: AnimatedBuilder(
             animation: _pulseAnim,
             builder: (_, __) => Row(children: [
-              Opacity(opacity: _pulseAnim.value,
-                child: Container(width: 8, height: 8,
-                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle))),
-              const SizedBox(width: 6),
-              Text("Pedido en curso · ${_orderNum(o["id"] as String)}",
+              if (!isPendingPayment) ...[
+                Opacity(opacity: _pulseAnim.value,
+                  child: Container(width: 8, height: 8,
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle))),
+                const SizedBox(width: 6),
+              ],
+              Text(isPendingPayment
+                  ? "⏳ Pago pendiente · ${_orderNum(o["id"] as String)}"
+                  : "Pedido en curso · ${_orderNum(o["id"] as String)}",
                   style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
             ]),
           ),
@@ -442,11 +446,14 @@ class _PedidosScreenState extends State<PedidosScreen>
   }
 
   Widget _buildProgressBar(String status) {
+    // Para pending_payment, no mostrar progreso — el pedido aún no ha sido
+    // confirmado porque el pago no se ha completado.
+    final isPendingPayment = status == "pending_payment";
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(children: List.generate(4, (i) {
-        final done    = _kStepDoneWhen[i].contains(status);
-        final current = !done && (i == 0 || _kStepDoneWhen[i-1].contains(status));
+        final done    = isPendingPayment ? false : _kStepDoneWhen[i].contains(status);
+        final current = isPendingPayment ? false : (!done && (i == 0 || _kStepDoneWhen[i-1].contains(status)));
         final isLast  = i == 3;
         return Expanded(child: Row(children: [
           Expanded(child: Column(children: [

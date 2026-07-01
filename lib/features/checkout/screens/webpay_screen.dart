@@ -116,13 +116,22 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     if (status == "approved") {
       context.read<CartProvider>().clearCart();
       context.go("/order-success/$orderId");
+    } else if (status == "rejected") {
+      // Pago rechazado — webpay-return ya marcó la orden como cancelled/failed.
+      // Volver al checkout para que el usuario pueda crear un nuevo pedido.
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("❌ Pago rechazado por el banco. Crea un nuevo pedido para intentarlo de nuevo."),
+        backgroundColor: AppColors.error,
+        duration: Duration(seconds: 6),
+      ));
+      Navigator.of(context).pop();
     } else {
-      final msg = status == "cancelled"
-          ? "Pago cancelado"
-          : "Pago rechazado — intenta con otro método";
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(msg),
-        backgroundColor: status == "cancelled" ? AppColors.warning : AppColors.error,
+      // cancelled — el pago no se completó (timeout, usuario canceló en Transbank)
+      // La orden sigue en pending_payment, se puede reintentar desde el checkout.
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Pago cancelado — puedes intentarlo de nuevo"),
+        backgroundColor: AppColors.warning,
+        duration: Duration(seconds: 4),
       ));
       Navigator.of(context).pop();
     }
@@ -171,16 +180,21 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     final label = _isKhipu ? "Pago con Khipu" : "Pago con WebPay";
     final conectando = _isKhipu ? "Conectando con Khipu..." : "Conectando con WebPay...";
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(label),
-        backgroundColor: Colors.transparent,
-        flexibleSpace: const GradientFlexibleSpace(),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: _confirmCancel,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmCancel();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(label),
+          backgroundColor: Colors.transparent,
+          flexibleSpace: const GradientFlexibleSpace(),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: _confirmCancel,
+          ),
         ),
-      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -232,6 +246,6 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
           ),
         ),
       ),
-    );
+    ));
   }
 }

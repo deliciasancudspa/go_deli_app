@@ -60,3 +60,5 @@ supabase/.temp/
 *.keystore
 **/key.properties
 *.base64.txt
+.vercel
+.env*

@@ -67,6 +67,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); _checkPendingWebpay(); _checkWebReturnParams(); }
 
+  @override
+  void dispose() {
+    // Si el usuario abandona el checkout sin completar el pago Webpay/Khipu,
+    // cancelar la orden para que no quede como pending_payment huérfana.
+    if (_pendingWebpayOrderId != null) {
+      _cancelPendingWebpayOrder();
+    }
+    _addressCtrl.dispose();
+    _refCtrl.dispose();
+    _couponCtrl.dispose();
+    _phoneCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
   // En web, después del pago con Webpay/Khipu, la página se recarga con
   // ?payment_status=...&order_id=... en la URL. Como launchUrl navega fuera
   // de la app, el Future se pierde y _handleWebPaymentReturn nunca se ejecuta.
@@ -339,14 +354,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _loading = true);
 
     // Si hay una orden Webpay pendiente previa (pago cancelado/fallido),
-    // reutilizarla en vez de crear una nueva
+    // reutilizarla en vez de crear una nueva. Validar que siga en estado
+    // pending_payment (webpay-return pudo haberla marcado como cancelled).
     if (_payMethod == "webpay" && _pendingWebpayOrderId != null) {
-      try {
-        await _launchWebpay(_pendingWebpayOrderId!);
-      } finally {
-        if (mounted) setState(() => _loading = false);
+      final reuseId = _pendingWebpayOrderId!;
+      final check = await _sb.from("orders").select("status")
+          .eq("id", reuseId).maybeSingle();
+      if (check != null && check["status"] == "pending_payment") {
+        try {
+          await _launchWebpay(reuseId);
+        } finally {
+          if (mounted) setState(() => _loading = false);
+        }
+        return;
       }
-      return;
+      // La orden ya fue cancelada o no existe — resetear y crear una nueva
+      _pendingWebpayOrderId = null;
     }
 
     try {
