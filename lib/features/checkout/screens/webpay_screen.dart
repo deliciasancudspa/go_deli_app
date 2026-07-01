@@ -82,9 +82,16 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     if (_handled) return;
     setState(() => _launched = true);
     try {
+      // Chrome Custom Tab (inAppBrowserView) no soporta data: URIs,
+      // así que usamos externalApplication cuando necesitamos enviar el
+      // formulario POST (token_ws). El navegador externo renderiza el HTML
+      // y auto-envía el formulario correctamente.
+      final mode = widget.webpayToken.isNotEmpty
+          ? LaunchMode.externalApplication
+          : LaunchMode.inAppBrowserView;
       await launchUrl(
         Uri.parse(_payUrl),
-        mode: LaunchMode.inAppBrowserView,
+        mode: mode,
       );
     } catch (e) {
       if (mounted) {
