@@ -733,11 +733,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(18),
-                    color: bg,
+                    color: imgUrl != null ? Colors.white : bg,
                     image: imgUrl != null ? DecorationImage(
                         image: NetworkImage(imgUrl),
-                        fit: BoxFit.cover,
-                        colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.18), BlendMode.darken)) : null,
+                        fit: BoxFit.cover) : null,
                     boxShadow: [BoxShadow(color: bg.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 6))],
                   ),
                   child: imgUrl == null
@@ -1257,11 +1256,10 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                color: bg,
+                color: imgUrl != null ? Colors.white : bg,
                 image: imgUrl != null ? DecorationImage(
                   image: NetworkImage(imgUrl),
                   fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.18), BlendMode.darken),
                 ) : null,
                 boxShadow: [
                   BoxShadow(
