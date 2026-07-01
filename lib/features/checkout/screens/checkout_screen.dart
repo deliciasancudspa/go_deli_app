@@ -501,7 +501,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _cancelPendingWebpayOrder() async {
     final id = _pendingWebpayOrderId;
     if (id == null) return;
-    setState(() => _pendingWebpayOrderId = null);
+    // No usar setState si el widget se está destruyendo (llamado desde dispose)
+    if (mounted) {
+      setState(() => _pendingWebpayOrderId = null);
+    } else {
+      _pendingWebpayOrderId = null;
+    }
     try {
       await _sb.from("orders").update({
         "status": "cancelled",
