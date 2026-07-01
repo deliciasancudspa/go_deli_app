@@ -1,4 +1,3 @@
-import "dart:convert" show utf8;
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
@@ -40,26 +39,15 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
   // Indica si Chrome Custom Tab fue abierto al menos una vez
   bool _launched = false;
 
-  // Transbank requiere que token_ws se envíe por POST (formulario HTML),
-  // NO como query param GET. En API v1.2 se puede vía GET pero no es confiable.
-  // Chrome Custom Tabs solo soporta GET vía launchUrl, así que usamos un
-  // data: URI con un formulario HTML que se auto-envía por POST.
+  // Transbank Webpay Plus acepta token_ws como query param GET.
+  // Data: URI con formulario POST no funciona en Android: ni Chrome Custom Tab
+  // ni externalApplication soportan el esquema data: — tira ACTIVITY_NOT_FOUND.
   String get _payUrl {
     if (widget.webpayToken.isEmpty) return widget.webpayUrl;
-    final html = "<!DOCTYPE html><html><body>"
-        "<form id='f' action='${_escapeHtml(widget.webpayUrl)}' method='POST' accept-charset='UTF-8'>"
-        "<input type='hidden' name='token_ws' value='${_escapeHtml(widget.webpayToken)}'>"
-        "</form><script>document.getElementById('f').submit();</script>"
-        "</body></html>";
-    return Uri.dataFromString(html, mimeType: "text/html", encoding: utf8).toString();
+    final sep = widget.webpayUrl.contains('?') ? '&' : '?';
+    return '${widget.webpayUrl}$sep'
+        'token_ws=${Uri.encodeQueryComponent(widget.webpayToken)}';
   }
-
-  String _escapeHtml(String s) => s
-      .replaceAll("&", "&amp;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
 
   bool get _isKhipu => widget.webpayToken.isEmpty;
 
@@ -82,16 +70,9 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     if (_handled) return;
     setState(() => _launched = true);
     try {
-      // Chrome Custom Tab (inAppBrowserView) no soporta data: URIs,
-      // así que usamos externalApplication cuando necesitamos enviar el
-      // formulario POST (token_ws). El navegador externo renderiza el HTML
-      // y auto-envía el formulario correctamente.
-      final mode = widget.webpayToken.isNotEmpty
-          ? LaunchMode.externalApplication
-          : LaunchMode.inAppBrowserView;
       await launchUrl(
         Uri.parse(_payUrl),
-        mode: mode,
+        mode: LaunchMode.inAppBrowserView,
       );
     } catch (e) {
       if (mounted) {
