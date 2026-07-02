@@ -1,3 +1,4 @@
+import "dart:async";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
@@ -13,9 +14,10 @@ import "../../../providers/cart_provider.dart";
 // - los deep links entre banco y app bancaria funcionen sin restricciones
 // Chrome Custom Tab NO sirve para esto: no propaga deep links a apps bancarias.
 //
-// Cuando el pago termina, webpay-return redirige a godeli-webpay://done
-// → Chrome se cierra → app vuelve al frente → didChangeAppLifecycleState
-// → _checkPaymentStatus consulta la DB y navega al resultado.
+// Detección de pago completado (3 mecanismos redundantes):
+// 1. Supabase Realtime — webpay-return actualiza payment_status → WebSocket avisa al instante
+// 2. Polling cada 3s — fallback si Realtime se desconecta o no llega el evento
+// 3. didChangeAppLifecycleState + botón "Ya pagué" — verificaciones manuales
 
 class WebpayScreen extends StatefulWidget {
   final String webpayUrl;
@@ -39,18 +41,13 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
   final _sb = Supabase.instance.client;
   bool _handled = false;
   bool _checking = false;
-  // Indica si Chrome Custom Tab fue abierto al menos una vez
   bool _launched = false;
+  StreamSubscription<List<Map<String, dynamic>>>? _realtimeSub;
+  Timer? _pollTimer;
 
-  // Transbank Webpay Plus acepta token_ws como query param GET.
-  // Data: URI con formulario POST no funciona en Android: ni Chrome Custom Tab
-  // ni externalApplication soportan el esquema data: — tira ACTIVITY_NOT_FOUND.
-  String get _payUrl {
-    if (widget.webpayToken.isEmpty) return widget.webpayUrl;
-    final sep = widget.webpayUrl.contains('?') ? '&' : '?';
-    return '${widget.webpayUrl}$sep'
-        'token_ws=${Uri.encodeQueryComponent(widget.webpayToken)}';
-  }
+  // La URL de Transbank ya contiene el token embebido; no necesita token_ws
+  // como query param extra (eso es lo que Transbank devuelve al return_url).
+  String get _payUrl => widget.webpayUrl;
 
   bool get _isKhipu => widget.webpayToken.isEmpty;
 
@@ -59,14 +56,56 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _saveState();
-    // Abrir Chrome Custom Tab en el próximo frame
+    _startRealtime();
+    _startPolling();
     WidgetsBinding.instance.addPostFrameCallback((_) => _openBrowser());
   }
 
   @override
   void dispose() {
+    _realtimeSub?.cancel();
+    _pollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  // ─── Supabase Realtime ───────────────────────────────────────────
+  // Escucha cambios en payment_status vía WebSocket. Cuando
+  // webpay-return marca la orden como paid/failed, la app se entera
+  // al instante sin depender del deep link godeli-webpay://done.
+  void _startRealtime() {
+    _realtimeSub = _sb
+        .from("orders")
+        .stream(primaryKey: ["id"])
+        .eq("id", widget.orderId)
+        .listen(_onRealtimeEvent, onError: (_) {});
+  }
+
+  void _onRealtimeEvent(List<Map<String, dynamic>> rows) {
+    if (_handled || !mounted) return;
+    for (final row in rows) {
+      final status = row["payment_status"] as String? ?? "";
+      if (status == "paid") {
+        _handleResult("approved", widget.orderId);
+        return;
+      } else if (status == "failed") {
+        _handleResult("rejected", widget.orderId);
+        return;
+      }
+    }
+  }
+
+  // ─── Polling (fallback) ──────────────────────────────────────────
+  // Cada 3s consulta la BD. Si Realtime funciona, este poll es inocuo
+  // porque _handled evita doble navegación. Si Realtime falla, este
+  // poll detecta el pago en máximo 3s después de que webpay-return
+  // actualiza la orden.
+  void _startPolling() {
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!_handled && mounted && _launched) {
+        _checkPaymentStatus();
+      }
+    });
   }
 
   Future<void> _openBrowser() async {
@@ -92,6 +131,8 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Cuando el usuario vuelve de Chrome/MACH/banco, verificamos
+    // inmediatamente (sin esperar el próximo tick del polling).
     if (state == AppLifecycleState.resumed && !_handled && _launched) {
       _checkPaymentStatus();
     }
@@ -107,15 +148,15 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
           .eq("id", widget.orderId)
           .maybeSingle();
 
-      if (data == null) return; // orden no encontrada (posiblemente eliminada)
+      if (data == null) return;
       final payStatus = data["payment_status"] as String? ?? "pending";
       if (payStatus == "paid" && !_handled) {
         _handleResult("approved", widget.orderId);
       } else if (payStatus == "failed" && !_handled) {
         _handleResult("rejected", widget.orderId);
       }
-      // Si sigue "pending": el usuario cerró el tab sin pagar, dejamos la pantalla activa
     } catch (_) {
+      // Silencioso: el siguiente poll lo reintentará
     } finally {
       if (mounted) setState(() => _checking = false);
     }
@@ -168,6 +209,18 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     await prefs.remove("pending_webpay_token");
     await prefs.remove("pending_webpay_url");
     await prefs.remove("pending_webpay_store_id");
+  }
+
+  Widget _buildPulseDot() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 800),
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.8),
+        shape: BoxShape.circle,
+      ),
+    );
   }
 
   void _confirmCancel() {
@@ -227,11 +280,24 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
               ),
               const SizedBox(height: 12),
               const Text(
-                "Completa el pago en el navegador y vuelve aquí cuando termines.",
+                "Completa el pago en el navegador.\nLa app detectará el pago automáticamente.",
                 style: TextStyle(color: AppColors.textLight),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
+              // Indicador de monitoreo activo (Realtime + polling)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildPulseDot(),
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Escuchando confirmación…",
+                    style: TextStyle(fontSize: 12, color: AppColors.textLight),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
               if (!_checking) ...[
                 ElevatedButton.icon(
                   onPressed: _openBrowser,
