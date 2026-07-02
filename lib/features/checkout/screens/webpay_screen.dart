@@ -8,11 +8,14 @@ import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
 
-// Webpay se abre en navegador externo (Chrome) para que:
-// - la autenticación 3DS del banco funcione nativamente
-// - las apps de billetera/banca reciban notificaciones push
-// - los deep links entre banco y app bancaria funcionen sin restricciones
-// Chrome Custom Tab NO sirve para esto: no propaga deep links a apps bancarias.
+// Webpay se abre en Chrome Custom Tab para que:
+// - el retorno a la app (godeli-webpay://done) funcione de forma confiable
+// - la comunicación banco → Webpay no se rompa al volver de la app bancaria
+// - Android 11+ y Chrome moderno ya propagan deep links a apps bancarias desde Custom Tabs
+//
+// externalApplication (Chrome completo) NO sirve: las apps bancarias no pueden
+// devolver el control a la pestaña de Chrome que inició el flujo Webpay,
+// rompiendo la comunicación banco → Webpay y dejando el pago en el aire.
 //
 // Detección de pago completado (3 mecanismos redundantes):
 // 1. Supabase Realtime — webpay-return actualiza payment_status → WebSocket avisa al instante
@@ -119,19 +122,33 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     if (_handled) return;
     setState(() => _launched = true);
     try {
-      // Chrome Custom Tab no propaga deep links a apps bancarias (3DS, wallets).
-      // externalApplication abre Chrome completo, que sí soporta la redirección
-      // nativa al banco para autenticación y notificaciones push de la app bancaria.
+      // Chrome Custom Tab (inAppBrowserView):
+      // - La pestaña vive en el proceso de Chrome pero está vinculada a la app
+      // - Cuando el usuario salta a MACH/BancoEstado/banco, la Custom Tab
+      //   sobrevive en background y recibe el retorno
+      // - Al finalizar, el redirect godeli-webpay://done abre la app directo
+      // - Android 11+ soporta que Custom Tabs lancen apps externas (bancos)
+      //
+      // externalApplication NO se usa porque el banco no puede devolver el
+      // control a la pestaña correcta de Chrome, rompiendo el flujo Webpay.
       await launchUrl(
         Uri.parse(_payUrl),
-        mode: LaunchMode.externalApplication,
+        mode: LaunchMode.inAppBrowserView,
       );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("No se pudo abrir el navegador: $e"),
-          backgroundColor: AppColors.error,
-        ));
+      // Fallback: si Custom Tabs no está disponible, usar navegador externo
+      try {
+        await launchUrl(
+          Uri.parse(_payUrl),
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (e2) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("No se pudo abrir el navegador: $e2"),
+            backgroundColor: AppColors.error,
+          ));
+        }
       }
     }
   }
