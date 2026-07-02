@@ -1,14 +1,13 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
+import "package:shimmer/shimmer.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/cart_provider.dart";
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
-
-  String _fmt(int p) =>
-      "\$${p.toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -185,7 +184,13 @@ class _CartScreenState extends State<CartScreen> {
             ),
             // Items
             ...items.map((item) => _buildItemRow(cart, storeId, item)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
+            // Recomendaciones de la misma tienda
+            _StoreRecs(
+              storeId: storeId,
+              storeName: storeName,
+              cart: cart,
+            ),
             // Botón Pagar
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
@@ -311,7 +316,7 @@ class _CartScreenState extends State<CartScreen> {
 
     if (confirmed) {
       setState(() => _vaciarTodosLoading = true);
-      cart.clearAllCarts();
+      cart.clearCart();
       if (mounted) {
         setState(() => _vaciarTodosLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -323,4 +328,246 @@ class _CartScreenState extends State<CartScreen> {
 
   String _fmt(Widget widget, int p) =>
       "\$${p.toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Recomendaciones de productos de la misma tienda
+// ══════════════════════════════════════════════════════════════════════════════
+class _StoreRecs extends StatefulWidget {
+  final String storeId;
+  final String storeName;
+  final CartProvider cart;
+  const _StoreRecs({
+    required this.storeId,
+    required this.storeName,
+    required this.cart,
+  });
+  @override
+  State<_StoreRecs> createState() => _StoreRecsState();
+}
+
+class _StoreRecsState extends State<_StoreRecs> {
+  final _sb = Supabase.instance.client;
+  List<Map<String, dynamic>> _recs = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final raw = await _sb
+          .from("menu_items")
+          .select("id, name, price, emoji, image_url, is_available")
+          .eq("store_id", widget.storeId)
+          .eq("is_available", true)
+          .order("sort_order")
+          .limit(8);
+      if (mounted) {
+        setState(() {
+          _recs = List<Map<String, dynamic>>.from(raw as List);
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+        child: SizedBox(
+          height: 100,
+          child: Shimmer.fromColors(
+            baseColor: const Color(0xFFDDD0F0),
+            highlightColor: const Color(0xFFF5F0FF),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: 3,
+              itemBuilder: (_, __) => Container(
+                width: 120,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_recs.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.auto_awesome, size: 14, color: AppColors.accent),
+            const SizedBox(width: 6),
+            const Text("Para agregar a tu pedido",
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMedium)),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => context.push("/store/${widget.storeId}"),
+              child: const Text("Ver más",
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w700)),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 110,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _recs.length,
+              itemBuilder: (_, i) => _recCard(_recs[i]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recCard(Map<String, dynamic> item) {
+    final price = (item["price"] as num?)?.toInt() ?? 0;
+    final name = item["name"] as String? ?? "";
+    final imgUrl = item["image_url"] as String?;
+    final emoji = item["emoji"] as String? ?? "🍽️";
+    final hasVariants = _itemHasVariants(item);
+
+    return GestureDetector(
+      onTap: () {
+        if (hasVariants) {
+          context.push("/product/${item["id"]}");
+        } else {
+          widget.cart.addItem(CartItem(
+            id: item["id"] as String,
+            storeId: widget.storeId,
+            storeName: widget.storeName,
+            name: name,
+            price: price,
+            emoji: emoji,
+            imageUrl: imgUrl,
+          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("$name agregado"),
+              backgroundColor: AppColors.homeOrange,
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+      },
+      child: Container(
+        width: 100,
+        margin: const EdgeInsets.only(right: 10),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
+              child: SizedBox(
+                height: 52,
+                width: double.infinity,
+                child: imgUrl != null
+                    ? Image.network(imgUrl, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Center(child: Text(emoji, style: const TextStyle(fontSize: 22))))
+                    : Center(
+                        child: Text(emoji, style: const TextStyle(fontSize: 22))),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(name,
+                          style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDark),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "\$${price.toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}",
+                          style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.accent),
+                        ),
+                        Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: hasVariants
+                                ? Colors.transparent
+                                : AppColors.accent,
+                            shape: BoxShape.circle,
+                            border: hasVariants
+                                ? Border.all(color: AppColors.accent)
+                                : null,
+                          ),
+                          child: Icon(
+                            hasVariants ? Icons.arrow_forward : Icons.add,
+                            color: hasVariants
+                                ? AppColors.accent
+                                : Colors.white,
+                            size: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _itemHasVariants(Map<String, dynamic> item) {
+    try {
+      final vs = item["variants"];
+      if (vs != null) {
+        if (vs is String && vs.isNotEmpty) return true;
+        if (vs is List && vs.isNotEmpty) return true;
+      }
+      final vgs = item["variant_groups"];
+      if (vgs != null) {
+        if (vgs is String && vgs.isNotEmpty) return true;
+        if (vgs is List && vgs.isNotEmpty) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
 }

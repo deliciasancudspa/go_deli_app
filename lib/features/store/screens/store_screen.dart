@@ -72,8 +72,13 @@ class _StoreScreenState extends State<StoreScreen> {
     )));
     return Scaffold(backgroundColor: AppColors.background, body: CustomScrollView(slivers: [
       SliverAppBar(expandedHeight: 200, pinned: true, backgroundColor: Colors.transparent, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => context.pop()),
-        actions: [IconButton(icon: Icon(_isFav ? Icons.favorite : Icons.favorite_border, color: _isFav ? Colors.red : Colors.white), onPressed: _toggleFav), Builder(builder: (_) { final sc = cart.getStoreItemCount(widget.storeId); return Stack(children: [IconButton(icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white), onPressed: () => context.push("/cart")), if (sc > 0) Positioned(right: 6, top: 6, child: Container(width: 16, height: 16, decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle), child: Center(child: Text("$sc", style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)))))]);
-        })],
+        actions: [
+          IconButton(
+            icon: Icon(_isFav ? Icons.favorite : Icons.favorite_border,
+                color: _isFav ? Colors.red : Colors.white),
+            onPressed: _toggleFav),
+          _cartBadge(cart),
+        ],
         flexibleSpace: FlexibleSpaceBar(background: Stack(fit: StackFit.expand, children: [
           _store?["cover_url"] != null
             ? Image.network(_store!["cover_url"], fit: BoxFit.cover)
@@ -267,11 +272,73 @@ class _StoreScreenState extends State<StoreScreen> {
       SliverToBoxAdapter(child: _ReviewsSection(storeId: widget.storeId, sb: _sb)),
       const SliverToBoxAdapter(child: SizedBox(height: 100)),
     ]),
-    bottomNavigationBar: Builder(builder: (_) {
-      final sc = cart.getStoreItemCount(widget.storeId);
-      final ss = cart.getStoreSubtotal(widget.storeId);
-      return sc == 0 ? null : Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, -4))]), child: ElevatedButton(onPressed: () => context.push("/cart"), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: Text("$sc", style: const TextStyle(fontWeight: FontWeight.w900))), const Text("Ver carrito"), Text(_fmt(ss), style: const TextStyle(fontWeight: FontWeight.w900))])));
-    }));
+    bottomNavigationBar: _buildBottomBar(cart),
+    );
+  }
+
+  Widget _cartBadge(CartProvider cart) {
+    final sc = cart.getStoreItemCount(widget.storeId);
+    return Stack(children: [
+      IconButton(
+        icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+        onPressed: () => context.push("/cart"),
+      ),
+      if (sc > 0)
+        Positioned(
+          right: 6, top: 6,
+          child: Container(
+            width: 16, height: 16,
+            decoration: const BoxDecoration(
+                color: AppColors.accent, shape: BoxShape.circle),
+            child: Center(
+              child: Text("$sc",
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900)),
+            ),
+          ),
+        ),
+    ]);
+  }
+
+  Widget? _buildBottomBar(CartProvider cart) {
+    final sc = cart.getStoreItemCount(widget.storeId);
+    if (sc == 0) return null;
+    final ss = cart.getStoreSubtotal(widget.storeId);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          )
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: () => context.push("/cart"),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text("$sc",
+                  style: const TextStyle(fontWeight: FontWeight.w900)),
+            ),
+            const Text("Ver carrito"),
+            Text(_fmt(ss),
+                style: const TextStyle(fontWeight: FontWeight.w900)),
+          ],
+        ),
+      ),
+    );
   }
 
   void _addToCart(CartProvider cart, Map<String, dynamic> item, int basePrice) {
