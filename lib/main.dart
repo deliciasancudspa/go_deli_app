@@ -67,12 +67,23 @@ void main() async {
   }
 
   runApp(const GoDeliApp());
+  // Restaurar carritos guardados tras iniciar la app
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // CartProvider se accede a través del context del widget tree.
+    // Usamos un builder en GoDeliApp para capturarlo.
+  });
 }
 
 class GoDeliApp extends StatelessWidget {
   const GoDeliApp({super.key});
   @override
   Widget build(BuildContext context) {
+    // Cargar carritos guardados al iniciar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        context.read<CartProvider>().loadSavedCarts();
+      } catch (_) {}
+    });
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),

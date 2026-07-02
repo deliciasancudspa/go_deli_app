@@ -127,7 +127,9 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
     _clearState();
 
     if (status == "approved") {
-      context.read<CartProvider>().clearCart();
+      if (widget.storeId != null) {
+        context.read<CartProvider>().clearStoreCart(widget.storeId!);
+      }
       context.go("/order-success/$orderId");
     } else if (status == "rejected") {
       // Pago rechazado — webpay-return ya marcó la orden como cancelled/failed.

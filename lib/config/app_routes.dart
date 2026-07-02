@@ -1,6 +1,7 @@
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "../providers/auth_provider.dart";
+import "../providers/cart_provider.dart";
 import "../features/onboarding/screens/splash_screen.dart";
 import "../features/onboarding/screens/onboarding_screen.dart";
 import "../features/onboarding/screens/location_permission_screen.dart";
@@ -42,7 +43,19 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: "/store/:id",    builder: (c,s) => StoreScreen(storeId: s.pathParameters["id"]!)),
     GoRoute(path: "/product/:id",  builder: (c,s) => ProductDetailScreen(productId: s.pathParameters["id"]!)),
     GoRoute(path: "/cart",         builder: (c,s) => const CartScreen()),
-    GoRoute(path: "/checkout",     builder: (c,s) => const CheckoutScreen()),
+    GoRoute(
+      path: "/checkout",
+      redirect: (context, state) {
+        final cart = context.read<CartProvider>();
+        final storeId = cart.activeStoreId;
+        if (storeId != null) return "/checkout/$storeId";
+        return "/cart"; // fallback: sin tienda activa, volver al carrito
+      },
+    ),
+    GoRoute(
+      path: "/checkout/:storeId",
+      builder: (c, s) => CheckoutScreen(storeId: s.pathParameters["storeId"]!),
+    ),
     GoRoute(path: "/order-success/:id", builder: (c,s) => OrderSuccessScreen(orderId: s.pathParameters["id"]!)),
     GoRoute(path: "/tracking/:id", builder: (c,s) => TrackingScreen(orderId: s.pathParameters["id"]!)),
     GoRoute(path: "/orders",       builder: (c,s) => const OrderHistoryScreen()),

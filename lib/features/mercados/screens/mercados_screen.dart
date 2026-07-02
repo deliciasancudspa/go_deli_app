@@ -905,44 +905,9 @@ class _MercadosScreenState extends State<MercadosScreen> {
       imageUrl:  item["image_url"] as String?,
     );
 
-    if (cart.currentStoreId != null && cart.currentStoreId != storeId) {
-      final fromStore = cart.items.isNotEmpty
-          ? cart.items.first.storeName
-          : "otra tienda";
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text("¿Vaciar carrito?",
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-          content: Text(
-              "Ya tienes productos de $fromStore. "
-              "¿Vaciar carrito y agregar de $storeName?",
-              style: const TextStyle(fontSize: 14, height: 1.4)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Cancelar",
-                  style: TextStyle(fontWeight: FontWeight.w700,
-                      color: AppColors.textLight)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                cart.clearCart();
-                cart.addItem(cartItem);
-              },
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: _kOrange, foregroundColor: Colors.white),
-              child: const Text("Vaciar y agregar",
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-            ),
-          ],
-        ),
-      );
-    } else {
-      cart.addItem(cartItem);
-    }
+    // Multi-carrito: cada tienda tiene su propio carrito independiente.
+    // Ya no es necesario vaciar al cambiar de tienda.
+    cart.addItem(cartItem);
   }
 
   // ── Cart FAB ─────────────────────────────────────────────────────────────────

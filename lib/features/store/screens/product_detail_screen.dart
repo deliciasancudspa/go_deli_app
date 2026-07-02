@@ -415,22 +415,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               onPressed: () => context.pop(),
             ),
             actions: [
-              Consumer<CartProvider>(builder: (_, cart, __) => Stack(children: [
+              Consumer<CartProvider>(builder: (_, cart, __) {
+                final sc = _store != null
+                    ? cart.getStoreItemCount(_store!["id"] as String)
+                    : 0;
+                return Stack(children: [
                 IconButton(
                   icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
                   onPressed: () => context.push("/cart"),
                 ),
-                if (cart.itemCount > 0) Positioned(
+                if (sc > 0) Positioned(
                   right: 6, top: 6,
                   child: Container(
                     width: 16, height: 16,
                     decoration: const BoxDecoration(color: _kOrange, shape: BoxShape.circle),
-                    child: Center(child: Text("${cart.itemCount}",
+                    child: Center(child: Text("$sc",
                         style: const TextStyle(color: Colors.white,
                             fontSize: 9, fontWeight: FontWeight.w900))),
                   ),
                 ),
-              ])),
+              ]);}),
             ],
             flexibleSpace: FlexibleSpaceBar(
               background: imgUrl != null

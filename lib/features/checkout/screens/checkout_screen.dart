@@ -26,7 +26,8 @@ const _kDefMaxDistKm = 8.0;    // distancia máxima permitida (km)
 const _kMaxClient    = 3500.0; // tope que paga el cliente (no configurable aquí)
 
 class CheckoutScreen extends StatefulWidget {
-  const CheckoutScreen({super.key});
+  final String storeId;
+  const CheckoutScreen({super.key, required this.storeId});
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
@@ -92,7 +93,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (status == null) return;
     final orderId = Uri.base.queryParameters["order_id"];
     if (status == "approved" && orderId != null) {
-      context.read<CartProvider>().clearCart();
+      context.read<CartProvider>().clearStoreCart(widget.storeId);
       context.go("/order-success/$orderId");
     } else if (status == "cancelled") {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -128,11 +129,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (payStatus == "paid") {
         // El pago fue exitoso mientras la app estaba en fondo — ir a éxito
+        final savedStoreId = prefs.getString("pending_webpay_store_id");
         await prefs.remove("pending_webpay_order_id");
         await prefs.remove("pending_webpay_token");
         await prefs.remove("pending_webpay_url");
+        if (savedStoreId != null) {
+          await prefs.remove("pending_webpay_store_id");
+        }
         if (mounted) {
-          context.read<CartProvider>().clearCart();
+          if (savedStoreId != null) {
+            context.read<CartProvider>().clearStoreCart(savedStoreId);
+          }
           context.go("/order-success/$pendingOrderId");
         }
       } else if (payStatus == "pending") {
@@ -221,28 +228,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _loadStore() async {
     final cart = context.read<CartProvider>();
-    // Si el carrito se perdió (Android mató la activity durante pago externo),
-    // restaurar el store_id desde SharedPreferences para poder cargar la tienda.
-    if (cart.currentStoreId == null) {
-      final prefs = await SharedPreferences.getInstance();
-      final savedStoreId = prefs.getString("pending_webpay_store_id");
-      if (savedStoreId != null) {
-        cart.currentStoreId = savedStoreId;
-      } else {
-        return;
-      }
-    }
     final store = await _sb.from("stores")
         .select("*, lat, lng, delivery_fee_mode, delivery_fee_store, delivery_fee_client")
-        .eq("id", cart.currentStoreId!)
+        .eq("id", widget.storeId)
         .single();
     // La receta se exige por PRODUCTO (requires_prescription), sin depender
     // del nombre de categoría de la tienda — las farmacias suelen tener
     // categorías múltiples ("Medicamentos,Vitaminas y Suplementos,…").
+    final storeItems = cart.getItemsForStore(widget.storeId);
     bool needsRx = false;
-    if (cart.items.isNotEmpty) {
+    if (storeItems.isNotEmpty) {
       // los ids del carrito pueden ser compuestos (id__variante)
-      final ids = cart.items.map((i) => i.id.split("__").first).toSet().toList();
+      final ids = storeItems.map((i) => i.id.split("__").first).toSet().toList();
       final menuItems = await _sb.from("menu_items")
         .select("id, requires_prescription")
         .inFilter("id", ids);
@@ -389,7 +386,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final cart   = context.read<CartProvider>();
       final auth   = context.read<AuthProvider>();
       final phone      = _phoneCtrl.text.trim();
-      final subtotal   = cart.subtotal;
+      final subtotal   = cart.getStoreSubtotal(widget.storeId);
+      final storeItems = cart.getItemsForStore(widget.storeId);
       final discAmt    = (subtotal * _discount).round();
       final finalSub   = subtotal - discAmt;
       final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 8) as num) / 100).round();
@@ -431,16 +429,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Obtener commune_id de SharedPreferences, con fallback al de la tienda
       final savedCommune = await LocationService.loadSavedCommune();
       var communeId = savedCommune?['commune_id'];
-      if (communeId == null && cart.currentStoreId != null) {
+      if (communeId == null) {
         // Fallback: usar el commune_id de la tienda
         final store = await _sb.from("stores").select("commune_id")
-            .eq("id", cart.currentStoreId!).maybeSingle();
+            .eq("id", widget.storeId).maybeSingle();
         communeId = store?['commune_id'] as String?;
       }
 
       final order = await _sb.from("orders").insert({
         "client_id": u["id"],
-        "store_id": cart.currentStoreId,
+        "store_id": widget.storeId,
         "commune_id": communeId,
         "subtotal": finalSub,
         "delivery_fee": delivFee,
@@ -474,7 +472,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }).select().single();
 
       try {
-        await _sb.from("order_items").insert(cart.items.map((item) => {
+        await _sb.from("order_items").insert(storeItems.map((item) => {
           "order_id": order["id"],
           "menu_item_id": item.id,
           "item_name": item.name,
@@ -500,7 +498,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       } else if (_payMethod == "khipu") {
         await _launchKhipu(order["id"] as String);
       } else {
-        cart.clearCart();
+        cart.clearStoreCart(widget.storeId);
         if (mounted) context.go("/order-success/${order["id"]}");
       }
     } catch (e) {
@@ -568,7 +566,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             webpayUrl:   url,
             webpayToken: token,
             orderId:     orderId,
-            storeId:     cart.currentStoreId,
+            storeId:     widget.storeId,
           ),
         ));
         // Si llegamos aquí = pago no completado; guardar para reutilizar la orden
@@ -619,7 +617,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             webpayUrl:   url,
             webpayToken: "",   // Khipu no usa token en la URL — ya viene incluido en payment_url
             orderId:     orderId,
-            storeId:     cart.currentStoreId,
+            storeId:     widget.storeId,
           ),
         ));
         // Si llegamos aquí = pago Khipu no completado; guardar para reutilizar la orden
@@ -633,7 +631,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
-    final subtotal  = cart.subtotal;
+    final storeItems = cart.getItemsForStore(widget.storeId);
+    final subtotal  = cart.getStoreSubtotal(widget.storeId);
     final discAmt   = (subtotal * _discount).round();
     final finalSub  = subtotal - discAmt;
     final bool outOfRange = _deliveryType == "delivery" && _distanceMeters != null && _distanceMeters! > _maxDistM;
@@ -807,7 +806,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
           child: Column(children: [
-            ...cart.items.map((item) => Padding(
+            ...storeItems.map((item) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Expanded(child: Text("${item.quantity}x ${item.name}", style: const TextStyle(fontSize: 13))),
