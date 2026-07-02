@@ -63,22 +63,25 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: "/chat/:orderId",builder: (c,s) => ChatScreen(orderId: s.pathParameters["orderId"]!)),
     GoRoute(path: "/map/:orderId",  builder: (c,s) => MapScreen(orderId: s.pathParameters["orderId"]!)),
 
-    // Deep link godeli-webpay://done → manejar retorno de pago Webpay/Khipu.
-    // Transbank redirige a esta URL al finalizar el pago. Sin esta ruta,
-    // GoRouter no reconoce el path y la app abre en /splash perdiendo el
-    // estado del checkout. Redirigimos según el status del query param.
+    // Deep link godeli-webpay:///done → manejar retorno de pago Webpay/Khipu.
+    // (Tres slashes: así "done" es path, no host — GoRouter puede matchearlo).
+    // Si Realtime ya navegó a /order-success, este redirect va al mismo lugar
+    // y GoRouter lo trata como no-op (misma ubicación).
     GoRoute(
       path: "/done",
       redirect: (context, state) {
         final status  = state.uri.queryParameters["status"]  ?? "";
         final orderId = state.uri.queryParameters["order_id"] ?? "";
+
         if (status == "approved" && orderId.isNotEmpty) {
           return "/order-success/$orderId";
         }
-        // rejected, cancelled o desconocido: volver al checkout
-        // donde _checkPendingWebpay recuperará la orden pendiente
-        return "/checkout";
+        // Rejected, cancelled o desconocido → ir al historial de pedidos
+        // (NO a /checkout: el carrito pudo haberse vaciado y llevaría a
+        // una pantalla vacía con back que cierra la app).
+        return "/orders";
       },
+      builder: (_, __) => const OrderHistoryScreen(),
     ),
   ],
 );

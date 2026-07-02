@@ -49,7 +49,7 @@ function htmlPage(status: string, orderId: string | null, webUrl: string | null)
     ? "Tu transferencia está siendo verificada. En unos minutos recibirás confirmación."
     : "No pudimos verificar tu pago. Contacta soporte si ya realizaste la transferencia.";
 
-  const deepLink = `godeli-webpay://done?status=${approved ? "approved" : pending ? "pending" : "error"}&order_id=${orderId ?? ""}`;
+  const deepLink = `godeli-webpay:///done?status=${approved ? "approved" : pending ? "pending" : "error"}&order_id=${orderId ?? ""}`;
 
   const html = `<!DOCTYPE html>
 <html lang="es">

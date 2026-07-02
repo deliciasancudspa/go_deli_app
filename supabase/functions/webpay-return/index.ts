@@ -174,7 +174,7 @@ function buildResponse(
   }
 
   // Cliente móvil → redirect directo al deep link (más confiable que JS en WebView Android)
-  const deepLink = `godeli-webpay://done?status=${status}&order_id=${orderId ?? ""}`;
+  const deepLink = `godeli-webpay:///done?status=${status}&order_id=${orderId ?? ""}`;
   return new Response(null, {
     status: 302,
     headers: { ...CORS, "Location": deepLink },
@@ -198,7 +198,7 @@ function _htmlPage(
     ? "Cancelaste el proceso de pago."
     : "El pago no pudo procesarse. Intenta con otro método.";
 
-  const deepLink = `godeli-webpay://done?status=${status}&order_id=${orderId ?? ""}`;
+  const deepLink = `godeli-webpay:///done?status=${status}&order_id=${orderId ?? ""}`;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
