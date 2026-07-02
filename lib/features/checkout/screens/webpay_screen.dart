@@ -45,9 +45,16 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
   StreamSubscription<List<Map<String, dynamic>>>? _realtimeSub;
   Timer? _pollTimer;
 
-  // La URL de Transbank ya contiene el token embebido; no necesita token_ws
-  // como query param extra (eso es lo que Transbank devuelve al return_url).
-  String get _payUrl => widget.webpayUrl;
+  // La URL base de Transbank no incluye el token; hay que pasarlo como
+  // query param token_ws para que el formulario sepa qué transacción cargar.
+  // (Es el mismo nombre de parámetro que Transbank usa para devolver el
+  // resultado al return_url, pero en este contexto es entrada al formulario.)
+  String get _payUrl {
+    if (widget.webpayToken.isEmpty) return widget.webpayUrl;
+    final sep = widget.webpayUrl.contains('?') ? '&' : '?';
+    return '${widget.webpayUrl}$sep'
+        'token_ws=${Uri.encodeQueryComponent(widget.webpayToken)}';
+  }
 
   bool get _isKhipu => widget.webpayToken.isEmpty;
 
