@@ -78,12 +78,6 @@ class GoDeliApp extends StatelessWidget {
   const GoDeliApp({super.key});
   @override
   Widget build(BuildContext context) {
-    // Cargar carritos guardados al iniciar
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        context.read<CartProvider>().loadSavedCarts();
-      } catch (_) {}
-    });
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
@@ -93,6 +87,15 @@ class GoDeliApp extends StatelessWidget {
       ],
       child: Consumer2<ThemeProvider, LanguageProvider>(
         builder: (context, theme, lang, _) {
+          // loadSavedCarts() debe ejecutarse DESDE UN WIDGET HIJO de
+          // MultiProvider, porque GoDeliApp.context no ve providers que
+          // él mismo crea (solo ancestros). Usamos addPostFrameCallback
+          // dentro del builder del Consumer, que SÍ tiene acceso.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            try {
+              context.read<CartProvider>().loadSavedCarts();
+            } catch (_) {}
+          });
           return MaterialApp.router(
             title: "Go Deli",
             debugShowCheckedModeBanner: false,

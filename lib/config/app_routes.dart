@@ -65,8 +65,6 @@ final GoRouter appRouter = GoRouter(
 
     // Deep link godeli-webpay:///done → manejar retorno de pago Webpay/Khipu.
     // (Tres slashes: así "done" es path, no host — GoRouter puede matchearlo).
-    // Si Realtime ya navegó a /order-success, este redirect va al mismo lugar
-    // y GoRouter lo trata como no-op (misma ubicación).
     GoRoute(
       path: "/done",
       redirect: (context, state) {
@@ -76,9 +74,13 @@ final GoRouter appRouter = GoRouter(
         if (status == "approved" && orderId.isNotEmpty) {
           return "/order-success/$orderId";
         }
-        // Rejected, cancelled o desconocido → ir al historial de pedidos
-        // (NO a /checkout: el carrito pudo haberse vaciado y llevaría a
-        // una pantalla vacía con back que cierra la app).
+        // Rejected o cancelled: volver al checkout para reintentar el pago
+        // o elegir otro método. El carrito NO se ha vaciado (solo se limpia
+        // en approved), así que el redirect de /checkout funciona.
+        if (status == "rejected" || status == "cancelled") {
+          return "/checkout";
+        }
+        // Error o desconocido: ir al historial de pedidos
         return "/orders";
       },
       builder: (_, __) => const OrderHistoryScreen(),
