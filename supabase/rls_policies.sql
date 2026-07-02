@@ -816,3 +816,121 @@ BEGIN
 END $$;
 
 GRANT EXECUTE ON FUNCTION public.increment_coupon_uses(TEXT) TO authenticated;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 22. GO BUSINESS 2.0 — RLS para tablas nuevas (panel de aliados)
+--     Las migraciones 20260702_go_business_2.0.sql crearon estas tablas pero
+--     SIN políticas RLS → consultas bloqueadas → pantallas vacías.
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- option_groups — store_id directo (mismo patrón que menu_items)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='option_groups') THEN
+    DROP POLICY IF EXISTS option_groups_select ON public.option_groups;
+    CREATE POLICY option_groups_select ON public.option_groups FOR SELECT USING (true);
+    DROP POLICY IF EXISTS option_groups_write ON public.option_groups;
+    CREATE POLICY option_groups_write ON public.option_groups FOR ALL TO authenticated
+      USING (store_id IN (SELECT public.my_store_ids()) OR public.is_admin())
+      WITH CHECK (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
+  END IF;
+END $$;
+
+-- option_items — hereda store_id vía option_groups.group_id
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='option_items') THEN
+    DROP POLICY IF EXISTS option_items_select ON public.option_items;
+    CREATE POLICY option_items_select ON public.option_items FOR SELECT USING (true);
+    DROP POLICY IF EXISTS option_items_write ON public.option_items;
+    CREATE POLICY option_items_write ON public.option_items FOR ALL TO authenticated
+      USING (
+        (SELECT og.store_id FROM public.option_groups og WHERE og.id = option_items.group_id) IN (SELECT public.my_store_ids())
+        OR public.is_admin()
+      )
+      WITH CHECK (
+        (SELECT og.store_id FROM public.option_groups og WHERE og.id = option_items.group_id) IN (SELECT public.my_store_ids())
+        OR public.is_admin()
+      );
+  END IF;
+END $$;
+
+-- product_variants — hereda store_id vía menu_items.product_id → store_id
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='product_variants') THEN
+    DROP POLICY IF EXISTS product_variants_select ON public.product_variants;
+    CREATE POLICY product_variants_select ON public.product_variants FOR SELECT USING (true);
+    DROP POLICY IF EXISTS product_variants_write ON public.product_variants;
+    CREATE POLICY product_variants_write ON public.product_variants FOR ALL TO authenticated
+      USING (
+        (SELECT mi.store_id FROM public.menu_items mi WHERE mi.id = product_variants.product_id) IN (SELECT public.my_store_ids())
+        OR public.is_admin()
+      )
+      WITH CHECK (
+        (SELECT mi.store_id FROM public.menu_items mi WHERE mi.id = product_variants.product_id) IN (SELECT public.my_store_ids())
+        OR public.is_admin()
+      );
+  END IF;
+END $$;
+
+-- menu_item_option_groups — tabla puente (item_id → store_id)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='menu_item_option_groups') THEN
+    DROP POLICY IF EXISTS menu_item_option_groups_select ON public.menu_item_option_groups;
+    CREATE POLICY menu_item_option_groups_select ON public.menu_item_option_groups FOR SELECT USING (true);
+    DROP POLICY IF EXISTS menu_item_option_groups_write ON public.menu_item_option_groups;
+    CREATE POLICY menu_item_option_groups_write ON public.menu_item_option_groups FOR ALL TO authenticated
+      USING (
+        (SELECT mi.store_id FROM public.menu_items mi WHERE mi.id = menu_item_option_groups.item_id) IN (SELECT public.my_store_ids())
+        OR public.is_admin()
+      )
+      WITH CHECK (
+        (SELECT mi.store_id FROM public.menu_items mi WHERE mi.id = menu_item_option_groups.item_id) IN (SELECT public.my_store_ids())
+        OR public.is_admin()
+      );
+  END IF;
+END $$;
+
+-- inventory_movements — store_id directo
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='inventory_movements') THEN
+    DROP POLICY IF EXISTS inventory_movements_select ON public.inventory_movements;
+    CREATE POLICY inventory_movements_select ON public.inventory_movements FOR SELECT
+      USING (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
+    DROP POLICY IF EXISTS inventory_movements_write ON public.inventory_movements;
+    CREATE POLICY inventory_movements_write ON public.inventory_movements FOR ALL TO authenticated
+      USING (store_id IN (SELECT public.my_store_ids()) OR public.is_admin())
+      WITH CHECK (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
+  END IF;
+END $$;
+
+-- cash_sessions — store_id directo
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='cash_sessions') THEN
+    DROP POLICY IF EXISTS cash_sessions_select ON public.cash_sessions;
+    CREATE POLICY cash_sessions_select ON public.cash_sessions FOR SELECT
+      USING (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
+    DROP POLICY IF EXISTS cash_sessions_write ON public.cash_sessions;
+    CREATE POLICY cash_sessions_write ON public.cash_sessions FOR ALL TO authenticated
+      USING (store_id IN (SELECT public.my_store_ids()) OR public.is_admin())
+      WITH CHECK (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
+  END IF;
+END $$;
+
+-- cash_movements — store_id directo
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='cash_movements') THEN
+    DROP POLICY IF EXISTS cash_movements_select ON public.cash_movements;
+    CREATE POLICY cash_movements_select ON public.cash_movements FOR SELECT
+      USING (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
+    DROP POLICY IF EXISTS cash_movements_write ON public.cash_movements;
+    CREATE POLICY cash_movements_write ON public.cash_movements FOR ALL TO authenticated
+      USING (store_id IN (SELECT public.my_store_ids()) OR public.is_admin())
+      WITH CHECK (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
+  END IF;
+END $$;
