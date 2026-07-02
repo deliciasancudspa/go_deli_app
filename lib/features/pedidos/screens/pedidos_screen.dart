@@ -134,7 +134,8 @@ class _PedidosScreenState extends State<PedidosScreen>
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore || _loading) return;
     setState(() => _loadingMore = true);
-    _page++;
+    // _page se incrementa dentro de _loadHistory (reset=false).
+    // No incrementar aquí para evitar saltar páginas.
     await _loadHistory();
     if (mounted) setState(() => _loadingMore = false);
   }
@@ -148,7 +149,11 @@ class _PedidosScreenState extends State<PedidosScreen>
           schema: "public", table: "orders",
           filter: PostgresChangeFilter(
               type: PostgresChangeFilterType.eq, column: "client_id", value: _userId!),
-          callback: (_) { _loadActive(); _loadHistory(reset: true); },
+          callback: (_) {
+            // Solo recargar la orden activa. El historial no se resetea para
+            // no perder la posición de scroll/paginación del usuario.
+            _loadActive();
+          },
         ).subscribe();
   }
 

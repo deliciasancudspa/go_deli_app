@@ -15,7 +15,6 @@ import "package:url_launcher/url_launcher.dart";
 import "../../../config/app_config.dart";
 import "../../../config/app_routes.dart";
 import "../../../services/notification_service.dart";
-import "../../../services/notification_service.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/category_match.dart";
 import "../../../core/utils/price_formatter.dart";

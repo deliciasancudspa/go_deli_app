@@ -105,8 +105,9 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
           .from("orders")
           .select("payment_status")
           .eq("id", widget.orderId)
-          .single();
+          .maybeSingle();
 
+      if (data == null) return; // orden no encontrada (posiblemente eliminada)
       final payStatus = data["payment_status"] as String? ?? "pending";
       if (payStatus == "paid" && !_handled) {
         _handleResult("approved", widget.orderId);

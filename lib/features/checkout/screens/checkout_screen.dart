@@ -473,14 +473,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "notes": _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       }).select().single();
 
-      await _sb.from("order_items").insert(cart.items.map((item) => {
-        "order_id": order["id"],
-        "menu_item_id": item.id,
-        "item_name": item.name,
-        "item_price": item.price,
-        "quantity": item.quantity,
-        "subtotal": item.price * item.quantity,
-      }).toList());
+      try {
+        await _sb.from("order_items").insert(cart.items.map((item) => {
+          "order_id": order["id"],
+          "menu_item_id": item.id,
+          "item_name": item.name,
+          "item_price": item.price,
+          "quantity": item.quantity,
+          "subtotal": item.price * item.quantity,
+        }).toList());
+      } catch (itemsError) {
+        // Si falla la inserción de items, eliminar la orden para no dejarla huérfana
+        await _sb.from("orders").delete().eq("id", order["id"]);
+        rethrow;
+      }
 
       // Incrementar usos del cupón si se aplicó uno
       if (_couponCode.isNotEmpty) {
@@ -603,12 +609,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final url = res.data["payment_url"] as String;
 
       if (!mounted) return;
+      final cart = context.read<CartProvider>();
       if (kIsWeb) {
-        final cart = context.read<CartProvider>();
         await launchUrl(Uri.parse(url), mode: LaunchMode.platformDefault);
         if (mounted) _handleWebPaymentReturn(orderId, cart);
       } else {
-        final cart = context.read<CartProvider>();
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => WebpayScreen(
             webpayUrl:   url,
@@ -617,6 +622,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             storeId:     cart.currentStoreId,
           ),
         ));
+        // Si llegamos aquí = pago Khipu no completado; guardar para reutilizar la orden
+        if (mounted) setState(() => _pendingWebpayOrderId = orderId);
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error Khipu: $e"), backgroundColor: AppColors.error));

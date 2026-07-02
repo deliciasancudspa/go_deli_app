@@ -12,6 +12,7 @@ class TrackingScreen extends StatefulWidget {
 class _TrackingScreenState extends State<TrackingScreen> {
   Map<String, dynamic>? _order;
   final _sb = Supabase.instance.client;
+  RealtimeChannel? _channel;
 
   final _msgsDelivery = {
     "pending":   "Esperando confirmacion del restaurante",
@@ -48,13 +49,20 @@ class _TrackingScreenState extends State<TrackingScreen> {
   @override
   void initState() { super.initState(); _load(); _subscribe(); }
 
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     final o = await _sb.from("orders").select("*, stores(name,emoji)").eq("id", widget.orderId).single();
     if (mounted) setState(() => _order = o);
   }
 
   void _subscribe() {
-    _sb.channel("order_${widget.orderId}")
+    _channel?.unsubscribe();
+    _channel = _sb.channel("order_${widget.orderId}")
       .onPostgresChanges(
         event: PostgresChangeEvent.update,
         schema: "public",

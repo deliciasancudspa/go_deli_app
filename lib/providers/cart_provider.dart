@@ -39,18 +39,33 @@ class CartProvider extends ChangeNotifier {
   void addItem(CartItem item) {
     if (_currentStoreId != null && _currentStoreId != item.storeId) clearCart();
     _currentStoreId = item.storeId;
-    // Items with variants/extras are always new lines (don't merge)
-    final hasCustomization = item.variant != null || item.extras.isNotEmpty;
-    if (!hasCustomization) {
-      final idx = _items.indexWhere((i) => i.id == item.id && i.variant == null && i.extras.isEmpty);
-      if (idx >= 0) { _items[idx].quantity++; notifyListeners(); return; }
+    // Buscar coincidencia exacta: mismo id + misma variante + mismos extras.
+    // Así no se duplican items idénticos al presionar + en el carrito,
+    // incluso si tienen variantes o extras.
+    final idx = _items.indexWhere((i) =>
+      i.id == item.id &&
+      i.variant == item.variant &&
+      _extrasMatch(i.extras, item.extras));
+    if (idx >= 0) {
+      _items[idx].quantity++;
+      notifyListeners();
+      return;
     }
     _items.add(item);
     notifyListeners();
   }
 
-  void removeItem(String id) {
-    final idx = _items.indexWhere((i) => i.id == id);
+  bool _extrasMatch(List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i]["name"] != b[i]["name"] || a[i]["price"] != b[i]["price"]) return false;
+    }
+    return true;
+  }
+
+  void removeItem(String id, {String? variant}) {
+    final idx = _items.indexWhere((i) =>
+      i.id == id && (variant == null || i.variant == variant));
     if (idx >= 0) {
       if (_items[idx].quantity > 1) {
         _items[idx].quantity--;

@@ -35,7 +35,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     try {
       final user = _sb.auth.currentUser;
       if (user == null) { setState(() => _loading = false); return; }
-      final u = await _sb.from("users").select("id").eq("auth_id", user.id).single();
+      final u = await _sb.from("users").select("id").eq("auth_id", user.id).maybeSingle();
+      if (u == null) { setState(() => _loading = false); return; }
       final o = await _sb.from("orders").select("*, stores(name,emoji), order_items(item_name,quantity,item_price,subtotal)").eq("client_id", u["id"]).order("created_at", ascending: false);
       if (mounted) setState(() { _orders = List<Map<String, dynamic>>.from(o); _loading = false; });
     } catch (_) {
@@ -211,13 +212,21 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         ElevatedButton(onPressed: () async {
           Navigator.pop(ctx);
           try {
-            await Supabase.instance.client.from("orders").update({
-              "rated": rating,
+            final o = _orders.firstWhere((x) => x["id"] == orderId, orElse: () => {});
+            final storeId = o["store_id"] as String?;
+            // Insertar en reviews y marcar orden como rated (consistente con PedidosScreen)
+            await _sb.from("reviews").insert({
+              "order_id": orderId,
+              if (storeId != null) "store_id": storeId,
+              "rating_store": rating,
+            });
+            await _sb.from("orders").update({
+              "rated": true,
               "rated_at": DateTime.now().toIso8601String(),
             }).eq("id", orderId);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gracias por tu calificacion!")));
-              setState(() {}); // refrescar la lista
+              setState(() {});
             }
           } catch (_) {
             if (context.mounted) {

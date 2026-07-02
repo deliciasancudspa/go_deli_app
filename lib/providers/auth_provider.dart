@@ -84,18 +84,25 @@ class AuthProvider extends ChangeNotifier {
 
       final res = await _sb.auth.signUp(email: email, password: password);
       if (res.user != null) {
-        await _sb.from("users").insert({
-          "auth_id": res.user!.id,
-          "email": email,
-          "name": name,
-          "phone": phone,
-          "nationality": nationality,
-          "national_id": nationalId,
-          "national_id_type": nationalIdType,
-          "region": region,
-          "city": city,
-          "role": "client",
-        });
+        try {
+          await _sb.from("users").insert({
+            "auth_id": res.user!.id,
+            "email": email,
+            "name": name,
+            "phone": phone,
+            "nationality": nationality,
+            "national_id": nationalId,
+            "national_id_type": nationalIdType,
+            "region": region,
+            "city": city,
+            "role": "client",
+          });
+        } catch (profileError) {
+          // Si falla el INSERT en users, eliminar el auth user para no dejar
+          // un usuario huérfano que no puede loguearse (sin perfil).
+          await _sb.auth.signOut();
+          return "Error al crear perfil. Intenta de nuevo.";
+        }
       }
       return null;
     } catch (e) {
@@ -170,18 +177,24 @@ class AuthProvider extends ChangeNotifier {
       final name = (meta?["full_name"] ?? meta?["name"] ?? "").toString();
       final email = _user!.email ?? "";
 
-      await _sb.from("users").insert({
-        "auth_id": _user!.id,
-        "email": email,
-        "name": name,
-        "phone": phone,
-        "nationality": nationality,
-        "national_id": nationalId,
-        "national_id_type": nationalIdType,
-        "region": region,
-        "city": city,
-        "role": "client",
-      });
+      try {
+        await _sb.from("users").insert({
+          "auth_id": _user!.id,
+          "email": email,
+          "name": name,
+          "phone": phone,
+          "nationality": nationality,
+          "national_id": nationalId,
+          "national_id_type": nationalIdType,
+          "region": region,
+          "city": city,
+          "role": "client",
+        });
+      } catch (profileError) {
+        await _sb.auth.signOut();
+        _user = null;
+        return "Error al crear perfil. Intenta de nuevo.";
+      }
       await loadProfile();
       return null;
     } catch (e) {

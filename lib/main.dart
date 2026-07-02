@@ -45,7 +45,9 @@ void main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  } catch (_) {}
+  } catch (e) {
+    debugPrint('⚠️ Firebase no disponible: $e — notificaciones push deshabilitadas');
+  }
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
