@@ -80,7 +80,7 @@ async function sendFcm(accessToken: string, token: string, title: string, body: 
           notification: { title, body },
           android: {
             priority: "high",
-            notification: { channel_id: "go_deli_orders", sound: "default" },
+            notification: { title, body, channel_id: "go_deli_orders", sound: "default" },
           },
           data,
         },
@@ -233,7 +233,7 @@ serve(async (req) => {
             notification: { title, body },
             android: {
               priority: "high",
-              notification: { channel_id: "go_deli_orders", sound: "default" },
+              notification: { title, body, channel_id: "go_deli_orders", sound: "default" },
             },
             data: { route: "orders" },
           },

@@ -128,6 +128,7 @@ serve(async (req) => {
             android: {
               priority: "high",
               notification: {
+                title, body,
                 channel_id: "go_rider_channel",
                 sound: "default",
               },

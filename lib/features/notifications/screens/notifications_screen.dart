@@ -15,15 +15,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final _sb = Supabase.instance.client;
 
   static const _statusInfo = {
-    "pending":    {"label": "Pedido recibido",         "icon": Icons.receipt_outlined,       "color": Color(0xFFF59E0B)},
-    "accepted":   {"label": "Pedido confirmado",        "icon": Icons.check_circle_outline,   "color": Color(0xFF3B82F6)},
-    "preparing":  {"label": "Preparando tu pedido",     "icon": Icons.restaurant_outlined,    "color": Color(0xFFFF6B35)},
-    "ready":      {"label": "¡Pedido listo!",           "icon": Icons.celebration_outlined,   "color": Color(0xFF22C55E)},
-    "assigned":   {"label": "Repartidor asignado",      "icon": Icons.delivery_dining,        "color": Color(0xFFF59E0B)},
-    "picked_up":  {"label": "Pedido recogido",          "icon": Icons.inventory_2_outlined,   "color": Color(0xFF3B82F6)},
-    "on_the_way": {"label": "En camino a tu dirección", "icon": Icons.rocket_launch_outlined, "color": Color(0xFFFF6B35)},
-    "delivered":  {"label": "¡Entregado!",              "icon": Icons.where_to_vote_outlined, "color": Color(0xFF22C55E)},
-    "cancelled":  {"label": "Pedido cancelado",         "icon": Icons.cancel_outlined,        "color": Color(0xFFEF4444)},
+    "pending_payment": {"label": "Esperando pago",     "icon": Icons.payment_outlined,       "color": Color(0xFFF59E0B)},
+    "pending":         {"label": "Pedido recibido",    "icon": Icons.receipt_outlined,       "color": Color(0xFFF59E0B)},
+    "accepted":        {"label": "Pedido confirmado",   "icon": Icons.check_circle_outline,   "color": Color(0xFF3B82F6)},
+    "preparing":       {"label": "Preparando tu pedido","icon": Icons.restaurant_outlined,    "color": Color(0xFFFF6B35)},
+    "ready":           {"label": "¡Pedido listo!",      "icon": Icons.celebration_outlined,   "color": Color(0xFF22C55E)},
+    "assigned":        {"label": "Repartidor asignado", "icon": Icons.delivery_dining,        "color": Color(0xFFF59E0B)},
+    "picked_up":       {"label": "Pedido recogido",     "icon": Icons.inventory_2_outlined,   "color": Color(0xFF3B82F6)},
+    "on_the_way":      {"label": "En camino a tu dirección","icon": Icons.rocket_launch_outlined,"color": Color(0xFFFF6B35)},
+    "delivered":       {"label": "¡Entregado!",         "icon": Icons.where_to_vote_outlined, "color": Color(0xFF22C55E)},
+    "cancelled":       {"label": "Pedido cancelado",    "icon": Icons.cancel_outlined,        "color": Color(0xFFEF4444)},
+    "returned":        {"label": "Pedido devuelto",     "icon": Icons.assignment_return_outlined,"color": Color(0xFFEF4444)},
   };
 
   @override
