@@ -1,7 +1,9 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
+import "package:provider/provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "../../../providers/cart_provider.dart";
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -33,19 +35,63 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     }
     final prefs = await SharedPreferences.getInstance();
 
-    // Si hay un pago Webpay pendiente (app fue matada mientras el Chrome
-    // Custom Tab estaba abierto), redirigir al checkout para que el usuario
-    // pueda reintentar o ver el estado de su orden.
+    // Si hay un pago Webpay pendiente, verificar que la orden siga viva
+    // antes de redirigir. Si la orden ya fue pagada, cancelada o no existe,
+    // limpiamos SharedPreferences y seguimos al home normalmente.
     final pendingOrderId = prefs.getString("pending_webpay_order_id");
     if (pendingOrderId != null && pendingOrderId.isNotEmpty) {
       if (!mounted) return;
-      context.go("/checkout");
-      return;
+
+      // Verificar estado real de la orden en BD
+      String? payStatus;
+      try {
+        final data = await Supabase.instance.client
+            .from("orders")
+            .select("payment_status")
+            .eq("id", pendingOrderId)
+            .maybeSingle();
+        payStatus = data?["payment_status"] as String?;
+      } catch (_) {
+        // Si no podemos consultar, asumir que la orden ya no es válida
+      }
+
+      if (payStatus == "paid") {
+        // El pago se completó mientras la app estaba fuera → ir a éxito
+        await _clearPendingWebpayPrefs(prefs);
+        if (!mounted) return;
+        context.go("/order-success/$pendingOrderId");
+        return;
+      } else if (payStatus == "pending") {
+        // Orden sigue pendiente → restaurar el storeId para que el redirect
+        // de /checkout no caiga en /cart, y mostrar el diálogo de continuar.
+        final savedStoreId = prefs.getString("pending_webpay_store_id");
+        if (!mounted) return;
+        if (savedStoreId != null && savedStoreId.isNotEmpty) {
+          try {
+            context.read<CartProvider>().activeStoreId = savedStoreId;
+          } catch (_) {}
+        }
+        if (!mounted) return;
+        context.go("/checkout");
+        return;
+      } else {
+        // payStatus es null (orden no existe), "failed", u otro →
+        // la orden ya no es relevante, limpiar y seguir al home
+        await _clearPendingWebpayPrefs(prefs);
+      }
     }
 
+    if (!mounted) return;
     final locationConfigured = prefs.getBool("location_configured") ?? false;
     if (!mounted) return;
     context.go(locationConfigured ? "/home" : "/location");
+  }
+
+  Future<void> _clearPendingWebpayPrefs(SharedPreferences prefs) async {
+    await prefs.remove("pending_webpay_order_id");
+    await prefs.remove("pending_webpay_token");
+    await prefs.remove("pending_webpay_url");
+    await prefs.remove("pending_webpay_store_id");
   }
 
   @override
