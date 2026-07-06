@@ -174,7 +174,7 @@ class _CartScreenState extends State<CartScreen> {
                       ]),
                 ),
                 Text(
-                  _fmt(widget, sub),
+                  _fmt(sub),
                   style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 16,
@@ -242,7 +242,7 @@ class _CartScreenState extends State<CartScreen> {
                   Text(item.variant!,
                       style: const TextStyle(
                           color: AppColors.textLight, fontSize: 11)),
-                Text(_fmt(widget, item.totalPrice),
+                Text(_fmt(item.totalPrice),
                     style: const TextStyle(
                         color: AppColors.accent,
                         fontWeight: FontWeight.w700,
@@ -326,7 +326,7 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
-  String _fmt(Widget widget, int p) =>
+  String _fmt(int p) =>
       "\$${p.toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
 }
 

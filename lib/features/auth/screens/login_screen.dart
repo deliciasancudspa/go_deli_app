@@ -32,11 +32,19 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     final auth = context.read<AuthProvider>();
     final err = await auth.signIn(_emailCtrl.text.trim(), _passCtrl.text);
+    if (!mounted) return;
     if (err != null) {
       setState(() => _error = "Email o contrasena incorrectos");
-    } else if (mounted) {
+    } else {
       context.go("/home");
     }
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
   }
 
   @override

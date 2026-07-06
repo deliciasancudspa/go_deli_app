@@ -81,6 +81,42 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       }
     }
 
+    // Si hay un pago de Mercado Pago pendiente, verificar que la orden siga viva
+    final pendingMpOrderId = prefs.getString("pending_mp_order_id");
+    if (pendingMpOrderId != null && pendingMpOrderId.isNotEmpty) {
+      if (!mounted) return;
+
+      String? payStatus;
+      try {
+        final data = await Supabase.instance.client
+            .from("orders")
+            .select("payment_status")
+            .eq("id", pendingMpOrderId)
+            .maybeSingle();
+        payStatus = data?["payment_status"] as String?;
+      } catch (_) {}
+
+      if (payStatus == "paid") {
+        await _clearPendingMercadoPagoPrefs(prefs);
+        if (!mounted) return;
+        context.go("/order-success/$pendingMpOrderId");
+        return;
+      } else if (payStatus == "pending") {
+        final savedStoreId = prefs.getString("pending_mp_store_id");
+        if (!mounted) return;
+        if (savedStoreId != null && savedStoreId.isNotEmpty) {
+          try {
+            context.read<CartProvider>().activeStoreId = savedStoreId;
+          } catch (_) {}
+        }
+        if (!mounted) return;
+        context.go("/checkout");
+        return;
+      } else {
+        await _clearPendingMercadoPagoPrefs(prefs);
+      }
+    }
+
     if (!mounted) return;
     final locationConfigured = prefs.getBool("location_configured") ?? false;
     if (!mounted) return;
@@ -92,6 +128,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await prefs.remove("pending_webpay_token");
     await prefs.remove("pending_webpay_url");
     await prefs.remove("pending_webpay_store_id");
+  }
+
+  Future<void> _clearPendingMercadoPagoPrefs(SharedPreferences prefs) async {
+    await prefs.remove("pending_mp_order_id");
+    await prefs.remove("pending_mp_init_point");
+    await prefs.remove("pending_mp_store_id");
   }
 
   @override

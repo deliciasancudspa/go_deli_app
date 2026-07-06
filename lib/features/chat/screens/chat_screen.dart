@@ -26,6 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _sending  = false;
   int  _prevMsgCount = 0;
   Timer? _pollTimer;
+  RealtimeChannel? _realtimeChannel;
   late final Uint8List _beepWav;
 
   @override
@@ -38,6 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _realtimeChannel?.unsubscribe();
     _audioPlayer.dispose();
     _msgCtrl.dispose();
     _scroll.dispose();
@@ -63,7 +65,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _subscribeRealtime() {
-    _sb.channel("chat_client_${widget.orderId}")
+    _realtimeChannel = _sb.channel("chat_client_${widget.orderId}")
       .onPostgresChanges(
         event: PostgresChangeEvent.insert,
         schema: "public",

@@ -36,6 +36,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       final user = _sb.auth.currentUser;
       if (user == null) { setState(() => _loading = false); return; }
       final u = await _sb.from("users").select("id").eq("auth_id", user.id).maybeSingle();
+      if (!mounted) return;
       if (u == null) { setState(() => _loading = false); return; }
       final o = await _sb.from("orders").select("*, stores(name,emoji), order_items(item_name,quantity,item_price,subtotal)").eq("client_id", u["id"]).order("created_at", ascending: false);
       if (mounted) setState(() { _orders = List<Map<String, dynamic>>.from(o); _loading = false; });

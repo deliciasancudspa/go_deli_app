@@ -952,6 +952,7 @@ class _AddressesSheetState extends State<_AddressesSheet> {
         ],
       )),
     );
+    ctrl.dispose();
   }
 
   @override

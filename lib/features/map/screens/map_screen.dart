@@ -20,6 +20,7 @@ class _MapScreenState extends State<MapScreen> {
   bool _loading = true;
   bool _following = true;
   Timer? _pollTimer;
+  RealtimeChannel? _realtimeChannel;
   final _sb = Supabase.instance.client;
 
   static const _defaultPos = LatLng(-41.8695, -73.8303); // Ancud
@@ -49,6 +50,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _realtimeChannel?.unsubscribe();
     _mapCtrl?.dispose();
     super.dispose();
   }
@@ -76,7 +78,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _subscribeRider() {
-    _sb.channel("rider_map_${widget.orderId}")
+    _realtimeChannel = _sb.channel("rider_map_${widget.orderId}")
       .onPostgresChanges(
         event: PostgresChangeEvent.update,
         schema: "public",

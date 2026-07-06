@@ -94,16 +94,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final status = Uri.base.queryParameters["payment_status"];
     if (status == null) return;
     final orderId = Uri.base.queryParameters["order_id"];
-    if (status == "approved" && orderId != null) {
-      context.read<CartProvider>().clearStoreCart(widget.storeId);
-      context.go("/order-success/$orderId");
-    } else if (status == "cancelled") {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Pago cancelado"), backgroundColor: AppColors.warning));
-    } else if (status == "rejected") {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Pago rechazado — intenta con otro método"), backgroundColor: AppColors.error));
-    }
+    // Defer UI operations until after the first frame to ensure the widget tree
+    // is fully built and ScaffoldMessenger ancestor is available.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (status == "approved" && orderId != null) {
+        context.read<CartProvider>().clearStoreCart(widget.storeId);
+        context.go("/order-success/$orderId");
+      } else if (status == "cancelled") {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Pago cancelado"), backgroundColor: AppColors.warning));
+      } else if (status == "rejected") {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Pago rechazado — intenta con otro método"), backgroundColor: AppColors.error));
+      }
+    });
   }
 
   // Si el proceso fue matado por Android mientras se pagaba con Webpay,
@@ -374,14 +379,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final res = await _sb.from("coupons").select("*")
           .eq("code", code).eq("is_active", true).maybeSingle();
       if (res == null) {
-        setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón no válido"; });
+        if (mounted) setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón no válido"; });
         return;
       }
       // Validar vigencia
       if (res["expires_at"] != null) {
         final exp = DateTime.tryParse(res["expires_at"] as String);
         if (exp != null && exp.isBefore(DateTime.now())) {
-          setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón expirado"; });
+          if (mounted) setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón expirado"; });
           return;
         }
       }
@@ -389,22 +394,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final maxUses = res["max_uses"] as int?;
       final curUses = (res["uses_count"] as int?) ?? 0;
       if (maxUses != null && curUses >= maxUses) {
-        setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón agotado"; });
+        if (mounted) setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón agotado"; });
         return;
       }
       final pct = (res["discount_value"] as num?)?.toDouble() ?? 0;
       if (pct <= 0) {
-        setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón no válido"; });
+        if (mounted) setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Cupón no válido"; });
         return;
       }
-      setState(() {
+      if (mounted) setState(() {
         _discount = pct / 100;
         _couponCode = code;
         _couponValid = true;
         _couponMsg = "✅ ${pct.toStringAsFixed(0)}% de descuento aplicado";
       });
     } catch (_) {
-      setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Error al validar cupón"; });
+      if (mounted) setState(() { _discount = 0; _couponCode = ""; _couponValid = false; _couponMsg = "❌ Error al validar cupón"; });
     }
   }
 
@@ -413,6 +418,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final xfile = await _imagePicker.pickImage(source: source, imageQuality: 85, maxWidth: 1920);
       if (xfile == null) return;
       final bytes = await xfile.readAsBytes();
+      if (!mounted) return;
       setState(() {
         _prescriptionBytes = bytes;
         _prescriptionFileName = xfile.name;
@@ -613,7 +619,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "status": "cancelled",
         "payment_status": "failed",
       }).eq("id", id);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("❌ _cancelPendingWebpayOrder failed for $id: $e");
+    }
   }
 
   Future<void> _launchWebpay(String orderId) async {
