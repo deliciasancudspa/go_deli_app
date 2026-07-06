@@ -938,3 +938,46 @@ BEGIN
       WITH CHECK (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
   END IF;
 END $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Go Business 2.0 — Tablas de grupos reutilizables (variantes + opciones)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+DO $$
+BEGIN
+  -- variant_groups
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='variant_groups') THEN
+    ALTER TABLE public.variant_groups ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS variant_groups_select ON public.variant_groups;
+    CREATE POLICY variant_groups_select ON public.variant_groups FOR SELECT TO authenticated
+      USING (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
+    DROP POLICY IF EXISTS variant_groups_write ON public.variant_groups;
+    CREATE POLICY variant_groups_write ON public.variant_groups FOR ALL TO authenticated
+      USING (store_id IN (SELECT public.my_store_ids()) OR public.is_admin())
+      WITH CHECK (store_id IN (SELECT public.my_store_ids()) OR public.is_admin());
+  END IF;
+
+  -- variant_items
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='variant_items') THEN
+    ALTER TABLE public.variant_items ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS variant_items_select ON public.variant_items;
+    CREATE POLICY variant_items_select ON public.variant_items FOR SELECT TO authenticated
+      USING (group_id IN (SELECT id FROM public.variant_groups WHERE store_id IN (SELECT public.my_store_ids())) OR public.is_admin());
+    DROP POLICY IF EXISTS variant_items_write ON public.variant_items;
+    CREATE POLICY variant_items_write ON public.variant_items FOR ALL TO authenticated
+      USING (group_id IN (SELECT id FROM public.variant_groups WHERE store_id IN (SELECT public.my_store_ids())) OR public.is_admin())
+      WITH CHECK (group_id IN (SELECT id FROM public.variant_groups WHERE store_id IN (SELECT public.my_store_ids())) OR public.is_admin());
+  END IF;
+
+  -- menu_item_variant_groups
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public' AND tablename='menu_item_variant_groups') THEN
+    ALTER TABLE public.menu_item_variant_groups ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS mivg_select ON public.menu_item_variant_groups;
+    CREATE POLICY mivg_select ON public.menu_item_variant_groups FOR SELECT TO authenticated
+      USING (public.is_admin() OR item_id IN (SELECT id FROM public.menu_items WHERE store_id IN (SELECT public.my_store_ids())));
+    DROP POLICY IF EXISTS mivg_write ON public.menu_item_variant_groups;
+    CREATE POLICY mivg_write ON public.menu_item_variant_groups FOR ALL TO authenticated
+      USING (public.is_admin() OR item_id IN (SELECT id FROM public.menu_items WHERE store_id IN (SELECT public.my_store_ids())))
+      WITH CHECK (public.is_admin() OR item_id IN (SELECT id FROM public.menu_items WHERE store_id IN (SELECT public.my_store_ids())));
+  END IF;
+END $$;
