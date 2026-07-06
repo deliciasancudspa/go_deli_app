@@ -7,7 +7,6 @@ import "package:supabase_flutter/supabase_flutter.dart";
 import "package:image_picker/image_picker.dart";
 import "package:geolocator/geolocator.dart";
 import "package:url_launcher/url_launcher.dart";
-import "package:flutter_svg/flutter_svg.dart";
 import "dart:typed_data";
 import "dart:math";
 import "dart:convert";
@@ -874,7 +873,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(height: 8),
         _payMethodCard("webpay", Image.asset("assets/images/webpay_logo.png", fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.credit_card, color: AppColors.textDark, size: 28)), "WebPay", "Débito o crédito online"),
         const SizedBox(height: 8),
-        _payMethodCard("mercadopago", SvgPicture.asset("assets/images/mercadopago_logo.svg", width: 72, height: 36, fit: BoxFit.contain), "Mercado Pago", "Débito, crédito y más"),
+        _payMethodCard("mercadopago", Image.asset("assets/images/mercadopago_logo.png", fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.account_balance_wallet, color: AppColors.textDark, size: 28)), "Mercado Pago", "Débito, crédito y más"),
         const SizedBox(height: 20),
 
         // Cupon
