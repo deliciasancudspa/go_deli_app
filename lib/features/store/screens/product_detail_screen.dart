@@ -317,13 +317,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (s.isNotEmpty) rows.add([label, "$s$suffix"]);
     }
 
+    // ── Farmacia ──────────────────────────────────────────────────────────
     add("🏭 Laboratorio", x["laboratorio"]);
     add("💊 Principio activo", _item?["active_ingredient"]);
     add("📦 Formato", x["formato"]);
-    add("🏷️ Marca", x["marca"]);
+    add("🏛️ Registro ISP", _item?["isp_registry"]);
+
+    // ── Mercado ───────────────────────────────────────────────────────────
+    add("🏷️ Marca", _item?["brand"] ?? x["marca"]);
     if ((x["unidad"] ?? "un") != "un") add("⚖️ Se vende por", x["unidad"]);
-    add("🔢 Código", x["sku"]);
+    add("🔢 SKU", _item?["sku"] ?? x["sku"]);
+    add("📊 Código de barras", _item?["barcode"] ?? x["codigo_barras"]);
+    add("🔖 N° Lote", _item?["lot_number"]);
+    add("📅 Vencimiento", _item?["expiration_date"]);
+
+    // ── Tienda ────────────────────────────────────────────────────────────
     add("🛡️ Garantía", x["garantia"]);
+    add("📐 Dimensiones", x["dimensiones"]);
+
+    // ── Restaurante ───────────────────────────────────────────────────────
     add("⏱️ Preparación", _item?["preparation_time"], " min");
     add("🔥 Calorías", _item?["calories"], " kcal");
     final allergens = _item?["allergens"] as String?;
