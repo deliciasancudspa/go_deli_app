@@ -19,11 +19,6 @@ import "address_picker_screen.dart";
 import "webpay_screen.dart";
 import "mercadopago_screen.dart";
 
-// URLs de logos de métodos de pago (raw GitHub = accesibles desde web y móvil,
-// sin depender de que el asset bundle incluya los archivos en el deploy de Vercel)
-const _kWebpayLogoUrl = "https://raw.githubusercontent.com/deliciasancudspa/go_deli_app/main/assets/images/webpay_logo.png";
-const _kMercadoPagoLogoUrl = "https://raw.githubusercontent.com/deliciasancudspa/go_deli_app/main/assets/images/mercadopago_logo.png";
-
 // Valores por defecto del fee de delivery. Son configurables desde el panel
 // admin (tabla `config`, key `delivery_fees`) y se aplican a toda la plataforma.
 // La tarifa base se cobra desde 0 km y suma por cada 0.1 km (100 m).
@@ -876,9 +871,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         else
           _payMethodCard("cash", const Icon(Icons.monetization_on_outlined, color: AppColors.success, size: 28), "Efectivo", "Paga al recibir"),
         const SizedBox(height: 8),
-        _payMethodCard("webpay", Image.network(_kWebpayLogoUrl, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.credit_card, color: AppColors.textDark, size: 28)), "WebPay", "Débito o crédito online"),
+        _payMethodCard("webpay", Image.asset("assets/images/webpay_logo.png", fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.credit_card, color: AppColors.textDark, size: 28)), "WebPay", "Débito o crédito online"),
         const SizedBox(height: 8),
-        _payMethodCard("mercadopago", Image.network(_kMercadoPagoLogoUrl, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.account_balance_wallet, color: AppColors.textDark, size: 28)), "Mercado Pago", "Débito, crédito y más"),
+        _payMethodCard("mercadopago", Image.asset("assets/images/mercadopago_logo.png", fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.account_balance_wallet, color: AppColors.textDark, size: 28)), "Mercado Pago", "Débito, crédito y más"),
         const SizedBox(height: 20),
 
         // Cupon
