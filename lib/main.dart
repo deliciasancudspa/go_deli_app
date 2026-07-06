@@ -30,8 +30,8 @@ void _handleFcmData(Map<String, dynamic> data) {
 
   if (route == "store" && storeId.isNotEmpty) {
     appRouter.push("/store/$storeId");
-  } else if (route == "product" && storeId.isNotEmpty) {
-    appRouter.push("/product/$storeId");  // product detail usa store_id como contexto
+  } else if (route == "product" && productId.isNotEmpty) {
+    appRouter.push("/product/$productId");
   } else if (route == "url" && url.isNotEmpty) {
     appRouter.push("/home");  // url externa: abrir home; el navegador se abre desde la notificación
   } else if (route == "home") {

@@ -477,7 +477,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       // El total (lo que paga el cliente y cobra el rider) incluye la tarifa de
       // servicio. El aliado NO la ve: su total = finalSub + delivFee.
-      final total = finalSub + delivFee + serviceFee;
+      final total = finalSub + delivFee + serviceFee + platformFee + fixedFee;
       // retiro: cliente muestra pickup_code a la tienda
       // delivery: delivery_code lo da el cliente al rider; pickup_code lo genera el sistema al asignar rider
       final pickupCode = _deliveryType == "pickup" ? _generateCode() : null;
@@ -548,11 +548,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       try {
         await _sb.from("order_items").insert(storeItems.map((item) => {
           "order_id": order["id"],
-          "menu_item_id": item.id,
+          "menu_item_id": item.id.split("__").first,
           "item_name": item.name,
           "item_price": item.price,
           "quantity": item.quantity,
           "subtotal": item.price * item.quantity,
+          if (item.variant != null) "variant": item.variant,
+          if (item.extras.isNotEmpty) "extras": item.extras,
         }).toList());
       } catch (itemsError) {
         // Si falla la inserción de items, eliminar la orden para no dejarla huérfana

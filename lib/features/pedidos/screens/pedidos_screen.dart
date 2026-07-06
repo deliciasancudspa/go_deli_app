@@ -123,7 +123,7 @@ class _PedidosScreenState extends State<PedidosScreen>
       if (mounted) setState(() {
         if (reset) _orders = list; else _orders.addAll(list);
         _hasMore = list.length == _pageSize;
-        if (!reset) _page++;
+        if (reset) _page = 1; else _page++;
         _loading = false;
       });
     } catch (_) {

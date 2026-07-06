@@ -421,6 +421,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(height: 10),
         ],
 
+        // Acción: Recogí el pedido (solo accepted)
+        if (status == "accepted") ElevatedButton.icon(
+          onPressed: () => _updateStatus("picked_up"),
+          icon: const Icon(Icons.shopping_bag),
+          label: const Text("Recogí el pedido"),
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, minimumSize: const Size(double.infinity, 50)),
+        ),
+
         // Acción: En camino (solo picked_up)
         if (status == "picked_up") ElevatedButton.icon(
           onPressed: () => _updateStatus("on_the_way"),

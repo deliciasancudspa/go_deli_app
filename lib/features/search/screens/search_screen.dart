@@ -1,3 +1,4 @@
+import "dart:async";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -20,6 +21,7 @@ class _SearchScreenState extends State<SearchScreen> {
   String _filter = "all";
   final _sb = Supabase.instance.client;
   String? _communeId;
+  Timer? _debounce;
 
   final _filters = [
     {"id": "all",   "label": "Todos"},
@@ -28,6 +30,11 @@ class _SearchScreenState extends State<SearchScreen> {
     {"id": "cheap", "label": "Envio barato"},
     {"id": "rated", "label": "Mejor rating"},
   ];
+
+  void _onSearchChanged(String q) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () => _search(q));
+  }
 
   Future<void> _search(String q) async {
     if (q.isEmpty) {
@@ -90,6 +97,13 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   @override
+  void dispose() {
+    _debounce?.cancel();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final hasResults = _storeResults.isNotEmpty || _productResults.isNotEmpty;
     return Scaffold(
@@ -106,7 +120,7 @@ class _SearchScreenState extends State<SearchScreen> {
             hintStyle: TextStyle(color: Colors.white.withOpacity(0.70)),
             border: InputBorder.none, filled: false,
           ),
-          onChanged: _search,
+          onChanged: _onSearchChanged,
         ),
       ),
       body: Column(children: [

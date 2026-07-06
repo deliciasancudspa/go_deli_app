@@ -56,7 +56,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   }
 
   Future<void> _load() async {
-    final o = await _sb.from("orders").select("*, stores(name,emoji)").eq("id", widget.orderId).single();
+    final o = await _sb.from("orders").select("*, stores(id,name,emoji), deliverers(id,user_id,current_lat,current_lng,users(name,phone))").eq("id", widget.orderId).single();
     if (mounted) setState(() => _order = o);
   }
 

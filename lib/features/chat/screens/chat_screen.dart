@@ -57,7 +57,6 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) setState(() { _order = order; _loading = false; });
       await _loadMessages();
       _subscribeRealtime();
-      _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _loadMessages());
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -79,6 +78,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final result = await _sb.from("chat_messages")
         .select("*, users!chat_messages_sender_id_fkey(name)")
         .eq("order_id", widget.orderId)
+        .limit(50)
         .order("created_at", ascending: false);
       if (!mounted) return;
       final newList = List<Map<String, dynamic>>.from(result);
