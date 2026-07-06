@@ -711,13 +711,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         body["web_url"] = Uri.base.toString();
       }
       final res = await _sb.functions.invoke("mercadopago-create", body: body);
-      if (res.data == null || res.data["init_point"] == null) {
+      if (res.data == null || (res.data["init_point"] == null && res.data["sandbox_init_point"] == null)) {
         final errMsg = res.data?["error"] ?? "Error al iniciar Mercado Pago";
         final detail = res.data?["detail"];
         final detailStr = detail is String ? detail : "";
         throw Exception(detailStr.isNotEmpty ? "$errMsg: $detailStr" : errMsg.toString());
       }
-      final initPoint = res.data["init_point"] as String;
+      // Usar sandbox_init_point para testing con credenciales APP_USR + test users
+      final initPoint = (res.data["sandbox_init_point"] ?? res.data["init_point"]) as String;
 
       if (!mounted) return;
       final cart = context.read<CartProvider>();
