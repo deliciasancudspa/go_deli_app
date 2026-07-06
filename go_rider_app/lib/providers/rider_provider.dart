@@ -16,6 +16,7 @@ class RiderProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _activeOrders = [];
   StreamSubscription<String>? _fcmTokenSub;
   List<Map<String, dynamic>> _orderHistory = [];
+  DateTime? _lastCommuneUpdate;
 
   Map<String, dynamic>? get user => _user;
   Map<String, dynamic>? get rider => _rider;
@@ -92,13 +93,25 @@ class RiderProvider extends ChangeNotifier {
   }
 
   Future<String?> register({required String name, required String email, required String password, required String phone, required String rut, required String vehicle, required String plate, required String bankName, required String accountType, required String accountNumber, required String accountHolder, required String accountRut, String? communeId, String? signerName, String? signerRut, String? signatureImage}) async {
+    String? authUid;
     try {
       _loading = true; notifyListeners();
       final res = await _sb.auth.signUp(email: email, password: password);
       if (res.user == null) throw Exception("Error al crear cuenta");
-      final user = await _sb.from("users").insert({"auth_id": res.user!.id, "email": email, "name": name, "phone": phone, "role": "deliverer"}).select().single();
-      final rider = await _sb.from("deliverers").insert({"user_id": user["id"], "vehicle_type": vehicle, "vehicle_plate": plate, "status": "pending", "is_online": false, "is_available": false, "commune_id": communeId}).select().single();
-      await _sb.from("deliverer_bank_info").insert({"deliverer_id": rider["id"], "bank_name": bankName, "account_type": accountType, "account_number": accountNumber, "account_holder": accountHolder, "rut": accountRut});
+      authUid = res.user!.id;
+      final user = await _sb.from("users").insert({"auth_id": authUid, "email": email, "name": name, "phone": phone, "role": "deliverer"}).select().single();
+      Map<String, dynamic> rider;
+      try {
+        rider = await _sb.from("deliverers").insert({"user_id": user["id"], "vehicle_type": vehicle, "vehicle_plate": plate, "status": "pending", "is_online": false, "is_available": false, "commune_id": communeId}).select().single();
+        await _sb.from("deliverer_bank_info").insert({"deliverer_id": rider["id"], "bank_name": bankName, "account_type": accountType, "account_number": accountNumber, "account_holder": accountHolder, "rut": accountRut});
+      } catch (insertError) {
+        // Rollback: borrar usuario y auth user si falla inserción de rider/bank
+        await _sb.from("users").delete().eq("id", user["id"]);
+        try {
+          await _sb.functions.invoke('admin-delete-user', body: {'user_id': authUid});
+        } catch (_) {}
+        throw Exception("Error al crear perfil de repartidor. Intenta de nuevo.");
+      }
 
       // ── Guardar contrato y consentimientos en notificación admin ──
       final signedAt = DateTime.now().toIso8601String();
@@ -187,6 +200,9 @@ class RiderProvider extends ChangeNotifier {
       // Solo actualizar si han pasado al menos 5 min desde la última detección
       // o si el rider no tiene commune_id
       final currentCommuneId = _rider?['commune_id'] as String?;
+      if (currentCommuneId != null && _lastCommuneUpdate != null) {
+        if (DateTime.now().difference(_lastCommuneUpdate!).inMinutes < 5) return;
+      }
 
       // Usar Google Geocoding API para obtener la comuna
       final uri = Uri.parse(
@@ -235,6 +251,7 @@ class RiderProvider extends ChangeNotifier {
       }).eq("id", riderId);
 
       _rider!['commune_id'] = newCommuneId;
+      _lastCommuneUpdate = DateTime.now();
       notifyListeners();
     } catch (_) {}
   }

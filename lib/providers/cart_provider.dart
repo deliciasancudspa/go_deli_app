@@ -163,13 +163,13 @@ class CartProvider extends ChangeNotifier {
 
   /// Elimina un item del carrito activo (backward compat).
   /// Si la cantidad llega a 0, elimina el item. Si el store queda vacío, lo elimina.
-  void removeItem(String id, {String? variant}) {
+  void removeItem(String id, {String? variant, List<Map<String, dynamic>>? extras}) {
     if (_activeStoreId == null) return;
     final list = _carts[_activeStoreId];
     if (list == null) return;
 
     final idx = list.indexWhere(
-        (i) => i.id == id && (variant == null || i.variant == variant));
+        (i) => i.id == id && (variant == null || i.variant == variant) && (extras == null || _extrasMatch(i.extras, extras)));
     if (idx < 0) return;
 
     if (list[idx].quantity > 1) {
@@ -188,23 +188,23 @@ class CartProvider extends ChangeNotifier {
   }
 
   /// Cantidad de un item en el carrito activo (backward compat).
-  int getQuantity(String id) {
+  int getQuantity(String id, {String? variant, List<Map<String, dynamic>>? extras}) {
     if (_activeStoreId == null) return 0;
     final list = _carts[_activeStoreId];
     if (list == null) return 0;
     try {
-      return list.firstWhere((i) => i.id == id).quantity;
+      return list.firstWhere((i) => i.id == id && (variant == null || i.variant == variant) && (extras == null || _extrasMatch(i.extras, extras))).quantity;
     } catch (_) {
       return 0;
     }
   }
 
   /// Cantidad de un item en el carrito de una tienda específica.
-  int getStoreQuantity(String storeId, String itemId) {
+  int getStoreQuantity(String storeId, String itemId, {String? variant, List<Map<String, dynamic>>? extras}) {
     final list = _carts[storeId];
     if (list == null) return 0;
     try {
-      return list.firstWhere((i) => i.id == itemId).quantity;
+      return list.firstWhere((i) => i.id == itemId && (variant == null || i.variant == variant) && (extras == null || _extrasMatch(i.extras, extras))).quantity;
     } catch (_) {
       return 0;
     }

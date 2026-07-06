@@ -244,7 +244,7 @@ class _StoreScreenState extends State<StoreScreen> {
                   else if (qty > 0)
                     Row(children: [
                       GestureDetector(
-                        onTap: () => cart.removeItem(item["id"] as String),
+                        onTap: () => cart.removeItem(item["id"] as String, variant: (item["variant"] as String?)),
                         child: Container(width: 28, height: 28,
                             decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
                             child: const Icon(Icons.remove, color: Colors.white, size: 14))),

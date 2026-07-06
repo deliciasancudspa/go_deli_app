@@ -172,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (route == "product" && storeId.isNotEmpty) {
       appRouter.push("/product/$storeId");
     } else if (route == "url" && url.isNotEmpty) {
-      appRouter.push("/home");
+      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } else if (route == "home") {
       appRouter.push("/home");
     }
@@ -331,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Dynamic home sections: filter by screen server-side, commune client-side
       final sectionsRaw = await _sb
           .from("home_sections")
-          .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
+          .select("*, home_section_stores(sort_order, product_id, stores(id, name, logo_url, cover_url, emoji, rating, delivery_time, delivery_fee_client, delivery_fee_store, is_open, category, sponsored, delivery_methods, delivery_priority), menu_items!home_section_stores_product_id_fkey(id, name, price, image_url))")
           .or('screen.eq.home,screen.eq.all')
           .eq("is_active", true)
           .order("sort_order");

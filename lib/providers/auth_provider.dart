@@ -98,8 +98,14 @@ class AuthProvider extends ChangeNotifier {
             "role": "client",
           });
         } catch (profileError) {
-          // Si falla el INSERT en users, eliminar el auth user para no dejar
-          // un usuario huérfano que no puede loguearse (sin perfil).
+          // Si falla el INSERT en users, borrar auth user con Admin API
+          // para no dejar un usuario huérfano que no puede loguearse.
+          try {
+            final uid = _sb.auth.currentUser?.id;
+            if (uid != null) {
+              await _sb.functions.invoke('admin-delete-user', body: {'user_id': uid});
+            }
+          } catch (_) { /* best-effort: si la Edge Function no existe, el cleanup lo hará un cron */ }
           await _sb.auth.signOut();
           return "Error al crear perfil. Intenta de nuevo.";
         }

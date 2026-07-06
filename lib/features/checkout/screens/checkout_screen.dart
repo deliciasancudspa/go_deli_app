@@ -63,7 +63,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Uint8List? _prescriptionBytes;
   String _prescriptionFileName = "";
   // Orden Webpay pendiente (reutilizar en vez de crear una nueva si el pago falló)
-  String? _pendingWebpayOrderId;
+  String? _pendingPaymentOrderId;
   final _sb = Supabase.instance.client;
   final _imagePicker = ImagePicker();
 
@@ -74,7 +74,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void dispose() {
     // Si el usuario abandona el checkout sin completar el pago Webpay/Khipu,
     // cancelar la orden para que no quede como pending_payment huérfana.
-    if (_pendingWebpayOrderId != null) {
+    if (_pendingPaymentOrderId != null) {
       _cancelPendingWebpayOrder();
     }
     _addressCtrl.dispose();
@@ -438,8 +438,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // Si hay una orden pendiente previa (pago cancelado/fallido),
     // reutilizarla en vez de crear una nueva. Validar que siga en estado
     // pending_payment (webpay-return pudo haberla marcado como cancelled).
-    if ((_payMethod == "webpay" || _payMethod == "mercadopago") && _pendingWebpayOrderId != null) {
-      final reuseId = _pendingWebpayOrderId!;
+    if ((_payMethod == "webpay" || _payMethod == "mercadopago") && _pendingPaymentOrderId != null) {
+      final reuseId = _pendingPaymentOrderId!;
       final check = await _sb.from("orders").select("status")
           .eq("id", reuseId).maybeSingle();
       if (check != null && check["status"] == "pending_payment") {
@@ -451,7 +451,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return;
       }
       // La orden ya fue cancelada o no existe — resetear y crear una nueva
-      _pendingWebpayOrderId = null;
+      _pendingPaymentOrderId = null;
     }
 
     try {
@@ -595,13 +595,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // Marcar la orden pendiente como cancelada y limpiar el estado local.
   // Solo cancela si el pago NO fue completado (evita race condition con webpay-return).
   Future<void> _cancelPendingWebpayOrder() async {
-    final id = _pendingWebpayOrderId;
+    final id = _pendingPaymentOrderId;
     if (id == null) return;
     // No usar setState si el widget se está destruyendo (llamado desde dispose)
     if (mounted) {
-      setState(() => _pendingWebpayOrderId = null);
+      setState(() => _pendingPaymentOrderId = null);
     } else {
-      _pendingWebpayOrderId = null;
+      _pendingPaymentOrderId = null;
     }
     try {
       // Verificar que la orden NO esté pagada antes de cancelar
@@ -652,7 +652,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ));
         // Si llegamos aquí = pago no completado; guardar para reutilizar la orden
-        if (mounted) setState(() => _pendingWebpayOrderId = orderId);
+        if (mounted) setState(() => _pendingPaymentOrderId = orderId);
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error WebPay: $e"), backgroundColor: AppColors.error));
@@ -703,7 +703,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ));
         // Si llegamos aquí = pago Khipu no completado; guardar para reutilizar la orden
-        if (mounted) setState(() => _pendingWebpayOrderId = orderId);
+        if (mounted) setState(() => _pendingPaymentOrderId = orderId);
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error Khipu: $e"), backgroundColor: AppColors.error));
@@ -739,7 +739,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             storeId: widget.storeId,
           ),
         ));
-        if (mounted) setState(() => _pendingWebpayOrderId = orderId);
+        if (mounted) setState(() => _pendingPaymentOrderId = orderId);
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error Mercado Pago: $e"), backgroundColor: AppColors.error));
@@ -1062,7 +1062,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final disabled = _deliveryType == "pickup" && method == "cash";
     return GestureDetector(
       onTap: disabled ? null : () {
-        if (method != "webpay" && method != "mercadopago" && _pendingWebpayOrderId != null) {
+        if (method != "webpay" && method != "mercadopago" && _pendingPaymentOrderId != null) {
           // Cancelar la orden pendiente si el usuario cambia a efectivo
           _cancelPendingWebpayOrder();
         }
