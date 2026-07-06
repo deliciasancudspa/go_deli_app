@@ -590,7 +590,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  // Marcar la orden Webpay pendiente como cancelada y limpiar el estado local
+  // Marcar la orden pendiente como cancelada y limpiar el estado local.
+  // Solo cancela si el pago NO fue completado (evita race condition con webpay-return).
   Future<void> _cancelPendingWebpayOrder() async {
     final id = _pendingWebpayOrderId;
     if (id == null) return;
@@ -601,6 +602,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _pendingWebpayOrderId = null;
     }
     try {
+      // Verificar que la orden NO esté pagada antes de cancelar
+      final check = await _sb.from("orders").select("payment_status").eq("id", id).maybeSingle();
+      if (check != null && check["payment_status"] == "paid") return; // ya fue pagada, no cancelar
       await _sb.from("orders").update({
         "status": "cancelled",
         "payment_status": "failed",
