@@ -74,7 +74,6 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription<List<ConnectivityResult>>?  _connectSub;
   bool _isOnline = true;
   bool _loadingHomeInProgress = false;
-  Timer? _placesDebounce;
 
   // ── Cached computed values ──────────────────────────────────────────────────
   List<Map<String, dynamic>> _cachedFeatured = [];
@@ -1344,6 +1343,7 @@ class _ChangeAddressSheetState extends State<_ChangeAddressSheet> {
   final _sb         = Supabase.instance.client;
   final _searchCtrl = TextEditingController();
   final _dio        = Dio();
+  Timer? _placesDebounce;
 
   bool _loadingGps    = false;
   bool _searching     = false;

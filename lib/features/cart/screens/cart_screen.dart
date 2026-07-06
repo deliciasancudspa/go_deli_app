@@ -201,7 +201,7 @@ class _CartScreenState extends State<CartScreen> {
                     cart.activeStoreId = storeId;
                     context.push("/checkout/$storeId");
                   },
-                  child: Text("Pagar · ${_fmt(widget, sub)}"),
+                  child: Text("Pagar · ${_fmt(sub)}"),
                 ),
               ),
             ),
