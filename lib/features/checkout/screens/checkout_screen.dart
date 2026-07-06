@@ -717,8 +717,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final detailStr = detail is String ? detail : "";
         throw Exception(detailStr.isNotEmpty ? "$errMsg: $detailStr" : errMsg.toString());
       }
-      // Usar sandbox_init_point para testing con credenciales APP_USR + test users
-      final initPoint = (res.data["sandbox_init_point"] ?? res.data["init_point"]) as String;
+      // Usar init_point (produccion real)
+      final initPoint = (res.data["init_point"] ?? res.data["sandbox_init_point"]) as String;
 
       if (!mounted) return;
       final cart = context.read<CartProvider>();
