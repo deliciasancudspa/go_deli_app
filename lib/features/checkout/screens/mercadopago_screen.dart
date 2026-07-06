@@ -1,0 +1,309 @@
+import "dart:async";
+import "package:flutter/material.dart";
+import "package:go_router/go_router.dart";
+import "package:provider/provider.dart";
+import "package:shared_preferences/shared_preferences.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
+import "package:url_launcher/url_launcher.dart";
+import "../../../core/theme/app_theme.dart";
+import "../../../providers/cart_provider.dart";
+
+// MercadoPagoScreen se abre en Chrome Custom Tab para que:
+// - el retorno a la app (godeli-webpay://done) funcione de forma confiable
+// - la comunicación banco → Mercado Pago no se rompa al volver de la app bancaria
+// - Android 11+ y Chrome moderno ya propagan deep links a apps bancarias desde Custom Tabs
+//
+// Detección de pago completado (3 mecanismos redundantes):
+// 1. Supabase Realtime — mercadopago-return/notify actualiza payment_status → WebSocket avisa al instante
+// 2. Polling cada 3s — fallback si Realtime se desconecta o no llega el evento
+// 3. didChangeAppLifecycleState + botón "Ya pagué" — verificaciones manuales
+
+class MercadoPagoScreen extends StatefulWidget {
+  final String mpInitPoint;
+  final String orderId;
+  final String? storeId;
+
+  const MercadoPagoScreen({
+    super.key,
+    required this.mpInitPoint,
+    required this.orderId,
+    this.storeId,
+  });
+
+  @override
+  State<MercadoPagoScreen> createState() => _MercadoPagoScreenState();
+}
+
+class _MercadoPagoScreenState extends State<MercadoPagoScreen> with WidgetsBindingObserver {
+  final _sb = Supabase.instance.client;
+  bool _handled = false;
+  bool _checking = false;
+  bool _launched = false;
+  StreamSubscription<List<Map<String, dynamic>>>? _realtimeSub;
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _saveState();
+    _startRealtime();
+    _startPolling();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openBrowser());
+  }
+
+  @override
+  void dispose() {
+    _realtimeSub?.cancel();
+    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // ─── Supabase Realtime ───────────────────────────────────────────
+  void _startRealtime() {
+    _realtimeSub = _sb
+        .from("orders")
+        .stream(primaryKey: ["id"])
+        .eq("id", widget.orderId)
+        .listen(_onRealtimeEvent, onError: (_) {});
+  }
+
+  void _onRealtimeEvent(List<Map<String, dynamic>> rows) {
+    if (_handled || !mounted) return;
+    for (final row in rows) {
+      final status = row["payment_status"] as String? ?? "";
+      if (status == "paid") {
+        _handleResult("approved", widget.orderId);
+        return;
+      } else if (status == "failed") {
+        _handleResult("rejected", widget.orderId);
+        return;
+      }
+    }
+  }
+
+  // ─── Polling (fallback) ──────────────────────────────────────────
+  void _startPolling() {
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!_handled && mounted && _launched) {
+        _checkPaymentStatus();
+      }
+    });
+  }
+
+  Future<void> _openBrowser() async {
+    if (_handled) return;
+    setState(() => _launched = true);
+    try {
+      await launchUrl(
+        Uri.parse(widget.mpInitPoint),
+        mode: LaunchMode.inAppBrowserView,
+      );
+    } catch (e) {
+      // Fallback: si Custom Tabs no está disponible, usar navegador externo
+      try {
+        await launchUrl(
+          Uri.parse(widget.mpInitPoint),
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (e2) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("No se pudo abrir el navegador: $e2"),
+            backgroundColor: AppColors.error,
+          ));
+        }
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_handled && _launched) {
+      _checkPaymentStatus();
+    }
+  }
+
+  Future<void> _checkPaymentStatus() async {
+    if (_checking || _handled) return;
+    setState(() => _checking = true);
+    try {
+      final data = await _sb
+          .from("orders")
+          .select("payment_status")
+          .eq("id", widget.orderId)
+          .maybeSingle();
+
+      if (data == null) return;
+      final payStatus = data["payment_status"] as String? ?? "pending";
+      if (payStatus == "paid" && !_handled) {
+        _handleResult("approved", widget.orderId);
+      } else if (payStatus == "failed" && !_handled) {
+        _handleResult("rejected", widget.orderId);
+      }
+    } catch (_) {
+      // Silencioso: el siguiente poll lo reintentará
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  void _handleResult(String status, String orderId) {
+    if (!mounted || _handled) return;
+    _handled = true;
+    _clearState();
+
+    if (status == "approved") {
+      if (widget.storeId != null) {
+        context.read<CartProvider>().clearStoreCart(widget.storeId!);
+      }
+      context.go("/order-success/$orderId");
+    } else if (status == "rejected") {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("❌ Pago rechazado. Crea un nuevo pedido para intentarlo de nuevo."),
+        backgroundColor: AppColors.error,
+        duration: Duration(seconds: 6),
+      ));
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Pago cancelado — puedes intentarlo de nuevo"),
+        backgroundColor: AppColors.warning,
+        duration: Duration(seconds: 4),
+      ));
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _saveState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("pending_mp_order_id", widget.orderId);
+    await prefs.setString("pending_mp_init_point", widget.mpInitPoint);
+    if (widget.storeId != null) {
+      await prefs.setString("pending_mp_store_id", widget.storeId!);
+    }
+  }
+
+  Future<void> _clearState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("pending_mp_order_id");
+    await prefs.remove("pending_mp_init_point");
+    await prefs.remove("pending_mp_store_id");
+  }
+
+  Widget _buildPulseDot() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 800),
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.8),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+
+  void _confirmCancel() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("¿Cancelar pago?"),
+        content: const Text("Si sales ahora el pago no se completará."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Seguir pagando"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // cerrar dialog
+              _clearState();
+              Navigator.of(context).pop(); // cerrar MercadoPagoScreen
+            },
+            child: const Text("Salir", style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Pago con Mercado Pago"),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: const GradientFlexibleSpace(),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: _confirmCancel,
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_checking)
+                const CircularProgressIndicator(color: AppColors.primary)
+              else
+                const Icon(Icons.open_in_browser, size: 64, color: AppColors.primary),
+              const SizedBox(height: 24),
+              Text(
+                _checking ? "Verificando pago..." : "Conectando con Mercado Pago...",
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "Completa el pago en el navegador.\nLa app detectará el pago automáticamente.",
+                style: TextStyle(color: AppColors.textLight),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              // Indicador de monitoreo activo (Realtime + polling)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildPulseDot(),
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Escuchando confirmación…",
+                    style: TextStyle(fontSize: 12, color: AppColors.textLight),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              if (!_checking) ...[
+                ElevatedButton.icon(
+                  onPressed: _openBrowser,
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text("Abrir navegador de pago"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _checkPaymentStatus,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Ya pagué — verificar"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

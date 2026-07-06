@@ -33,6 +33,18 @@ verify_jwt = true
 # Llamada internamente (trigger DB o admin)
 verify_jwt = true
 
+[functions.mercadopago-create]
+# Llamada desde la app Flutter (cliente autenticado con JWT)
+verify_jwt = true
+
+[functions.mercadopago-return]
+# Llamada por Mercado Pago (redirect HTTP) — no tiene JWT
+verify_jwt = false
+
+[functions.mercadopago-notify]
+# Llamada por webhook de Mercado Pago — no tiene JWT
+verify_jwt = false
+
 [functions.menu-import]
 # Llamada desde panel admin (cliente autenticado con JWT)
 verify_jwt = true

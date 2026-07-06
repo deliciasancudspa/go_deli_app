@@ -17,6 +17,7 @@ import "../../../providers/cart_provider.dart";
 import "../../../providers/auth_provider.dart";
 import "address_picker_screen.dart";
 import "webpay_screen.dart";
+import "mercadopago_screen.dart";
 
 // Valores por defecto del fee de delivery. Son configurables desde el panel
 // admin (tabla `config`, key `delivery_fees`) y se aplican a toda la plataforma.
@@ -67,7 +68,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _imagePicker = ImagePicker();
 
   @override
-  void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); _checkPendingWebpay(); _checkWebReturnParams(); }
+  void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); _checkPendingWebpay(); _checkPendingMercadoPago(); _checkWebReturnParams(); }
 
   @override
   void dispose() {
@@ -188,6 +189,76 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         await prefs.remove("pending_webpay_order_id");
         await prefs.remove("pending_webpay_token");
         await prefs.remove("pending_webpay_url");
+      }
+    } catch (_) {}
+  }
+
+  // Si el proceso fue matado por Android mientras se pagaba con Mercado Pago,
+  // verificar si el pago fue procesado y redirigir apropiadamente.
+  Future<void> _checkPendingMercadoPago() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingOrderId = prefs.getString("pending_mp_order_id");
+      if (pendingOrderId == null) return;
+
+      final data = await _sb
+          .from("orders")
+          .select("payment_status, status")
+          .eq("id", pendingOrderId)
+          .maybeSingle();
+
+      if (data == null) {
+        await prefs.remove("pending_mp_order_id");
+        await prefs.remove("pending_mp_init_point");
+        return;
+      }
+
+      final payStatus = data["payment_status"] as String? ?? "pending";
+
+      if (payStatus == "paid") {
+        final savedStoreId = prefs.getString("pending_mp_store_id");
+        await prefs.remove("pending_mp_order_id");
+        await prefs.remove("pending_mp_init_point");
+        if (savedStoreId != null) await prefs.remove("pending_mp_store_id");
+        if (mounted) {
+          if (savedStoreId != null) {
+            context.read<CartProvider>().clearStoreCart(savedStoreId);
+          }
+          context.go("/order-success/$pendingOrderId");
+        }
+      } else if (payStatus == "pending") {
+        final initPoint = prefs.getString("pending_mp_init_point") ?? "";
+        if (initPoint.isNotEmpty && mounted) {
+          final resume = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => AlertDialog(
+              title: const Text("Pago pendiente"),
+              content: const Text("Tienes un pago con Mercado Pago en proceso. ¿Deseas continuar?"),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancelar")),
+                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Continuar")),
+              ],
+            ),
+          );
+          if (resume == true && mounted) {
+            final storeId = prefs.getString("pending_mp_store_id");
+            await Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => MercadoPagoScreen(
+                mpInitPoint: initPoint,
+                orderId: pendingOrderId,
+                storeId: storeId,
+              ),
+            ));
+          } else {
+            await prefs.remove("pending_mp_order_id");
+            await prefs.remove("pending_mp_init_point");
+            await prefs.remove("pending_mp_store_id");
+          }
+        }
+      } else {
+        await prefs.remove("pending_mp_order_id");
+        await prefs.remove("pending_mp_init_point");
       }
     } catch (_) {}
   }
@@ -462,7 +533,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Órdenes con pago en línea parten como pending_payment para que
         // la tienda no las vea hasta que webpay-return/khipu-notify
         // confirme el pago y las mueva a "accepted".
-        "status": (_payMethod == "webpay" || _payMethod == "khipu")
+        "status": (_payMethod == "webpay" || _payMethod == "khipu" || _payMethod == "mercadopago")
             ? "pending_payment"
             : "pending",
         "coupon_code": _couponCode.isEmpty ? null : _couponCode,
@@ -500,6 +571,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         await _launchWebpay(order["id"] as String);
       } else if (_payMethod == "khipu") {
         await _launchKhipu(order["id"] as String);
+      } else if (_payMethod == "mercadopago") {
+        await _launchMercadoPago(order["id"] as String);
       } else {
         cart.clearStoreCart(widget.storeId);
         if (mounted) context.go("/order-success/${order["id"]}");
@@ -631,6 +704,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<void> _launchMercadoPago(String orderId) async {
+    try {
+      final body = <String, dynamic>{"order_id": orderId};
+      if (kIsWeb) {
+        body["web_url"] = Uri.base.toString();
+      }
+      final res = await _sb.functions.invoke("mercadopago-create", body: body);
+      if (res.data == null || res.data["init_point"] == null) {
+        final errMsg = res.data?["error"] ?? "Error al iniciar Mercado Pago";
+        final detail = res.data?["detail"];
+        final detailStr = detail is String ? detail : "";
+        throw Exception(detailStr.isNotEmpty ? "$errMsg: $detailStr" : errMsg.toString());
+      }
+      final initPoint = res.data["init_point"] as String;
+
+      if (!mounted) return;
+      final cart = context.read<CartProvider>();
+      if (kIsWeb) {
+        await launchUrl(Uri.parse(initPoint), mode: LaunchMode.platformDefault);
+        if (mounted) _handleWebPaymentReturn(orderId, cart);
+      } else {
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => MercadoPagoScreen(
+            mpInitPoint: initPoint,
+            orderId: orderId,
+            storeId: widget.storeId,
+          ),
+        ));
+        if (mounted) setState(() => _pendingWebpayOrderId = orderId);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error Mercado Pago: $e"), backgroundColor: AppColors.error));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
@@ -747,6 +855,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _payMethodCard("cash", "💵", "Efectivo", "Paga al recibir"),
         const SizedBox(height: 8),
         _payMethodCard("webpay", "💳", "WebPay", "Débito o crédito online"),
+        const SizedBox(height: 8),
+        _payMethodCard("mercadopago", "🟡", "Mercado Pago", "Débito, crédito y más"),
         const SizedBox(height: 20),
 
         // Cupon
@@ -945,8 +1055,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final disabled = _deliveryType == "pickup" && method == "cash";
     return GestureDetector(
       onTap: disabled ? null : () {
-        if (method != "webpay" && _pendingWebpayOrderId != null) {
-          // Cancelar la orden webpay pendiente si el usuario cambia de método de pago
+        if (method != "webpay" && method != "mercadopago" && _pendingWebpayOrderId != null) {
+          // Cancelar la orden pendiente si el usuario cambia a efectivo
           _cancelPendingWebpayOrder();
         }
         setState(() => _payMethod = method);
