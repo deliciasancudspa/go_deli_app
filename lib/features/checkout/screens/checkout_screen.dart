@@ -435,10 +435,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     setState(() => _loading = true);
 
-    // Si hay una orden Webpay pendiente previa (pago cancelado/fallido),
+    // Si hay una orden pendiente previa (pago cancelado/fallido),
     // reutilizarla en vez de crear una nueva. Validar que siga en estado
     // pending_payment (webpay-return pudo haberla marcado como cancelled).
-    if (_payMethod == "webpay" && _pendingWebpayOrderId != null) {
+    if ((_payMethod == "webpay" || _payMethod == "mercadopago") && _pendingWebpayOrderId != null) {
       final reuseId = _pendingWebpayOrderId!;
       final check = await _sb.from("orders").select("status")
           .eq("id", reuseId).maybeSingle();

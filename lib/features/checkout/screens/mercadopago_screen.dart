@@ -161,7 +161,7 @@ class _MercadoPagoScreenState extends State<MercadoPagoScreen> with WidgetsBindi
       context.go("/order-success/$orderId");
     } else if (status == "rejected") {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("❌ Pago rechazado. Crea un nuevo pedido para intentarlo de nuevo."),
+        content: Text("❌ Pago rechazado. Intenta con otro método de pago."),
         backgroundColor: AppColors.error,
         duration: Duration(seconds: 6),
       ));

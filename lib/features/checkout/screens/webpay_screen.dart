@@ -200,7 +200,7 @@ class _WebpayScreenState extends State<WebpayScreen> with WidgetsBindingObserver
       // Pago rechazado — webpay-return ya marcó la orden como cancelled/failed.
       // Volver al checkout para que el usuario pueda crear un nuevo pedido.
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("❌ Pago rechazado por el banco. Crea un nuevo pedido para intentarlo de nuevo."),
+        content: Text("❌ Pago rechazado por el banco. Intenta con otro método de pago."),
         backgroundColor: AppColors.error,
         duration: Duration(seconds: 6),
       ));
