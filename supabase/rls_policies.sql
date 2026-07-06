@@ -315,7 +315,11 @@ using (
 
 drop policy if exists orders_insert on public.orders;
 create policy orders_insert on public.orders for insert to authenticated
-with check (client_id = public.app_user_id() or public.is_admin());
+with check (
+  client_id = public.app_user_id()
+  or store_id in (select public.my_store_ids())
+  or public.is_admin()
+);
 
 drop policy if exists orders_update on public.orders;
 create policy orders_update on public.orders for update to authenticated
