@@ -7,6 +7,7 @@ import "package:supabase_flutter/supabase_flutter.dart";
 import "package:image_picker/image_picker.dart";
 import "package:geolocator/geolocator.dart";
 import "package:url_launcher/url_launcher.dart";
+import "package:flutter_svg/flutter_svg.dart";
 import "dart:typed_data";
 import "dart:math";
 import "dart:convert";
@@ -18,6 +19,9 @@ import "../../../providers/auth_provider.dart";
 import "address_picker_screen.dart";
 import "webpay_screen.dart";
 import "mercadopago_screen.dart";
+
+// Colores oficiales de marca para logos de métodos de pago
+const _kMercadoPagoBlue = Color(0xFF00AEEF);
 
 // Valores por defecto del fee de delivery. Son configurables desde el panel
 // admin (tabla `config`, key `delivery_fees`) y se aplican a toda la plataforma.
@@ -869,11 +873,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ]),
           )
         else
-          _payMethodCard("cash", "💵", "Efectivo", "Paga al recibir"),
+          _payMethodCard("cash", const Icon(Icons.monetization_on_outlined, color: AppColors.success, size: 28), "Efectivo", "Paga al recibir"),
         const SizedBox(height: 8),
-        _payMethodCard("webpay", "💳", "WebPay", "Débito o crédito online"),
+        _payMethodCard("webpay", Image.asset("assets/images/webpay_logo.png", fit: BoxFit.contain), "WebPay", "Débito o crédito online"),
         const SizedBox(height: 8),
-        _payMethodCard("mercadopago", "🟡", "Mercado Pago", "Débito, crédito y más"),
+        _payMethodCard("mercadopago", SvgPicture.asset("assets/images/mercadopago_logo.svg", width: 48, height: 32, fit: BoxFit.contain, colorFilter: const ColorFilter.mode(_kMercadoPagoBlue, BlendMode.srcIn)), "Mercado Pago", "Débito, crédito y más"),
         const SizedBox(height: 20),
 
         // Cupon
@@ -1067,7 +1071,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _payMethodCard(String method, String emoji, String label, String sub) {
+  Widget _payMethodCard(String method, Widget icon, String label, String sub) {
     final selected = _payMethod == method;
     final disabled = _deliveryType == "pickup" && method == "cash";
     return GestureDetector(
@@ -1087,7 +1091,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           border: Border.all(color: selected && !disabled ? AppColors.primary : AppColors.border, width: selected ? 2 : 1),
         ),
         child: Row(children: [
-          Text(emoji, style: const TextStyle(fontSize: 24)),
+          SizedBox(width: 48, height: 32, child: icon),
           const SizedBox(width: 12),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: TextStyle(fontWeight: FontWeight.w700, color: disabled ? AppColors.textLight : AppColors.textDark)),
