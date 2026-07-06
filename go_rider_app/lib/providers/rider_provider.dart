@@ -325,6 +325,12 @@ class RiderProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  @override
+  void dispose() {
+    _fcmTokenSub?.cancel();
+    super.dispose();
+  }
+
   Future<void> signOut() async {
     await _fcmTokenSub?.cancel();
     _fcmTokenSub = null;

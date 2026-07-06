@@ -29,7 +29,15 @@ class _PendingScreenState extends State<PendingScreen> {
 
   void _subscribeApproval() {
     final rider = context.read<RiderProvider>();
-    if (rider.riderId.isEmpty) return;
+    if (rider.riderId.isEmpty) {
+      // Retry when profile loads
+      rider.addListener(() {
+        if (rider.riderId.isNotEmpty && _channel == null) {
+          _subscribeApproval();
+        }
+      });
+      return;
+    }
     _channel = Supabase.instance.client
         .channel("rider_approval_${rider.riderId}")
         .onPostgresChanges(

@@ -23,7 +23,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
   Future<void> _load() async {
     final rider = context.read<RiderProvider>();
-    if (rider.riderId.isEmpty) return;
+    if (rider.riderId.isEmpty) { setState(() => _loading = false); return; }
     setState(() => _loading = true);
     try {
       final from = _getFromDate();

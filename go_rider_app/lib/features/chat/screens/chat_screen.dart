@@ -114,6 +114,11 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
     setState(() => _sending = true);
     try {
       final clientId = _order?["client_id"] as String?;
+      if (clientId == null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se puede enviar: pedido sin cliente asignado'), backgroundColor: AppColors.error));
+        return;
+      }
       await _sb.from("chat_messages").insert({
         "order_id": widget.orderId,
         "sender_id": _userId,

@@ -73,6 +73,12 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription<void>?                      _notifSub;
   StreamSubscription<List<ConnectivityResult>>?  _connectSub;
   bool _isOnline = true;
+  bool _loadingHomeInProgress = false;
+  Timer? _placesDebounce;
+
+  // ── Cached computed values ──────────────────────────────────────────────────
+  List<Map<String, dynamic>> _cachedFeatured = [];
+  List<Map<String, dynamic>> _cachedNearby    = [];
 
   // ── 5-min in-memory cache ─────────────────────────────────────────────────
   static List<Map<String, dynamic>>? _cachedCategories;
@@ -85,26 +91,27 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _bannerStale => _bannerCachedAt == null || DateTime.now().difference(_bannerCachedAt!) > _ttl;
 
   // ── Getters ───────────────────────────────────────────────────────────────
-  List<Map<String, dynamic>> get _featuredStores {
+  List<Map<String, dynamic>> get _featuredStores => _cachedFeatured;
+  List<Map<String, dynamic>> get _nearbyStores   => _cachedNearby;
+
+  void _recomputeStores() {
+    // Featured
     final base = _selectedCat == null
         ? _allStores
         : _allStores.where((s) => storeMatchesCategory(s, _selectedCat!["name"] as String?)).toList();
     final list = base.where((s) => s["featured_order"] != null).toList()
-      ..sort((a, b) => (a["featured_order"] as int).compareTo(b["featured_order"] as int));
-    return list.take(8).toList();
-  }
+      ..sort((a, b) => ((a["featured_order"] as num?)?.toInt() ?? 0)
+          .compareTo((b["featured_order"] as num?)?.toInt() ?? 0));
+    _cachedFeatured = list.take(8).toList();
 
-  List<Map<String, dynamic>> get _nearbyStores {
-    var base = _selectedCat == null
+    // Nearby
+    var nearby = _selectedCat == null
         ? List<Map<String, dynamic>>.from(_allStores)
         : _allStores.where((s) => storeMatchesCategory(s, _selectedCat!["name"] as String?)).toList();
-    final featured = _featuredStores;
-    if (featured.isNotEmpty) {
-      final ids = featured.map((s) => s["id"] as String).toSet();
-      base = base.where((s) => !ids.contains(s["id"] as String)).toList();
-    }
-    if (_userLat != null && _userLng != null) {
-      base.sort((a, b) {
+    final featuredIds = _cachedFeatured.map((s) => s["id"] as String).toSet();
+    nearby = nearby.where((s) => !featuredIds.contains(s["id"] as String)).toList();
+    if (nearby.length > 1 && _userLat != null && _userLng != null) {
+      nearby.sort((a, b) {
         final aLat = (a["lat"] as num?)?.toDouble();
         final aLng = (a["lng"] as num?)?.toDouble();
         final bLat = (b["lat"] as num?)?.toDouble();
@@ -115,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
             .compareTo(_haversine(_userLat!, _userLng!, bLat, bLng));
       });
     }
-    return base;
+    _cachedNearby = nearby;
   }
 
   double _haversine(double lat1, double lng1, double lat2, double lng2) {
@@ -186,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _startBannerTimer() {
     _bannerTimer?.cancel();
     _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (_banners.length <= 1 || !_bannerCtrl.hasClients) return;
+      if (!mounted || _banners.length <= 1 || !_bannerCtrl.hasClients) return;
       final next = (_bannerPage + 1) % _banners.length;
       _bannerCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
     });
@@ -244,6 +251,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData({bool forceRefreshCache = false}) async {
+    if (_loadingHomeInProgress) return;
+    _loadingHomeInProgress = true;
     if (mounted) setState(() => _loadingHome = true);
     try {
       // Cargar comuna guardada
@@ -389,10 +398,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _featuredItems = featItems;
         _loadingHome   = false;
         _homeError     = null;
+        _recomputeStores();
       });
     } catch (e) {
       if (mounted) setState(() { _loadingHome = false; _homeError = 'No pudimos cargar los datos. Verifica tu conexión.'; });
       debugPrint('_loadData error: $e');
+    } finally {
+      _loadingHomeInProgress = false;
     }
   }
 
@@ -792,7 +804,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (type == "category") {
       final cat = _categories.firstWhere(
           (c) => c["name"] == value || c["id"] == value, orElse: () => {});
-      if (cat.isNotEmpty) setState(() => _selectedCat = cat);
+      if (cat.isNotEmpty) setState(() { _selectedCat = cat; _recomputeStores(); });
       return;
     }
     if (type == "url") launchUrl(Uri.parse(value), mode: LaunchMode.externalApplication);
@@ -810,7 +822,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (i == 0) {
             final selected = _selectedCat == null;
             return GestureDetector(
-              onTap: () => setState(() => _selectedCat = null),
+              onTap: () => setState(() { _selectedCat = null; _recomputeStores(); }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -845,7 +857,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (hex != null && hex.length == 6) iconBg = Color(int.parse("FF$hex", radix: 16));
           } catch (_) {}
           return GestureDetector(
-            onTap: () => setState(() => _selectedCat = selected ? null : cat),
+            onTap: () => setState(() { _selectedCat = selected ? null : cat; _recomputeStores(); }),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -1346,6 +1358,8 @@ class _ChangeAddressSheetState extends State<_ChangeAddressSheet> {
 
   @override
   void dispose() {
+    _placesDebounce?.cancel();
+    _dio.close();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -1403,6 +1417,11 @@ class _ChangeAddressSheetState extends State<_ChangeAddressSheet> {
     } finally {
       if (mounted) setState(() => _loadingGps = false);
     }
+  }
+
+  void _onPlacesChanged(String query) {
+    _placesDebounce?.cancel();
+    _placesDebounce = Timer(const Duration(milliseconds: 350), () => _searchPlaces(query));
   }
 
   Future<void> _searchPlaces(String query) async {
@@ -1532,7 +1551,7 @@ class _ChangeAddressSheetState extends State<_ChangeAddressSheet> {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: _kPurple, width: 2)),
             ),
-            onChanged: _searchPlaces,
+            onChanged: _onPlacesChanged,
           ),
         ),
         const SizedBox(height: 8),

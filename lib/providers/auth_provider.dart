@@ -17,22 +17,35 @@ class AuthProvider extends ChangeNotifier {
   bool get loading => _loading;
   bool get isLoggedIn => _user != null;
 
+  StreamSubscription? _authSub;
+
   AuthProvider() {
-    _sb.auth.onAuthStateChange.listen((data) {
+    _authSub = _sb.auth.onAuthStateChange.listen((data) {
       _user = data.session?.user;
       if (_user != null) loadProfile();
       notifyListeners();
     });
   }
 
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _fcmTokenSub?.cancel();
+    super.dispose();
+  }
+
   Future<void> loadProfile() async {
-    final res = await _sb.from("users").select().eq("auth_id", _user!.id).maybeSingle();
-    _profile = res;
-    notifyListeners();
-    if (res != null && res["id"] != null) {
-      NotificationService().startOrderListener(res["id"] as String);
-      NotificationService().startChatListener(res["id"] as String);
-      _saveFcmToken(res["id"] as String);
+    try {
+      final res = await _sb.from("users").select().eq("auth_id", _user!.id).maybeSingle();
+      _profile = res;
+      notifyListeners();
+      if (res != null && res["id"] != null) {
+        NotificationService().startOrderListener(res["id"] as String);
+        NotificationService().startChatListener(res["id"] as String);
+        _saveFcmToken(res["id"] as String);
+      }
+    } catch (e) {
+      debugPrint('loadProfile error: $e');
     }
   }
 
@@ -50,6 +63,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<String?> signIn(String email, String password) async {
+    if (_loading) return null; // Prevent double-tap
     try {
       _loading = true; notifyListeners();
       await _sb.auth.signInWithPassword(email: email, password: password);

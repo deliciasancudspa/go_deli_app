@@ -134,6 +134,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _rutCtrl.dispose();
+    _passCtrl.dispose();
+    _plateCtrl.dispose();
+    _accountNumCtrl.dispose();
+    _accountHolderCtrl.dispose();
+    _accountRutCtrl.dispose();
+    _signerNameCtrl.dispose();
+    _signerRutCtrl.dispose();
+    super.dispose();
+  }
+
   void _next() {
     _pageCtrl.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     setState(() { _step++; _error = null; });

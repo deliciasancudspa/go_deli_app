@@ -75,7 +75,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // Si el usuario abandona el checkout sin completar el pago Webpay/Khipu,
     // cancelar la orden para que no quede como pending_payment huérfana.
     if (_pendingPaymentOrderId != null) {
-      _cancelPendingWebpayOrder();
+      _cancelPendingWebpayOrder(); // Fire-and-forget: best-effort cancel
     }
     _addressCtrl.dispose();
     _refCtrl.dispose();
@@ -285,7 +285,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
         }
       });
-    } catch (_) {}
+    } catch (e) { debugPrint('_loadDeliveryConfig error: $e'); }
   }
 
   Future<void> _loadPhone() async {
@@ -483,7 +483,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final pickupCode = _deliveryType == "pickup" ? _generateCode() : null;
       final delivCode  = _deliveryType == "delivery" ? _generateCode() : null;
 
-      final u = await _sb.from("users").select("id,phone").eq("auth_id", auth.user!.id).single();
+      final authUser = auth.user;
+      if (authUser == null) throw Exception("Sesión expirada. Inicia sesión de nuevo.");
+      final u = await _sb.from("users").select("id,phone").eq("auth_id", authUser.id).single();
 
       // Save phone to user profile if it was new
       if ((u["phone"] as String? ?? "").isEmpty && phone.isNotEmpty) {
@@ -665,7 +667,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final uri = Uri.base;
     final status = uri.queryParameters["payment_status"];
     if (status == "approved") {
-      cart.clearCart();
+      cart.clearStoreCart(widget.storeId);
       if (mounted) context.go("/order-success/$orderId");
     } else if (status == "cancelled") {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(

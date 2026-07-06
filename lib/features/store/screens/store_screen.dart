@@ -37,7 +37,7 @@ class _StoreScreenState extends State<StoreScreen> {
           }
         }
       } catch (e) { debugPrint("Error favorito: $e"); }
-      if (mounted) setState(() { _store = s; _cats = List<Map<String, dynamic>>.from(c); _items = List<Map<String, dynamic>>.from(i); _loading = false; _error = null; });
+      if (mounted) setState(() { _store = s; _cats = List<Map<String, dynamic>>.from(c); _items = List<Map<String, dynamic>>.from(i); _loading = false; _error = null; _updateFiltered(); });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = 'No pudimos cargar la tienda. Verifica tu conexión.'; });
       debugPrint('StoreScreen _load error: $e');
@@ -51,11 +51,17 @@ class _StoreScreenState extends State<StoreScreen> {
       } else {
         await _sb.from("user_favorites").insert({"user_id": _userId, "store_id": widget.storeId});
       }
-      setState(() => _isFav = !_isFav);
+      if (mounted) setState(() => _isFav = !_isFav);
     } catch(e) { debugPrint("ERROR favorito: $e"); }
   }
 
-  List<Map<String, dynamic>> get _filtered => _selCat == null ? _items : _items.where((i) => i["category_id"] == _selCat).toList();
+  List<Map<String, dynamic>> _cachedFiltered = [];
+  List<Map<String, dynamic>> get _filtered => _cachedFiltered;
+  void _updateFiltered() {
+    _cachedFiltered = _selCat == null
+        ? _items
+        : _items.where((i) => i["category_id"] == _selCat).toList();
+  }
   String _fmt(dynamic p) => "\$${(p as num).toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
   @override Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
@@ -103,7 +109,7 @@ class _StoreScreenState extends State<StoreScreen> {
         ]),
         const SizedBox(height: 12), Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), const SizedBox(width: 4), Text("${_store?["rating"] ?? 5.0}", style: const TextStyle(fontWeight: FontWeight.w700)), const SizedBox(width: 12), const Icon(Icons.access_time, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text("${cleanDeliveryTime(_store?["delivery_time"])}", style: const TextStyle(color: AppColors.textLight)), const SizedBox(width: 12), const Icon(Icons.delivery_dining, size: 16, color: AppColors.textLight), const SizedBox(width: 4), Text(hasOwnDelivery(_store) ? "Delivery propio" : _fmt(_store?["delivery_fee_client"] ?? 2990), style: const TextStyle(color: AppColors.textLight))]),
       ]))),
-      if (_cats.isNotEmpty) SliverToBoxAdapter(child: SizedBox(height: 50, child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), itemCount: _cats.length, itemBuilder: (ctx, i) { final c = _cats[i]; final sel = _selCat == c["id"]; return GestureDetector(onTap: () => setState(() => _selCat = sel ? null : c["id"]), child: Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), decoration: BoxDecoration(gradient: sel ? AppColors.mainGradient : null, color: sel ? null : AppColors.surface, border: Border.all(color: sel ? Colors.transparent : const Color(0xFFE5E0F0)), borderRadius: BorderRadius.circular(20)), child: Text(c["name"], style: TextStyle(fontWeight: FontWeight.w700, color: sel ? Colors.white : const Color(0xFF333333), fontSize: 13)))); }))),
+      if (_cats.isNotEmpty) SliverToBoxAdapter(child: SizedBox(height: 50, child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), itemCount: _cats.length, itemBuilder: (ctx, i) { final c = _cats[i]; final sel = _selCat == c["id"]; return GestureDetector(onTap: () => setState(() { _selCat = sel ? null : c["id"]; _updateFiltered(); }), child: Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), decoration: BoxDecoration(gradient: sel ? AppColors.mainGradient : null, color: sel ? null : AppColors.surface, border: Border.all(color: sel ? Colors.transparent : const Color(0xFFE5E0F0)), borderRadius: BorderRadius.circular(20)), child: Text(c["name"], style: TextStyle(fontWeight: FontWeight.w700, color: sel ? Colors.white : const Color(0xFF333333), fontSize: 13)))); }))),
       SliverList(delegate: SliverChildBuilderDelegate((ctx, i) {
         final item       = _filtered[i];
         final qty        = cart.getStoreQuantity(widget.storeId, item["id"] as String);
@@ -342,7 +348,9 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   void _addToCart(CartProvider cart, Map<String, dynamic> item, int basePrice) {
-    if (_store?["is_open"] != true) {
+    final store = _store;
+    if (store == null) return;
+    if (store["is_open"] != true) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Esta tienda está cerrada en este momento"),
         backgroundColor: AppColors.error,
@@ -351,8 +359,8 @@ class _StoreScreenState extends State<StoreScreen> {
     }
     cart.addItem(CartItem(
       id: item["id"] as String,
-      storeId: _store!["id"] as String,
-      storeName: _store!["name"] as String? ?? "",
+      storeId: store["id"] as String,
+      storeName: store["name"] as String? ?? "",
       name: item["name"] as String? ?? "",
       price: basePrice,
       imageUrl: item["image_url"] as String?,

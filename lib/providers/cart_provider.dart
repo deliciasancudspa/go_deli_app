@@ -1,3 +1,4 @@
+import "dart:async";
 import "dart:convert";
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -61,6 +62,7 @@ class CartProvider extends ChangeNotifier {
   final Map<String, List<CartItem>> _carts = {};
   String? _activeStoreId;
   bool _loaded = false;
+  Timer? _saveTimer;
 
   static const _prefsCartsKey = "carts_v2";
   static const _prefsActiveKey = "active_store_id";
@@ -157,8 +159,14 @@ class CartProvider extends ChangeNotifier {
       list.add(item);
     }
 
-    _save();
+    _debouncedSave();
     notifyListeners();
+  }
+
+  /// Debounced save: evita saturar SharedPreferences con taps rápidos.
+  void _debouncedSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 300), _save);
   }
 
   /// Elimina un item del carrito activo (backward compat).
@@ -183,7 +191,7 @@ class CartProvider extends ChangeNotifier {
       _activeStoreId = _carts.keys.firstOrNull;
     }
 
-    _save();
+    _debouncedSave();
     notifyListeners();
   }
 
@@ -212,6 +220,26 @@ class CartProvider extends ChangeNotifier {
 
   // ── Clear operations ──────────────────────────────────────────────────────
 
+  /// Elimina un item específico del carrito de una tienda.
+  void removeItemFromStore(String storeId, String itemId, {String? variant, List<Map<String, dynamic>>? extras}) {
+    final list = _carts[storeId];
+    if (list == null) return;
+    final idx = list.indexWhere(
+        (i) => i.id == itemId && (variant == null || i.variant == variant) && (extras == null || _extrasMatch(i.extras, extras)));
+    if (idx < 0) return;
+    if (list[idx].quantity > 1) {
+      list[idx].quantity--;
+    } else {
+      list.removeAt(idx);
+    }
+    if (list.isEmpty) {
+      _carts.remove(storeId);
+      if (_activeStoreId == storeId) _activeStoreId = _carts.keys.firstOrNull;
+    }
+    _debouncedSave();
+    notifyListeners();
+  }
+
   /// Vacía solo el carrito de la tienda activa.
   void clearActiveCart() {
     if (_activeStoreId == null) return;
@@ -224,7 +252,7 @@ class CartProvider extends ChangeNotifier {
     if (_activeStoreId == storeId) {
       _activeStoreId = _carts.keys.firstOrNull;
     }
-    _save();
+    _debouncedSave();
     notifyListeners();
   }
 
@@ -232,7 +260,7 @@ class CartProvider extends ChangeNotifier {
   void clearCart() {
     _carts.clear();
     _activeStoreId = null;
-    _save();
+    _debouncedSave();
     notifyListeners();
   }
 
@@ -241,8 +269,11 @@ class CartProvider extends ChangeNotifier {
   bool _extrasMatch(
       List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
     if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i]["name"] != b[i]["name"] || a[i]["price"] != b[i]["price"]) {
+    // Sort by name to handle reordered extras
+    final aSorted = List<Map<String, dynamic>>.from(a)..sort((x, y) => (x["name"] as String).compareTo(y["name"] as String));
+    final bSorted = List<Map<String, dynamic>>.from(b)..sort((x, y) => (x["name"] as String).compareTo(y["name"] as String));
+    for (var i = 0; i < aSorted.length; i++) {
+      if (aSorted[i]["name"] != bSorted[i]["name"] || aSorted[i]["price"] != bSorted[i]["price"]) {
         return false;
       }
     }

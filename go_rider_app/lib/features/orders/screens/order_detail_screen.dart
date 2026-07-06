@@ -99,7 +99,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (perm == LocationPermission.denied) {
         perm = await Geolocator.requestPermission();
       }
-      if (perm == LocationPermission.deniedForever) return;
+      if (perm == LocationPermission.deniedForever) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('GPS desactivado permanentemente. Actívalo en Ajustes del sistema.'), backgroundColor: AppColors.error));
+        return;
+      }
       setState(() => _gpsActive = true);
       await _sendGps();
       _gpsTimer = Timer.periodic(const Duration(seconds: 8), (_) => _sendGps());
