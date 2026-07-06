@@ -954,11 +954,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(" ${cleanDeliveryTime(store["delivery_time"])}",
                     style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
                 const Text(" · ", style: TextStyle(color: AppColors.textLight, fontSize: 11)),
-                fee == 0
+                fee == 0 && !hasOwnDelivery(store)
                     ? Text("Envío gratis",
                         style: TextStyle(fontSize: 11, color: _kPurple, fontWeight: FontWeight.w700))
-                    : Text("\$${fee.toStringAsFixed(0)}",
-                        style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
+                    : hasOwnDelivery(store)
+                        ? Text("Delivery propio",
+                            style: TextStyle(fontSize: 11, color: _kPurple, fontWeight: FontWeight.w700))
+                        : Text("\$${fee.toStringAsFixed(0)}",
+                            style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
               ]),
             ])),
             const SizedBox(width: 8),
@@ -1153,8 +1156,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   const Icon(Icons.delivery_dining, size: 13, color: AppColors.textLight),
                   Builder(builder: (_) {
                     final cf = (s["delivery_fee_client"] as num?)?.toInt() ?? 0;
-                    return Text(cf == 0 ? "  Gratis" : "  \$$cf",
-                        style: TextStyle(fontSize: 12, color: cf == 0 ? _kPurple : AppColors.textLight, fontWeight: cf == 0 ? FontWeight.w700 : FontWeight.normal));
+                    final own = hasOwnDelivery(s);
+                    return Text(own ? "  Delivery propio" : (cf == 0 ? "  Gratis" : "  \$$cf"),
+                        style: TextStyle(fontSize: 12, color: (cf == 0 || own) ? _kPurple : AppColors.textLight, fontWeight: (cf == 0 || own) ? FontWeight.w700 : FontWeight.normal));
                   }),
                 ]),
               ]),

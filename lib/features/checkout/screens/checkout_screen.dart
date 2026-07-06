@@ -12,6 +12,7 @@ import "dart:math";
 import "dart:convert";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/services/location_service.dart";
+import "../../../core/utils/price_formatter.dart";
 import "../../../providers/cart_provider.dart";
 import "../../../providers/auth_provider.dart";
 import "address_picker_screen.dart";
@@ -393,7 +394,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 8) as num) / 100).round();
       final fixedFee   = (_storeData?["fixed_fee"] ?? 2500) as num;
       int delivFee = 0, riderFee = 0, storeDelivFee = 0, platformDelivFee = 0, serviceFee = 0;
-      if (_deliveryType == "delivery") {
+      final ownDelivery = hasOwnDelivery(_storeData);
+      if (_deliveryType == "delivery" && !ownDelivery) {
         final dist = _distanceMeters ?? 0.0;
         final fees = _calcAllFees(dist);
         delivFee       = fees.client;
@@ -456,6 +458,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         "delivery_reference": _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
         "payment_method": _payMethod,
         "order_type": _deliveryType,
+        "delivery_method": ownDelivery ? "own" : "go_rider",
         // Órdenes con pago en línea parten como pending_payment para que
         // la tienda no las vea hasta que webpay-return/khipu-notify
         // confirme el pago y las mueva a "accepted".
@@ -640,7 +643,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     int serviceFee = 0;
     String? delivLabel;
     if (_deliveryType == "delivery") {
-      if (_distanceMeters != null) {
+      if (hasOwnDelivery(_storeData)) {
+        delivLabel = "🚗 Delivery propio";
+      } else if (_distanceMeters != null) {
         delivFee  = _calcAllFees(_distanceMeters!).client;
         serviceFee = _calcServiceFee(_distanceMeters!);
         delivLabel = "🛵 Envío";

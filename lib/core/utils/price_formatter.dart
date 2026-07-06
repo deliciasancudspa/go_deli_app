@@ -20,3 +20,18 @@ String cleanDeliveryTime(dynamic raw) {
   final s = (raw?.toString() ?? "30-45").replaceAll(RegExp(r'\s*min', caseSensitive: false), "").trim();
   return "$s min";
 }
+
+/// Retorna true si la tienda usa exclusivamente repartidor propio
+/// (no tiene Go Rider habilitado). El campo delivery_methods es JSONB,
+/// Supabase lo devuelve como List<dynamic>.
+bool hasOwnDelivery(Map<String, dynamic>? store) {
+  if (store == null) return false;
+  final methods = store['delivery_methods'];
+  if (methods is List) {
+    return methods.contains('own') && !methods.contains('go_rider');
+  }
+  // Fallback: delivery_priority como string
+  final priority = store['delivery_priority'];
+  if (priority is String) return priority == 'own';
+  return false;
+}

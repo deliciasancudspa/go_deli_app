@@ -73,7 +73,7 @@ class StoreCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   "${cleanDeliveryTime(store["delivery_time"])} · "
-                  "${fee == 0 ? "🛵 Gratis" : "🛵 ${_fmt(fee)}"}",
+                  "${hasOwnDelivery(store) ? "🚗 Delivery propio" : (fee == 0 ? "🛵 Gratis" : "🛵 ${_fmt(fee)}")}",
                   style: const TextStyle(fontSize: 11, color: AppColors.textLight),
                 ),
                 if (!isOpen || sponsored) ...[

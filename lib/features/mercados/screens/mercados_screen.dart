@@ -684,17 +684,23 @@ class _MercadosScreenState extends State<MercadosScreen> {
                           fontSize: 11, color: AppColors.textLight)),
                   const Text(" · ",
                       style: TextStyle(color: AppColors.textLight, fontSize: 11)),
-                  fee == 0
+                  hasOwnDelivery(store)
                       ? Flexible(
-                          child: Text("Envío gratis",
+                          child: Text("Delivery propio",
                               maxLines: 1, overflow: TextOverflow.ellipsis,
                               style: TextStyle(fontSize: 11,
                                   color: _kPurple, fontWeight: FontWeight.w700)))
-                      : Flexible(
-                          child: Text(_fmt(fee),
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 11, color: AppColors.textLight))),
+                      : fee == 0
+                        ? Flexible(
+                            child: Text("Envío gratis",
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 11,
+                                    color: _kPurple, fontWeight: FontWeight.w700)))
+                        : Flexible(
+                            child: Text(_fmt(fee),
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 11, color: AppColors.textLight))),
                 ]),
               ],
             )),
