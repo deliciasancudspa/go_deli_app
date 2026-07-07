@@ -1099,15 +1099,22 @@ function fmtCLP(n){return '$'+Math.round(n||0).toLocaleString('es-CL');}
 function fmtDate(d){if(!d)return'-';return new Date(d).toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
 function fmtDateOnly(d){if(!d)return'-';return new Date(d).toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});}
 
-// ── Helpers liquidación Go Rider ──────────────────────────────────
-// Go Rider + pago no efectivo: Go Deli recibe el pago, aliado solo debe la tarifa.
+// ── Helpers liquidación Go Rider (perspectiva admin = liquidación) ──
+// - Efectivo: aliado ya cobró → debe la tarifa Go Rider (net = -$2.500)
+// - No efectivo: Go Deli cobró → transfiere Total - tarifa al aliado
 function _isNonCashGR(o){return o.delivery_method==='go_rider'&&o.payment_method!=='cash';}
 function _goRiderFee(o){return o.delivery_method==='go_rider'?(o.go_rider_platform_fee||2500):0;}
-function _netGR(o){
-  if(_isNonCashGR(o))return -_goRiderFee(o);
-  return (o.total||0)-(o.service_fee||0)-(o.platform_fee||0)-(o.fixed_fee||0)-_goRiderFee(o);
+function _netAdmin(o){
+  if(o.delivery_method==='go_rider'){
+    if(o.payment_method==='cash')return -_goRiderFee(o); // Aliado ya tiene el efectivo → debe tarifa
+    return (o.total||0)-(o.service_fee||0)-_goRiderFee(o); // Go Deli cobró → pagará Total - tarifa
+  }
+  return (o.total||0)-(o.service_fee||0)-(o.platform_fee||0)-(o.fixed_fee||0);
 }
-function _grossGR(o){return _isNonCashGR(o)?0:((o.total||0)-(o.service_fee||0));}
+function _grossAdmin(o){
+  if(o.delivery_method==='go_rider' && o.payment_method==='cash')return 0; // Aliado ya lo cobró
+  return (o.total||0)-(o.service_fee||0); // Go Deli lo cobró o es no-GoRider
+}
 
 function showToast(msg,type='success'){
   const t=document.getElementById('toast');
@@ -2680,7 +2687,7 @@ async function loadReportes(period,btn){
   rq=withCommune(rq);
   const {data}=await rq;
   const orders=data||[];
-  const gross=orders.reduce((s,o)=>s+_grossGR(o),0);
+  const gross=orders.reduce((s,o)=>s+_grossAdmin(o),0);
   const comm=orders.reduce((s,o)=>s+(o.platform_fee||0)+(o.fixed_fee||0)+_goRiderFee(o),0);
   document.getElementById('r-orders').textContent=orders.length;
   document.getElementById('r-gross').textContent=fmtCLP(gross);
@@ -2691,10 +2698,10 @@ async function loadReportes(period,btn){
     orders.map(o=>`<tr>
       <td style="font-family:monospace;font-size:11px">#${o.id.slice(0,8)}</td>
       <td>${o.stores?.name||'-'}</td>
-      <td>${fmtCLP(_grossGR(o))}</td>
+      <td>${fmtCLP(_grossAdmin(o))}</td>
       <td style="color:var(--error)">${fmtCLP(o.platform_fee)}</td>
       <td style="color:var(--error)">${fmtCLP((o.fixed_fee||0)+_goRiderFee(o))}</td>
-      <td style="color:var(--success);font-weight:600">${fmtCLP(_netGR(o))}</td>
+      <td style="color:var(--success);font-weight:600">${fmtCLP(_netAdmin(o))}</td>
       <td style="font-size:11px;color:var(--muted)">${fmtDate(o.created_at)}</td>
     </tr>`).join('')+'</tbody></table>';
 }
@@ -2810,10 +2817,10 @@ async function loadPagosSemana(){
   (orders||[]).forEach(o=>{
     if(storeMap[o.store_id]){
       storeMap[o.store_id].orders.push(o);
-      storeMap[o.store_id].gross+=_grossGR(o);
+      storeMap[o.store_id].gross+=_grossAdmin(o);
       storeMap[o.store_id].commission+=(o.platform_fee||0);
       storeMap[o.store_id].fixedFees+=(o.fixed_fee||0);
-      storeMap[o.store_id].net+=_netGR(o);
+      storeMap[o.store_id].net+=_netAdmin(o);
     }
   });
 
@@ -3191,10 +3198,10 @@ function generarCartolaPDF(storeId){
           <td>#${o.id.slice(0,8).toUpperCase()}</td>
           <td>${fmtDate(o.created_at)}</td>
           <td>${o.payment_method==='cash'?'Efectivo':o.payment_method==='debit'?'Débito':o.payment_method==='credit'?'Crédito':o.payment_method==='transfer'?'Transferencia':o.payment_method==='webpay'?'Webpay':(o.payment_method||'Otro')}</td>
-          <td>${fmtCLP(_grossGR(o))}</td>
+          <td>${fmtCLP(_grossAdmin(o))}</td>
           <td style="color:#EF4444">${fmtCLP(o.platform_fee)}</td>
           <td style="color:#EF4444">${fmtCLP((o.fixed_fee||0)+_goRiderFee(o))}</td>
-          <td style="font-weight:600">${fmtCLP(_netGR(o))}</td>
+          <td style="font-weight:600">${fmtCLP(_netAdmin(o))}</td>
         </tr>`).join('')}
       </tbody>
     </table>

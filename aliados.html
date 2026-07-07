@@ -3343,15 +3343,17 @@ async function loadVentas(period, btn) {
 // ======================================================================
 // REPORTE GODELI (Aliado — solo delivery)
 // ── Helpers para liquidación Go Rider ──────────────────────────
-// Go Rider + pago no efectivo: Go Deli recibe el pago, el aliado no ve el total.
-// Solo se descuenta la tarifa Go Rider ($2.500).
+// Go Rider: aliado SIEMPRE ve Total - Tarifa Go Rider (sin comisión).
+// Si el pago no es efectivo, el monto no se suma a caja (lo cobró Go Deli).
 function _isNonCashGR(o) { return o.delivery_method==='go_rider' && o.payment_method!=='cash'; }
 function _goRiderFee(o) { return o.delivery_method==='go_rider' ? (o.go_rider_platform_fee||2500) : 0; }
 function _netGR(o) {
-  if (_isNonCashGR(o)) return -_goRiderFee(o);
-  return (o.total||0) - (o.service_fee||0) - (o.platform_fee||0) - _goRiderFee(o);
+  // Go Rider: Total - tarifa (sin comisión)
+  if (o.delivery_method === 'go_rider') return (o.total||0) - _goRiderFee(o);
+  // No Go Rider: Total (sin comisión ni tarifa para retiro/local/delivery propio)
+  return (o.total||0) - (o.platform_fee||0);
 }
-function _grossGR(o) { return _isNonCashGR(o) ? 0 : (o.total||0); }
+function _grossGR(o) { return (o.total||0); } // Aliado siempre ve el total completo
 
 // ======================================================================
 async function loadReporteGoDeliAliado(period, btn) {

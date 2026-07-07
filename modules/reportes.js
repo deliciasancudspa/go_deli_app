@@ -98,18 +98,20 @@
 
   function _isNonCashGoRider(o) {
     // Pedido Go Rider pagado con método distinto a efectivo:
-    // Go Deli recibe el pago, el aliado no ve el total, solo la tarifa.
+    // Go Deli recibe el pago, el aliado igual ve el total en su reporte.
     return o.delivery_method === 'go_rider' && o.payment_method !== 'cash';
   }
 
   function _net(o) {
-    if (_isNonCashGoRider(o)) return -_goRiderFee(o);
-    return (o.total || 0) - (o.service_fee || 0) - _commission(o) - _goRiderFee(o);
+    // Go Rider: Total - tarifa Go Rider (sin comisión)
+    if (o.delivery_method === 'go_rider') return (o.total || 0) - _goRiderFee(o);
+    // No Go Rider: Total - service_fee - comisión
+    return (o.total || 0) - (o.service_fee || 0) - _commission(o);
   }
 
   // ── KPIs ───────────────────────────────────────────────────────────────
   function _renderKPIs(orders) {
-    var gross = orders.reduce(function(s,o){return _isNonCashGoRider(o) ? s : s+(o.total||0);},0);
+    var gross = orders.reduce(function(s,o){return s+(o.total||0);},0);
     var count = orders.length;
     var servFee   = orders.reduce(function(s,o){return s+(o.service_fee||0);},0);
     var commTotal = orders.reduce(function(s,o){return s+_commission(o);},0);
@@ -149,8 +151,8 @@
       var chOrders = channels[key];
       if (!chOrders.length) return '';
       var info = labels[key];
-      var subtotal   = chOrders.reduce(function(s,o){return _isNonCashGoRider(o) ? s : s+(o.subtotal||0);},0);
-      var total      = chOrders.reduce(function(s,o){return _isNonCashGoRider(o) ? s : s+(o.total||0);},0);
+      var subtotal   = chOrders.reduce(function(s,o){return s+(o.subtotal||0);},0);
+      var total      = chOrders.reduce(function(s,o){return s+(o.total||0);},0);
       var servFee    = chOrders.reduce(function(s,o){return s+(o.service_fee||0);},0);
       var commTotal  = chOrders.reduce(function(s,o){return s+_commission(o);},0);
       var riderTotal = chOrders.reduce(function(s,o){return s+_goRiderFee(o);},0);
