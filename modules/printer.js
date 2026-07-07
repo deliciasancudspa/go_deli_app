@@ -152,6 +152,11 @@
     }
   }
 
+  // Abrir cajón de forma segura (traga errores, no interrumpe flujos)
+  function safeOpenDrawer() {
+    openDrawer().catch(function() { /* silencio — impresora no disponible */ });
+  }
+
   // ── Imprimir ticket de venta ────────────────────────────────────────────
   async function printReceipt(order) {
     if (!_connected || !_writer) throw new Error('Impresora no conectada');
@@ -226,10 +231,8 @@
     try {
       await _writer.write(_concat(parts));
 
-      // Si pagó en efectivo y autoDrawer activado, abrir cajón
-      if (_autoDrawer && (order && order.payment_method === 'cash')) {
-        setTimeout(function() { openDrawer().catch(function(){}); }, 500);
-      }
+      // La apertura de cajón ahora la controlan los módulos consumidores
+      // (pos.js y caja.js) vía printer.safeOpenDrawer()
 
       return true;
     } catch(e) {
@@ -308,6 +311,9 @@
       if (window.GoBusiness.modules.pos && window.GoBusiness.modules.pos._refreshPrinterBar) {
         window.GoBusiness.modules.pos._refreshPrinterBar();
       }
+      if (window.GoBusiness.modules.caja && window.GoBusiness.modules.caja._refreshPrinterBar) {
+        window.GoBusiness.modules.caja._refreshPrinterBar();
+      }
     } catch(e) {}
   }
 
@@ -323,6 +329,7 @@
     getPrinterName: getPrinterName,
     getSettings: getSettings,
     openDrawer: openDrawer,
+    safeOpenDrawer: safeOpenDrawer,
     printReceipt: printReceipt,
     printTestTicket: printTestTicket,
     setAutoPrint: setAutoPrint,
