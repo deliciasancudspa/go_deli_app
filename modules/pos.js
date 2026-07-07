@@ -237,11 +237,12 @@
   function _loadProducts() {
     if (!window.storeData) return;
     window.sb.from('menu_items')
-      .select('*, menu_categories(name, emoji), menu_item_variant_groups(variant_group_id), menu_item_option_groups(option_group_id)')
+      .select('*, menu_categories(name, emoji)')
       .eq('store_id', window.storeData.id)
       .eq('is_available', true)
       .order('name')
       .then(function(res) {
+        if (res.error) { console.error('[POS] Error cargando productos:', res.error); return; }
         _products = res.data || [];
         _categories = [];
         var seen = {};
@@ -254,6 +255,8 @@
         _categories.sort(function(a,b) { return a.name.localeCompare(b.name); });
         _renderProducts();
         _renderCatChips();
+      }).catch(function(e) {
+        console.error('[POS] Error cargando productos:', e);
       });
   }
 
@@ -289,25 +292,11 @@
         else if (p.stock <= 5) { stockBadge = '<div class="pos-stock-badge low">Quedan ' + p.stock + '</div>'; }
       }
 
-      // Variants/options badge
-      var hasVariants = p.menu_item_variant_groups && p.menu_item_variant_groups.length > 0;
-      var hasOptions = p.menu_item_option_groups && p.menu_item_option_groups.length > 0;
-      var extrasBadge = '';
-      if (hasVariants || hasOptions) {
-        var parts = [];
-        if (hasVariants) parts.push(p.menu_item_variant_groups.length + ' var');
-        if (hasOptions) parts.push(p.menu_item_option_groups.length + ' opc');
-        extrasBadge = '<div class="pos-extras-badge">' + parts.join(' · ') + '</div>';
-      }
-
-      var needsModal = hasVariants || hasOptions;
-      var onClick = needsModal
-        ? 'GoBusiness.modules.pos._openProductModal(\'' + p.id + '\')'
-        : (isOutOfStock ? '' : 'GoBusiness.modules.pos._addToCart(\'' + p.id + '\')');
       var opacityStyle = isOutOfStock ? 'opacity:0.5;cursor:default' : '';
+      var onClick = isOutOfStock ? '' : 'GoBusiness.modules.pos._openProductModal(\'' + p.id + '\')';
 
       return '<div class="pos-product-card" onclick="' + onClick + '" style="' + opacityStyle + '">' +
-        imgHtml + stockBadge + extrasBadge +
+        imgHtml + stockBadge +
         '<div class="pos-product-name">' + _esc(p.name) + '</div>' +
         '<div class="pos-product-price">' + price + '</div>' +
       '</div>';
