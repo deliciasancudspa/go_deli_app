@@ -73,7 +73,7 @@
             '<button class="btn btn-sec btn-sm" onclick="GoBusiness.modules.pedidos._viewOrder(\'' + o.id + '\')">Ver</button>' +
             (['accepted','preparing','ready','assigned'].indexOf(o.status) >= 0 ? '<button class="btn btn-sm" style="background:#374151;color:#fff" onclick="GoBusiness.modules.pedidos._printOrder(\'' + o.id + '\')">🖨️</button>' : '') +
             (o.prescription_url ? '<span class="badge" style="background:#FDF4FF;color:#6b21a8;border:1px solid #C084FC">💊 Receta</span>' : '') +
-            (o.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'accepted\')">Aceptar</button><button class="btn btn-danger btn-sm" onclick="GoBusiness.modules.pedidos._openReject(\'' + o.id + '\')">Rechazar</button>' : '') +
+            (o.status === 'pending' && o.payment_method !== 'pending' ? '<button class="btn btn-success btn-sm" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'accepted\')">Aceptar</button><button class="btn btn-danger btn-sm" onclick="GoBusiness.modules.pedidos._openReject(\'' + o.id + '\')">Rechazar</button>' : '') +
             (o.status === 'accepted' ? '<button class="btn btn-warning btn-sm" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'preparing\')">👨‍🍳 Preparando</button>' : '') +
             (o.status === 'preparing' ? '<button class="btn btn-success btn-sm" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'ready\')">✅ Listo</button>' : '') +
             (['accepted','preparing','ready'].indexOf(o.status) >= 0 && o.order_type !== 'pickup' && o.order_type !== 'dine_in' && o.delivery_method !== 'own' && !o.deliverer_id && ['searching','needs_manual','external','assigned'].indexOf(o.rider_search_status) < 0
@@ -128,7 +128,7 @@
       '</div>' +
       '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">' +
         '<button class="btn" style="background:#374151;color:#fff" onclick="GoBusiness.modules.pedidos._printOrder(\'' + o.id + '\')">🖨️ Imprimir</button>' +
-        (o.status === 'pending' ? '<button class="btn btn-success" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'accepted\');closeModal(\'order-modal\')">Aceptar pedido</button><button class="btn btn-danger" onclick="closeModal(\'order-modal\');GoBusiness.modules.pedidos._openReject(\'' + o.id + '\')">Rechazar</button>' : '') +
+        (o.status === 'pending' && o.payment_method !== 'pending' ? '<button class="btn btn-success" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'accepted\');closeModal(\'order-modal\')">Aceptar pedido</button><button class="btn btn-danger" onclick="closeModal(\'order-modal\');GoBusiness.modules.pedidos._openReject(\'' + o.id + '\')">Rechazar</button>' : '') +
         (o.status === 'accepted' ? '<button class="btn btn-warning" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'preparing\');closeModal(\'order-modal\')">👨‍🍳 Preparando</button>' : '') +
         (o.status === 'preparing' ? '<button class="btn btn-success" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'ready\');closeModal(\'order-modal\')">✅ Listo</button>' : '') +
         (['accepted','preparing','ready'].indexOf(o.status) >= 0 && o.order_type !== 'pickup' && o.order_type !== 'dine_in' && o.delivery_method !== 'own' && !o.deliverer_id && ['searching','needs_manual','external','assigned'].indexOf(o.rider_search_status) < 0
