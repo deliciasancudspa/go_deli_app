@@ -481,9 +481,8 @@ tr:hover td { background:#FAFAFA; }
 .pay-summary-total{font-weight:800;font-size:15px;border-top:1px solid var(--border);padding-top:6px;margin-top:6px}
 
 /* ── POS: Category Chips ─────────────────────────────────────────────────── */
-.pos-cat-chips{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:none}
-.pos-cat-chips::-webkit-scrollbar{display:none}
-.pos-cat-chip{display:flex;align-items:center;gap:6px;padding:10px 18px;border-radius:22px;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;scroll-snap-align:start;transition:all 0.15s;min-height:44px;user-select:none}
+.pos-cat-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.pos-cat-chip{display:flex;align-items:center;gap:6px;padding:10px 18px;border-radius:22px;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;transition:all 0.15s;min-height:44px;user-select:none}
 .pos-cat-chip:hover{border-color:var(--primary)}
 .pos-cat-chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .pos-cat-chip .chip-emoji{font-size:16px}
