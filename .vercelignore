@@ -1,0 +1,48 @@
+# ── Go Deli App — Vercel Deploy ────────────────────────────────────────────
+# Solo se necesita el frontend HTML/JS. Todo lo demás es Flutter, backend,
+# migraciones, cachés, assets de build, etc.
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.flutter-plugins*
+.metadata
+pubspec.*
+analysis_options.yaml
+flutter_launcher_icons.yaml
+android/
+ios/
+linux/
+macos/
+web/
+windows/
+lib/
+build/
+go_rider_app/
+
+# Supabase / Backend
+supabase/
+godeli_archivos.ps1
+
+# Git & CI
+.git/
+.github/
+
+# Node (no hay package.json en el repo, pero por si acaso)
+node_modules/
+package-lock.json
+
+# IDE & Tools
+.claude/
+.idea/
+.vscode/
+*.iml
+
+# Docs & images grandes no esenciales
+*.md
+*.pdf
+*.txt
+*.ps1
+
+# Assets grandes (solo excluir si causan problemas)
+# logo.png es usado en los HTML, así que se incluye
