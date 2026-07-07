@@ -240,6 +240,67 @@
     }
   }
 
+  // ── Imprimir comanda de cocina ────────────────────────────────────────────
+  async function printKitchenTicket(order) {
+    if (!_connected || !_writer) throw new Error('Impresora no conectada');
+
+    var now  = new Date();
+    var hora = now.toLocaleTimeString('es-CL', {hour:'2-digit',minute:'2-digit'});
+    var fecha = now.toLocaleDateString('es-CL', {day:'2-digit',month:'2-digit',year:'numeric'});
+
+    var storeName = (window.storeData && window.storeData.name) || 'Go Deli';
+    var orderId   = ((order && order.id) || '').toString().slice(-8).toUpperCase();
+    var items     = (order && order.items) || (order && order.order_items) || [];
+    var mode      = _modeLabel((order && order.order_type) || 'dine_in');
+
+    var parts = [];
+
+    // Encabezado
+    parts.push(_init());
+    parts.push(_align(1));
+    parts.push(_double(true));
+    parts.push(_cmd('👨‍🍳 COMANDA' + LF));
+    parts.push(_double(false));
+    parts.push(_cmd(storeName + LF));
+    parts.push(_cmd(fecha + '  ' + hora + LF));
+    parts.push(_cmd('Pedido #' + orderId + '  ' + mode + LF));
+    parts.push(_doubleLine());
+
+    // Items (sin precios — formato cocina)
+    parts.push(_align(0));
+    parts.push(_bold(true));
+    parts.push(_cmd('Producto                    Cant' + LF));
+    parts.push(_bold(false));
+    parts.push(_line());
+
+    (items || []).forEach(function(it) {
+      var name = (it.item_name || it.name || 'Producto').substring(0, 22);
+      var qty = it.quantity || 1;
+      parts.push(_cmd(_padRight(name, 22) + '  x' + qty + LF));
+      if (it.variant_details) {
+        parts.push(_cmd('  Var: ' + it.variant_details.substring(0, 27) + LF));
+      }
+      if (it.option_details) {
+        parts.push(_cmd('  + ' + it.option_details.substring(0, 28) + LF));
+      }
+    });
+
+    parts.push(_doubleLine());
+    parts.push(_align(1));
+    parts.push(_cmd('----' + LF));
+    parts.push(_cmd(LF + LF + LF));
+
+    // Cortar
+    parts.push(_cut());
+
+    try {
+      await _writer.write(_concat(parts));
+      return true;
+    } catch(e) {
+      throw new Error('Error al imprimir comanda: ' + e.message);
+    }
+  }
+
   // ── Imprimir ticket de prueba ───────────────────────────────────────────
   async function printTestTicket() {
     if (!_connected || !_writer) throw new Error('Impresora no conectada');
@@ -331,6 +392,7 @@
     openDrawer: openDrawer,
     safeOpenDrawer: safeOpenDrawer,
     printReceipt: printReceipt,
+    printKitchenTicket: printKitchenTicket,
     printTestTicket: printTestTicket,
     setAutoPrint: setAutoPrint,
     setAutoDrawer: setAutoDrawer,

@@ -82,6 +82,10 @@
               ? '<span style="background:#FFF3E8;color:#9A3412;font-size:11px;padding:4px 10px;border-radius:8px;font-weight:600">⏳ Esperando rider...</span>' : '') +
             (o.rider_search_status === 'external' ? '<button class="btn btn-sm" style="background:#7C3AED;color:#fff" onclick="GoBusiness.modules.pedidos._viewOrder(\'' + o.id + '\')">🔑 Ingresar código</button>' : '') +
             (o.status === 'assigned' && o.rider_search_status !== 'external' ? '<button class="btn btn-sm" style="background:#7C3AED;color:#fff" onclick="GoBusiness.modules.pedidos._viewOrder(\'' + o.id + '\')">🔑 Ingresar código</button>' : '') +
+            // Cancelar órdenes POS (sin GoRider, no canceladas ni entregadas)
+            ((['POS','WHATSAPP','INSTAGRAM','FACEBOOK','TELEFONO','WEB','MARKETPLACE','OTRO'].indexOf(o.order_source) >= 0) &&
+             !(o.go_rider_platform_fee > 0) && o.status !== 'cancelled' && o.status !== 'delivered'
+              ? '<button class="btn btn-sm" style="background:var(--error);color:#fff" onclick="GoBusiness.modules.pedidos._openPosCancel(\'' + o.id + '\')">✕ Cancelar</button>' : '') +
           '</td>' +
         '</tr>';
       }).join('') + '</tbody></table>';
@@ -336,6 +340,110 @@
     setTimeout(function() { el?.remove(); }, 15000);
   }
 
+  // ── CANCELAR PEDIDO POS ────────────────────────────────────────────────
+
+  function _openPosCancel(orderId) {
+    var allOrders = getAllOrders();
+    var o = allOrders.find(function(x) { return x.id === orderId; });
+    if (!o) return;
+
+    var existing = document.getElementById('pos-cancel-modal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    overlay.id = 'pos-cancel-modal';
+    overlay.innerHTML =
+      '<div class="modal" style="width:480px">' +
+        '<div class="modal-header"><h3>✕ Cancelar pedido POS</h3>' +
+        '<button class="modal-close" onclick="GoBusiness.modules.pedidos._closePosCancel()">✕</button></div>' +
+        '<div style="margin-bottom:16px">' +
+          '<p style="font-size:14px;margin-bottom:4px">Pedido <strong>#' + o.id.slice(0,8) + '</strong></p>' +
+          '<p style="font-size:13px;color:var(--muted)">' +
+            'Total: <strong>$' + ((o.total||0)).toLocaleString('es-CL') + '</strong> · ' +
+            'Pago: <strong>' + (o.payment_method||'-') + '</strong>' +
+          '</p>' +
+        '</div>' +
+        '<div class="form-group"><label>Motivo de cancelación *</label>' +
+          '<textarea id="pos-cancel-reason" rows="3" placeholder="Describe el motivo de la cancelación..." style="width:100%"></textarea></div>' +
+        '<div style="margin-bottom:16px">' +
+          '<label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;cursor:pointer">' +
+            '<input type="checkbox" id="pos-cancel-confirm" style="accent-color:var(--error);margin-top:2px">' +
+            '<span style="color:var(--muted)">Entiendo que esta acción es <strong style="color:var(--error)">irreversible</strong>. ' +
+            'Se restaurará el stock y se registrará la salida de efectivo correspondiente.</span>' +
+          '</label>' +
+        '</div>' +
+        '<button class="btn" style="width:100%;background:var(--error);color:#fff;font-size:15px;font-weight:700;padding:14px" ' +
+          'onclick="GoBusiness.modules.pedidos._confirmPosCancel(\'' + o.id + '\')" id="pos-cancel-btn" disabled>✕ Cancelar pedido</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById('pos-cancel-confirm').addEventListener('change', function() {
+      document.getElementById('pos-cancel-btn').disabled = !this.checked;
+    });
+  }
+
+  function _closePosCancel() {
+    var el = document.getElementById('pos-cancel-modal');
+    if (el) el.remove();
+  }
+
+  async function _confirmPosCancel(orderId) {
+    var reason = document.getElementById('pos-cancel-reason')?.value?.trim();
+    if (!reason) { showToast('Describe el motivo de cancelación', 'error'); return; }
+
+    var allOrders = getAllOrders();
+    var o = allOrders.find(function(x) { return x.id === orderId; });
+    if (!o) return;
+
+    var btn = document.getElementById('pos-cancel-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Cancelando...'; }
+
+    try {
+      // 1. Actualizar orden
+      await window.sb.from('orders').update({
+        status: 'cancelled',
+        cancel_reason: reason,
+        cancelled_at: new Date().toISOString()
+      }).eq('id', orderId);
+
+      // 2. El trigger trg_restore_stock_on_cancel restaura el stock automáticamente
+
+      // 3. Revertir efectivo si corresponde
+      if (o.payment_method === 'cash' || o.payment_method === 'mixed') {
+        var sessionRes = await window.sb.from('cash_sessions')
+          .select('id').eq('store_id', window.storeData.id)
+          .eq('status', 'open').order('opened_at', {ascending: false}).limit(1);
+        var sessionId = (sessionRes.data && sessionRes.data.length) ? sessionRes.data[0].id : null;
+
+        var paymentsRes = await window.sb.from('order_payments')
+          .select('amount').eq('order_id', orderId).eq('payment_method', 'cash');
+        var cashTotal = (paymentsRes.data || []).reduce(function(s, p) { return s + (p.amount || 0); }, 0);
+
+        if (cashTotal > 0) {
+          await window.sb.from('cash_movements').insert({
+            store_id: window.storeData.id,
+            session_id: sessionId,
+            type: 'retiro',
+            amount: cashTotal,
+            payment_method: 'cash',
+            description: 'Cancelación pedido #' + orderId.slice(0, 8) + ' — ' + reason,
+            order_id: orderId,
+            created_by: window.storeData.owner_id
+          });
+        }
+      }
+
+      showToast('✅ Pedido #' + orderId.slice(0,8) + ' cancelado. Stock restaurado.');
+      _closePosCancel();
+      loadOrders();
+      if (typeof window.loadDashboard === 'function') window.loadDashboard();
+    } catch(e) {
+      showToast('Error: ' + (e.message || 'No se pudo cancelar'), 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '✕ Cancelar pedido'; }
+    }
+  }
+
   // ── RENDER ───────────────────────────────────────────────────────────
   function render() {
     var section = document.getElementById('section-pedidos');
@@ -365,6 +473,9 @@
     _callRider: callRider,
     _verifyRiderCode: verifyRiderCode,
     _showRiderCancelAlert: showRiderCancelAlert,
+    _openPosCancel: _openPosCancel,
+    _closePosCancel: _closePosCancel,
+    _confirmPosCancel: _confirmPosCancel,
   };
 
   window.GoBusiness.modules.pedidos = mod;

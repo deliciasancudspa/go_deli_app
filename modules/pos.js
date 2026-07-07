@@ -35,6 +35,15 @@
   var _pendingOrderId = null;
   var _pendingTotal = 0;
   var _cashAmount = 0;            // monto asignado a efectivo en el split
+  // Nuevos estados — mejoras julio 2026 v2
+  var _customerType = 'none';       // 'none' | 'registered' | 'new'
+  var _selectedClientId = null;
+  var _selectedClientName = '';
+  var _selectedClientPhone = '';
+  var _currentProductModal = null;  // estado del modal de variantes/opciones
+  var _lastCompletedOrder = null;   // para toast de reimpresión
+  var _variantGroupsCache = {};     // lazy-load: groupId → datos
+  var _optionGroupsCache = {};      // lazy-load: groupId → datos
 
   // ── Barra de impresora ───────────────────────────────────────────────────
   function _printerBar() {
@@ -89,10 +98,8 @@
       '<div class="pos-left">' +
         '<div class="pos-search-bar">' +
           '<input type="text" id="pos-search" placeholder="🔍 Buscar producto..." oninput="GoBusiness.modules.pos._onSearch(this.value)">' +
-          '<select id="pos-cat-filter" onchange="GoBusiness.modules.pos._onCatFilter(this.value)" style="padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--surface);min-width:160px">' +
-            '<option value="">Todas las categorías</option>' +
-          '</select>' +
         '</div>' +
+        '<div class="pos-cat-chips" id="pos-cat-chips"></div>' +
         '<div id="pos-products" class="pos-product-grid"></div>' +
       '</div>' +
       // Panel derecho: carrito + configuración
@@ -118,6 +125,26 @@
               '<option value="MARKETPLACE">🏪 Marketplace</option>' +
               '<option value="OTRO">📋 Otro</option>' +
             '</select>' +
+          '</div>' +
+        '</div>' +
+        // ── Selector de cliente ──────────────────────────────────────────
+        '<div class="pos-customer-section">' +
+          '<div class="pos-field"><label>Cliente</label>' +
+            '<div class="customer-toggle">' +
+              '<label class="cust-toggle-btn active" onclick="GoBusiness.modules.pos._setCustomerType(\'none\', this)"><input type="radio" name="cust-type" checked> Sin cliente</label>' +
+              '<label class="cust-toggle-btn" onclick="GoBusiness.modules.pos._setCustomerType(\'registered\', this)"><input type="radio" name="cust-type"> 👤 Registrado</label>' +
+              '<label class="cust-toggle-btn" onclick="GoBusiness.modules.pos._setCustomerType(\'new\', this)"><input type="radio" name="cust-type"> ✨ Nuevo</label>' +
+            '</div>' +
+          '</div>' +
+          '<div id="pos-customer-search" style="display:none;position:relative;margin-top:8px">' +
+            '<input type="text" id="pos-cust-search-input" placeholder="Buscar por nombre o teléfono..." ' +
+              'oninput="GoBusiness.modules.pos._searchCustomers(this.value)" autocomplete="off" ' +
+              'style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px">' +
+            '<div id="pos-cust-search-results" class="customer-dropdown"></div>' +
+          '</div>' +
+          '<div id="pos-customer-new-form" style="display:none;margin-top:8px">' +
+            '<div class="pos-field"><input type="text" id="pos-new-cust-name" placeholder="Nombre completo" style="width:100%"></div>' +
+            '<div class="pos-field"><input type="text" id="pos-new-cust-phone" placeholder="+56 9..." style="width:100%"></div>' +
           '</div>' +
         '</div>' +
         // Delivery config (solo visible en modo DELIVERY)
@@ -210,7 +237,7 @@
   function _loadProducts() {
     if (!window.storeData) return;
     window.sb.from('menu_items')
-      .select('*, menu_categories(name)')
+      .select('*, menu_categories(name, emoji), menu_item_variant_groups(variant_group_id), menu_item_option_groups(option_group_id)')
       .eq('store_id', window.storeData.id)
       .eq('is_available', true)
       .order('name')
@@ -221,12 +248,12 @@
         _products.forEach(function(p) {
           if (p.menu_categories && !seen[p.menu_categories.name]) {
             seen[p.menu_categories.name] = true;
-            _categories.push(p.menu_categories.name);
+            _categories.push({name: p.menu_categories.name, emoji: p.menu_categories.emoji || '📦'});
           }
         });
-        _categories.sort();
+        _categories.sort(function(a,b) { return a.name.localeCompare(b.name); });
         _renderProducts();
-        _renderCatFilter();
+        _renderCatChips();
       });
   }
 
@@ -253,31 +280,80 @@
             '<img src="' + _escAttr(p.image_url) + '" alt="" loading="lazy">' +
           '</div>'
         : '<div class="pos-product-emoji">' + emoji + '</div>';
-      return '<div class="pos-product-card" onclick="GoBusiness.modules.pos._addToCart(\'' + p.id + '\')">' +
-        imgHtml +
+
+      // Stock badge
+      var stockBadge = '';
+      var isOutOfStock = false;
+      if (p.stock !== null && p.stock !== undefined) {
+        if (p.stock <= 0) { stockBadge = '<div class="pos-stock-badge out">Agotado</div>'; isOutOfStock = true; }
+        else if (p.stock <= 5) { stockBadge = '<div class="pos-stock-badge low">Quedan ' + p.stock + '</div>'; }
+      }
+
+      // Variants/options badge
+      var hasVariants = p.menu_item_variant_groups && p.menu_item_variant_groups.length > 0;
+      var hasOptions = p.menu_item_option_groups && p.menu_item_option_groups.length > 0;
+      var extrasBadge = '';
+      if (hasVariants || hasOptions) {
+        var parts = [];
+        if (hasVariants) parts.push(p.menu_item_variant_groups.length + ' var');
+        if (hasOptions) parts.push(p.menu_item_option_groups.length + ' opc');
+        extrasBadge = '<div class="pos-extras-badge">' + parts.join(' · ') + '</div>';
+      }
+
+      var needsModal = hasVariants || hasOptions;
+      var onClick = needsModal
+        ? 'GoBusiness.modules.pos._openProductModal(\'' + p.id + '\')'
+        : (isOutOfStock ? '' : 'GoBusiness.modules.pos._addToCart(\'' + p.id + '\')');
+      var opacityStyle = isOutOfStock ? 'opacity:0.5;cursor:default' : '';
+
+      return '<div class="pos-product-card" onclick="' + onClick + '" style="' + opacityStyle + '">' +
+        imgHtml + stockBadge + extrasBadge +
         '<div class="pos-product-name">' + _esc(p.name) + '</div>' +
         '<div class="pos-product-price">' + price + '</div>' +
       '</div>';
     }).join('');
   }
 
-  function _renderCatFilter() {
-    var sel = document.getElementById('pos-cat-filter');
-    if (!sel) return;
-    var cur = sel.value;
-    sel.innerHTML = '<option value="">Todas las categorías</option>' +
-      _categories.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
-    sel.value = cur;
+  function _renderCatChips() {
+    var container = document.getElementById('pos-cat-chips');
+    if (!container) return;
+    var chips = [{name: 'Todas', emoji: '📋', value: ''}].concat(
+      _categories.map(function(cat) {
+        return {name: cat.name, emoji: cat.emoji || '📦', value: cat.name};
+      })
+    );
+    container.innerHTML = chips.map(function(chip) {
+      var isActive = (!_selectedCat && !chip.value) || (_selectedCat === chip.value);
+      return '<button class="pos-cat-chip' + (isActive ? ' active' : '') + '" ' +
+        'onclick="GoBusiness.modules.pos._onCatChipClick(\'' + _escAttr(chip.value) + '\', this)" ' +
+        'data-value="' + _escAttr(chip.value) + '">' +
+        '<span class="chip-emoji">' + chip.emoji + '</span>' +
+        '<span class="chip-name">' + _esc(chip.name) + '</span>' +
+      '</button>';
+    }).join('');
+  }
+
+  function _onCatChipClick(value, btn) {
+    _selectedCat = value || null;
+    document.querySelectorAll('.pos-cat-chip').forEach(function(c) {
+      c.classList.toggle('active', c.dataset.value === value);
+    });
+    _renderProducts();
   }
 
   // ── Carrito ──────────────────────────────────────────────────────────────
   function _addToCart(productId) {
-    var existing = _cart.find(function(i) { return i.product_id === productId; });
+    var p = _products.find(function(p) { return p.id === productId; });
+    if (!p) return;
+    // Verificar stock
+    if (p.stock !== null && p.stock !== undefined && p.stock <= 0) {
+      window.showToast('Sin stock disponible', 'error');
+      return;
+    }
+    var existing = _cart.find(function(i) { return i.product_id === productId && !i.variant_details && !i.option_details; });
     if (existing) { existing.qty++; }
     else {
-      var p = _products.find(function(p) { return p.id === productId; });
-      if (!p) return;
-      _cart.push({ product_id: p.id, name: p.name, price: p.price||0, qty: 1, image_url: p.image_url || null, emoji: p.emoji || '📦' });
+      _cart.push({ product_id: p.id, name: p.name, price: p.price||0, qty: 1, image_url: p.image_url || null, emoji: p.emoji || '📦', _key: productId });
     }
     _renderCart();
   }
@@ -302,9 +378,13 @@
         var thumbHtml = item.image_url
           ? '<img src="' + _escAttr(item.image_url) + '" alt="" width="40" height="40" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">'
           : '<span style="font-size:28px;flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center">' + item.emoji + '</span>';
+        var variantInfo = '';
+        if (item.variant_details) variantInfo += '<br><span style="font-size:11px;color:var(--secondary)">' + _esc(item.variant_details) + '</span>';
+        if (item.option_details) variantInfo += '<br><span style="font-size:11px;color:var(--muted)">' + _esc(item.option_details) + '</span>';
         return '<div class="pos-cart-item">' +
           thumbHtml +
-          '<div style="flex:1"><strong>' + _esc(item.name) + '</strong><br><span style="font-size:12px;color:var(--muted)">$' + item.price.toLocaleString('es-CL') + ' c/u</span></div>' +
+          '<div style="flex:1"><strong>' + _esc(item.name) + '</strong>' + variantInfo +
+          '<br><span style="font-size:12px;color:var(--muted)">$' + item.price.toLocaleString('es-CL') + ' c/u</span></div>' +
           '<div style="display:flex;align-items:center;gap:8px">' +
             '<button class="qty-btn" onclick="GoBusiness.modules.pos._changeQty(' + i + ',-1)">−</button>' +
             '<span style="font-weight:700;min-width:24px;text-align:center">' + item.qty + '</span>' +
@@ -384,6 +464,387 @@
   function _onSearch(term) { _searchTerm = term; _renderProducts(); }
   function _onCatFilter(cat) { _selectedCat = cat || null; _renderProducts(); }
 
+  // ── MODAL DE PRODUCTO (variantes y opciones) ─────────────────────────────
+
+  function _openProductModal(productId) {
+    var p = _products.find(function(p) { return p.id === productId; });
+    if (!p) return;
+
+    _currentProductModal = {
+      productId: p.id,
+      basePrice: p.price || 0,
+      qty: 1,
+      selectedVariants: {},
+      selectedOptions: {},
+      variantNames: {},
+      optionNames: {},
+      stock: p.stock,
+      name: p.name,
+      emoji: p.emoji || '📦'
+    };
+
+    // Cargar variantes y opciones lazy (on-demand)
+    var vgIds = (p.menu_item_variant_groups || []).map(function(v) { return v.variant_group_id; }).filter(Boolean);
+    var ogIds = (p.menu_item_option_groups || []).map(function(o) { return o.option_group_id; }).filter(Boolean);
+
+    var promises = [];
+    if (vgIds.length) {
+      promises.push(
+        window.sb.from('variant_groups').select('*, variant_items(id, name, price_modifier, sort_order)')
+          .in('id', vgIds).order('name')
+          .then(function(r) { _variantGroupsCache[productId] = r.data || []; })
+      );
+    } else { _variantGroupsCache[productId] = []; }
+    if (ogIds.length) {
+      promises.push(
+        window.sb.from('option_groups').select('*, option_items(id, name, surcharge, sort_order)')
+          .in('id', ogIds).order('name')
+          .then(function(r) { _optionGroupsCache[productId] = r.data || []; })
+      );
+    } else { _optionGroupsCache[productId] = []; }
+
+    Promise.all(promises).then(function() {
+      _renderProductModal(p);
+    });
+  }
+
+  function _renderProductModal(p) {
+    var vg = _variantGroupsCache[p.id] || [];
+    var og = _optionGroupsCache[p.id] || [];
+
+    var html = '<div class="pm-header">' +
+      '<div class="pm-emoji">' + _currentProductModal.emoji + '</div>' +
+      '<div><h3>' + _esc(p.name) + '</h3>' +
+      '<p class="pm-price">$' + (p.price||0).toLocaleString('es-CL') + '</p></div>' +
+      '</div>';
+
+    // Variant groups
+    if (vg.length) {
+      html += '<div class="pm-section"><h4>🎨 Variantes</h4>';
+      vg.forEach(function(g) {
+        var items = (g.variant_items || []).sort(function(a,b) { return (a.sort_order||0) - (b.sort_order||0); });
+        var isRequired = g.required && !g.multi_select;
+        html += '<div class="pm-variant-group"><p class="pm-group-name">' + _esc(g.name) + (isRequired ? ' <span class="required">*</span>' : '') + '</p>';
+        items.forEach(function(vi) {
+          var inputType = isRequired ? 'radio' : 'checkbox';
+          html += '<label class="pm-variant-item">' +
+            '<input type="' + inputType + '" name="vg_' + g.id + '" value="' + vi.id + '" ' +
+            'onchange="GoBusiness.modules.pos._pmOnVariantChange(\'' + g.id + '\', \'' + vi.id + '\', ' + (vi.price_modifier||0) + ', \'' + inputType + '\', \'' + _escAttr(vi.name) + '\')">' +
+            '<span>' + _esc(vi.name) + '</span>' +
+            (vi.price_modifier ? '<span class="pm-price-adj">+$' + vi.price_modifier.toLocaleString('es-CL') + '</span>' : '') +
+          '</label>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Option groups
+    if (og.length) {
+      html += '<div class="pm-section"><h4>➕ Opciones</h4>';
+      og.forEach(function(g) {
+        var items = (g.option_items || []).sort(function(a,b) { return (a.sort_order||0) - (b.sort_order||0); });
+        html += '<div class="pm-option-group"><p class="pm-group-name">' + _esc(g.name) + '</p>';
+        items.forEach(function(oi) {
+          html += '<label class="pm-option-item">' +
+            '<input type="checkbox" name="og_' + g.id + '" value="' + oi.id + '" ' +
+            'onchange="GoBusiness.modules.pos._pmOnOptionChange(\'' + g.id + '\', \'' + oi.id + '\', ' + (oi.surcharge||0) + ', \'' + _escAttr(oi.name) + '\')">' +
+            '<span>' + _esc(oi.name) + '</span>' +
+            (oi.surcharge ? '<span class="pm-price-adj">+$' + oi.surcharge.toLocaleString('es-CL') + '</span>' : '') +
+          '</label>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Quantity
+    html += '<div class="pm-qty"><label>Cantidad</label>' +
+      '<div class="qty-selector">' +
+        '<button onclick="GoBusiness.modules.pos._pmChangeQty(-1)">−</button>' +
+        '<span id="pm-qty-val">1</span>' +
+        '<button onclick="GoBusiness.modules.pos._pmChangeQty(1)">+</button>' +
+      '</div></div>';
+
+    // Stock warning
+    html += '<div id="pm-stock-warning"></div>';
+
+    // Total
+    html += '<div class="pm-total">Total: <strong id="pm-total-price">$' + (p.price||0).toLocaleString('es-CL') + '</strong></div>';
+
+    // Add button
+    html += '<button class="btn-primary" id="pm-add-btn" onclick="GoBusiness.modules.pos._pmAddToCart()">Agregar al carrito</button>';
+
+    _showProductModalOverlay(html);
+    _pmCheckStock();
+  }
+
+  // ── Product modal helpers ────────────────────────────────────────────────
+
+  function _showProductModalOverlay(html) {
+    var existing = document.getElementById('product-modal');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    overlay.id = 'product-modal';
+    overlay.innerHTML = '<div class="modal product-modal-dialog">' +
+      '<div class="modal-header"><h3>Personalizar producto</h3>' +
+      '<button class="modal-close" onclick="GoBusiness.modules.pos._closeProductModal()">✕</button></div>' +
+      html + '</div>';
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) _closeProductModal();
+    });
+    document.body.appendChild(overlay);
+  }
+
+  function _closeProductModal() {
+    var el = document.getElementById('product-modal');
+    if (el) el.remove();
+    _currentProductModal = null;
+  }
+
+  function _pmChangeQty(delta) {
+    if (!_currentProductModal) return;
+    _currentProductModal.qty = Math.max(1, _currentProductModal.qty + delta);
+    document.getElementById('pm-qty-val').textContent = _currentProductModal.qty;
+    _pmUpdateTotal();
+    _pmCheckStock();
+  }
+
+  function _pmOnVariantChange(groupId, itemId, priceMod, inputType, itemName) {
+    if (!_currentProductModal) return;
+    _currentProductModal.variantNames[itemId] = itemName;
+    if (inputType === 'radio') {
+      _currentProductModal.selectedVariants[groupId] = {id: itemId, priceMod: priceMod, name: itemName};
+    } else {
+      if (_currentProductModal.selectedVariants[groupId] && _currentProductModal.selectedVariants[groupId].id === itemId) {
+        delete _currentProductModal.selectedVariants[groupId];
+      } else {
+        _currentProductModal.selectedVariants[groupId] = {id: itemId, priceMod: priceMod, name: itemName};
+      }
+    }
+    _pmUpdateTotal();
+  }
+
+  function _pmOnOptionChange(groupId, itemId, surcharge, itemName) {
+    if (!_currentProductModal) return;
+    _currentProductModal.optionNames[itemId] = itemName;
+    if (!_currentProductModal.selectedOptions[groupId]) _currentProductModal.selectedOptions[groupId] = [];
+    var arr = _currentProductModal.selectedOptions[groupId];
+    var idx = arr.findIndex(function(o) { return o.id === itemId; });
+    if (idx >= 0) { arr.splice(idx, 1); if (!arr.length) delete _currentProductModal.selectedOptions[groupId]; }
+    else { arr.push({id: itemId, surcharge: surcharge, name: itemName}); }
+    _pmUpdateTotal();
+  }
+
+  function _pmUpdateTotal() {
+    if (!_currentProductModal) return;
+    var total = _currentProductModal.basePrice;
+    Object.values(_currentProductModal.selectedVariants).forEach(function(v) { total += v.priceMod; });
+    Object.values(_currentProductModal.selectedOptions).forEach(function(arr) {
+      arr.forEach(function(o) { total += o.surcharge; });
+    });
+    total *= _currentProductModal.qty;
+    var el = document.getElementById('pm-total-price');
+    if (el) el.textContent = '$' + total.toLocaleString('es-CL');
+  }
+
+  function _pmCheckStock() {
+    if (!_currentProductModal) return;
+    var stock = _currentProductModal.stock;
+    var qty = _currentProductModal.qty;
+    var warningEl = document.getElementById('pm-stock-warning');
+    var addBtn = document.getElementById('pm-add-btn');
+    if (!warningEl || !addBtn) return;
+    if (stock !== null && stock !== undefined) {
+      if (stock <= 0) {
+        warningEl.innerHTML = '<div class="pm-warning error">Sin stock disponible</div>';
+        addBtn.disabled = true; addBtn.textContent = 'Sin stock';
+      } else if (stock < qty) {
+        warningEl.innerHTML = '<div class="pm-warning warn">Solo quedan ' + stock + ' disponibles</div>';
+        addBtn.disabled = false; addBtn.textContent = 'Agregar al carrito (' + stock + ' disp.)';
+      } else {
+        warningEl.innerHTML = stock <= 5 ? '<div class="pm-warning info">Quedan ' + stock + ' unidades</div>' : '';
+        addBtn.disabled = false; addBtn.textContent = 'Agregar al carrito';
+      }
+    } else {
+      warningEl.innerHTML = '';
+      addBtn.disabled = false; addBtn.textContent = 'Agregar al carrito';
+    }
+  }
+
+  function _pmAddToCart() {
+    if (!_currentProductModal) return;
+    var pm = _currentProductModal;
+    var variantDetails = Object.values(pm.selectedVariants).map(function(v) { return v.name; }).filter(Boolean).join(', ');
+    var optionDetails = Object.values(pm.selectedOptions).flat().map(function(o) { return o.name; }).filter(Boolean).join(', ');
+    var unitPrice = pm.basePrice;
+    Object.values(pm.selectedVariants).forEach(function(v) { unitPrice += v.priceMod; });
+    Object.values(pm.selectedOptions).forEach(function(arr) { arr.forEach(function(o) { unitPrice += o.surcharge; }); });
+    var key = pm.productId + '|' + variantDetails + '|' + optionDetails;
+    var existing = _cart.find(function(i) { return i._key === key; });
+    if (existing) { existing.qty += pm.qty; }
+    else {
+      var p = _products.find(function(p) { return p.id === pm.productId; });
+      _cart.push({
+        _key: key,
+        product_id: pm.productId,
+        name: p ? p.name : pm.name,
+        price: unitPrice,
+        qty: pm.qty,
+        image_url: p ? p.image_url : null,
+        emoji: p ? (p.emoji || '📦') : pm.emoji,
+        variant_details: variantDetails || null,
+        option_details: optionDetails || null
+      });
+    }
+    _renderCart();
+    _closeProductModal();
+    window.showToast('Agregado: ' + (p ? p.name : pm.name));
+  }
+
+  // ── SELECTOR DE CLIENTE ──────────────────────────────────────────────────
+
+  function _setCustomerType(type, btn) {
+    _customerType = type;
+    _selectedClientId = null;
+    _selectedClientName = '';
+    _selectedClientPhone = '';
+    document.querySelectorAll('.cust-toggle-btn').forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    var searchDiv = document.getElementById('pos-customer-search');
+    var newForm = document.getElementById('pos-customer-new-form');
+    if (searchDiv) searchDiv.style.display = type === 'registered' ? '' : 'none';
+    if (newForm) newForm.style.display = type === 'new' ? '' : 'none';
+    if (type !== 'registered') {
+      var results = document.getElementById('pos-cust-search-results');
+      if (results) results.innerHTML = '';
+    }
+  }
+
+  var _customerSearchTimeout = null;
+  function _searchCustomers(query) {
+    if (_customerSearchTimeout) clearTimeout(_customerSearchTimeout);
+    if (!query || query.length < 2) {
+      document.getElementById('pos-cust-search-results').innerHTML = '';
+      return;
+    }
+    _customerSearchTimeout = setTimeout(function() {
+      var term = query.toLowerCase();
+      window.sb.from('orders')
+        .select('customer_name, customer_phone, client_id')
+        .eq('store_id', window.storeData.id)
+        .not('customer_name', 'is', null)
+        .order('created_at', {ascending: false})
+        .limit(50)
+        .then(function(r) {
+          var seen = {};
+          var merged = [];
+          (r.data || []).forEach(function(o) {
+            var key = (o.customer_phone || o.customer_name || '').toLowerCase();
+            if (key && !seen[key] && o.customer_name) {
+              seen[key] = true;
+              merged.push({id: o.client_id, name: o.customer_name, phone: o.customer_phone});
+            }
+          });
+          var filtered = merged.filter(function(c) {
+            return (c.name || '').toLowerCase().indexOf(term) >= 0 ||
+                   (c.phone || '').indexOf(term) >= 0;
+          }).slice(0, 8);
+          _renderCustomerResults(filtered);
+        });
+    }, 300);
+  }
+
+  function _renderCustomerResults(results) {
+    var container = document.getElementById('pos-cust-search-results');
+    if (!container) return;
+    if (!results.length) {
+      container.innerHTML = '<div class="cust-no-results">No se encontraron clientes</div>';
+      return;
+    }
+    container.innerHTML = results.map(function(c) {
+      return '<div class="cust-result-item" onclick="GoBusiness.modules.pos._selectCustomer(\'' +
+        _escAttr(c.id || '') + '\', \'' + _escAttr(c.name || '') + '\', \'' + _escAttr(c.phone || '') + '\')">' +
+        '<span class="cust-icon">👤</span>' +
+        '<div><strong>' + _esc(c.name) + '</strong>' +
+        '<br><span style="font-size:11px;color:var(--muted)">' + _esc(c.phone || 'Sin teléfono') + '</span></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function _selectCustomer(id, name, phone) {
+    _selectedClientId = id || null;
+    _selectedClientName = name;
+    _selectedClientPhone = phone;
+    var input = document.getElementById('pos-cust-search-input');
+    if (input) input.value = name + ' (' + (phone || '') + ')';
+    document.getElementById('pos-cust-search-results').innerHTML = '';
+  }
+
+  // ── TOAST DE IMPRESIÓN POST-PAGO ─────────────────────────────────────────
+
+  function _showPrintToast() {
+    var existing = document.getElementById('print-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'print-toast';
+    toast.className = 'print-toast';
+    toast.innerHTML =
+      '<div class="print-toast-content">' +
+        '<p class="print-toast-title">✅ Pedido completado</p>' +
+        '<p class="print-toast-sub">#' + (_lastCompletedOrder ? _lastCompletedOrder.id.slice(0, 8) : '') + '</p>' +
+        '<div class="print-toast-buttons">' +
+          '<button class="print-toast-btn ticket" onclick="GoBusiness.modules.pos._printAction(\'ticket\')">🧾 Ticket</button>' +
+          '<button class="print-toast-btn kitchen" onclick="GoBusiness.modules.pos._printAction(\'kitchen\')">👨‍🍳 Comanda</button>' +
+          '<button class="print-toast-btn both" onclick="GoBusiness.modules.pos._printAction(\'both\')">📋 Ambos</button>' +
+          '<button class="print-toast-btn close" onclick="GoBusiness.modules.pos._dismissPrintToast()">✕ Cerrar</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(toast);
+    _printToastTimeout = setTimeout(function() { _dismissPrintToast(); }, 30000);
+  }
+
+  var _printToastTimeout = null;
+  function _printAction(action) {
+    var printer = window.GoBusiness && window.GoBusiness.modules && window.GoBusiness.modules.printer;
+    if (!printer || !printer.isConnected()) {
+      window.showToast('⚠️ Impresora no conectada', 'error');
+      return;
+    }
+    var order = _lastCompletedOrder;
+    if (!order) return;
+    var printOrder = {
+      id: order.id,
+      order_type: order.orderType || 'dine_in',
+      items: order.items,
+      order_items: order.items,
+      payment_method: order.paymentMethod || 'cash',
+      payments: order.payments,
+      subtotal: order.subtotal || (order.total - (order.deliveryFee || 0)),
+      delivery_fee: order.deliveryFee || 0,
+      total: order.total
+    };
+    if (action === 'ticket' || action === 'both') {
+      printer.printReceipt(printOrder).catch(function(e) {
+        window.showToast('Error al imprimir ticket: ' + e.message, 'error');
+      });
+    }
+    if (action === 'kitchen' || action === 'both') {
+      printer.printKitchenTicket(printOrder).catch(function(e) {
+        window.showToast('Error al imprimir comanda: ' + e.message, 'error');
+      });
+    }
+    if (action !== 'both') _dismissPrintToast();
+    else setTimeout(function() { _dismissPrintToast(); }, 2000);
+  }
+
+  function _dismissPrintToast() {
+    if (_printToastTimeout) { clearTimeout(_printToastTimeout); _printToastTimeout = null; }
+    var el = document.getElementById('print-toast');
+    if (el) el.remove();
+  }
+
   // ── Abrir tienda desde el POS ──────────────────────────────────────────────
   async function _openStoreFromPOS() {
     if (!window.storeData) return;
@@ -461,7 +922,7 @@
 
     var orderData = {
       store_id: window.storeData.id,
-      client_id: window.storeData.owner_id,
+      client_id: _selectedClientId || window.storeData.owner_id,
       order_source: _orderSource,
       order_mode: _orderMode,
       delivery_method: _deliveryMethod,
@@ -476,8 +937,12 @@
       go_rider_platform_fee: (_orderMode === 'DELIVERY' && _deliveryMethod === 'go_rider') ? 2500 : 0,
       payment_method: 'pending', // se actualiza al confirmar pago
       status: orderStatus,
-      customer_name: _customerName || null,
-      customer_phone: _customerPhone || null,
+      customer_name: _customerType === 'new'
+        ? ((document.getElementById('pos-new-cust-name')?.value || '').trim() || null)
+        : (_customerType === 'registered' ? _selectedClientName : (_customerName || null)),
+      customer_phone: _customerType === 'new'
+        ? ((document.getElementById('pos-new-cust-phone')?.value || '').trim() || null)
+        : (_customerType === 'registered' ? _selectedClientPhone : (_customerPhone || null)),
       customer_address: _customerAddress || null,
       customer_lat: custLat,
       customer_lng: custLng,
@@ -495,14 +960,17 @@
       if (res.error) throw res.error;
       var orderId = res.data.id;
 
-      // Insertar items
+      // Insertar items (con menu_item_id para trigger de stock)
       var items = _cart.map(function(i) {
         return {
           order_id: orderId,
+          menu_item_id: i.product_id,
           item_name: i.name,
           quantity: i.qty,
           item_price: i.price,
-          subtotal: i.price * i.qty
+          subtotal: i.price * i.qty,
+          variant_details: i.variant_details || null,
+          option_details: i.option_details || null
         };
       });
       await window.sb.from('order_items').insert(items);
@@ -784,22 +1252,25 @@
       // 5. Otros métodos (débito, crédito, transferencia) NO generan movimiento de caja
       // Solo se registran en order_payments (ya hecho arriba)
 
-      // 6. Imprimir ticket
-      var printer = window.GoBusiness.modules.printer;
-      if (printer && printer.isConnected()) {
-        var printOrder = Object.assign({}, _pendingOrderData, {
-          id: _pendingOrderId,
-          items: _cart,
-          order_items: _cart,
-          payment_method: mainMethod,
-          payments: activePayments // info de split para el ticket
-        });
-        printer.printReceipt(printOrder)
-          .then(function() {})
-          .catch(function(e) { window.showToast('⚠️ Impresora: ' + e.message, 'error'); });
-      }
+      // 6. Referencia a la impresora
+      var printer = window.GoBusiness && window.GoBusiness.modules && window.GoBusiness.modules.printer;
 
-      // 7. Abrir cajón si hay efectivo
+      // 7. Guardar orden para toast de reimpresión
+      _lastCompletedOrder = {
+        id: _pendingOrderId,
+        orderType: _pendingOrderData.order_type,
+        items: _cart,
+        total: _pendingTotal,
+        subtotal: _pendingOrderData.subtotal,
+        deliveryFee: _pendingOrderData.delivery_fee,
+        paymentMethod: mainMethod,
+        payments: activePayments
+      };
+
+      // 7. Mostrar toast de impresión (ticket/comanda/ambos)
+      _showPrintToast();
+
+      // 8. Abrir cajón si hay efectivo
       if (cashPm && printer && printer.safeOpenDrawer) {
         printer.safeOpenDrawer();
       }
@@ -867,6 +1338,7 @@
     _changeQty: _changeQty,
     _onSearch: _onSearch,
     _onCatFilter: _onCatFilter,
+    _onCatChipClick: _onCatChipClick,
     _onModeChange: _onModeChange,
     _onSourceChange: _onSourceChange,
     _onDeliveryMethodChange: _onDeliveryMethodChange,
@@ -878,7 +1350,21 @@
     _onVoucherChange: _onVoucherChange,
     _updatePaymentSummary: _updatePaymentSummary,
     _calcChange: _calcChange,
-    _confirmPayment: _confirmPayment
+    _confirmPayment: _confirmPayment,
+    // Modal de producto (variantes/opciones)
+    _openProductModal: _openProductModal,
+    _closeProductModal: _closeProductModal,
+    _pmChangeQty: _pmChangeQty,
+    _pmOnVariantChange: _pmOnVariantChange,
+    _pmOnOptionChange: _pmOnOptionChange,
+    _pmAddToCart: _pmAddToCart,
+    // Selector de cliente
+    _setCustomerType: _setCustomerType,
+    _searchCustomers: _searchCustomers,
+    _selectCustomer: _selectCustomer,
+    // Toast de impresión
+    _printAction: _printAction,
+    _dismissPrintToast: _dismissPrintToast
   };
 
 })();
