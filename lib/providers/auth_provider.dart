@@ -10,19 +10,30 @@ class AuthProvider extends ChangeNotifier {
   User? _user;
   Map<String, dynamic>? _profile;
   bool _loading = false;
+  bool _needsPasswordReset = false;
   StreamSubscription<String>? _fcmTokenSub; // para cancelar en signOut
 
   User? get user => _user;
   Map<String, dynamic>? get profile => _profile;
   bool get loading => _loading;
   bool get isLoggedIn => _user != null;
+  bool get needsPasswordReset => _needsPasswordReset;
 
   StreamSubscription? _authSub;
 
   AuthProvider() {
     _authSub = _sb.auth.onAuthStateChange.listen((data) {
       _user = data.session?.user;
-      if (_user != null) loadProfile();
+      if (_user != null) {
+        if (data.event == AuthChangeEvent.passwordRecovery) {
+          // El usuario hizo clic en un enlace de recuperacion de contrasena.
+          // Mostrar la pantalla de nueva contrasena en vez de cargar perfil.
+          _needsPasswordReset = true;
+          notifyListeners();
+          return;
+        }
+        loadProfile();
+      }
       notifyListeners();
     });
   }
@@ -232,6 +243,47 @@ class AuthProvider extends ChangeNotifier {
     await _sb.auth.signOut();
     _user = null;
     _profile = null;
+    _needsPasswordReset = false;
+    notifyListeners();
+  }
+
+  /// Envia el correo de recuperacion de contrasena.
+  /// [redirectTo] permite especificar a que URL redirigir tras hacer clic
+  /// en el enlace (ej. 'https://godeli.cl/aliados').
+  Future<String?> resetPasswordForEmail(String email, {String? redirectTo}) async {
+    try {
+      _loading = true; notifyListeners();
+      await _sb.auth.resetPasswordForEmail(
+        email,
+        redirectTo: redirectTo,
+      );
+      return null;
+    } catch (e) {
+      return e.toString();
+    } finally {
+      _loading = false; notifyListeners();
+    }
+  }
+
+  /// Cambia la contrasena del usuario actual (requiere sesion activa,
+  /// tipicamente tras un enlace de recuperacion).
+  Future<String?> updatePassword(String newPassword) async {
+    try {
+      _loading = true; notifyListeners();
+      await _sb.auth.updateUser(UserAttributes(password: newPassword));
+      _needsPasswordReset = false;
+      await loadProfile();
+      return null;
+    } catch (e) {
+      return e.toString();
+    } finally {
+      _loading = false; notifyListeners();
+    }
+  }
+
+  /// Limpia el flag de recuperacion sin cambiar contrasena.
+  void clearPasswordReset() {
+    _needsPasswordReset = false;
     notifyListeners();
   }
 }

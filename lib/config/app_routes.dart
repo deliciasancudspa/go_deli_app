@@ -8,6 +8,7 @@ import "../features/onboarding/screens/location_permission_screen.dart";
 import "../features/auth/screens/login_screen.dart";
 import "../features/auth/screens/register_screen.dart";
 import "../features/auth/screens/complete_profile_screen.dart";
+import "../features/auth/screens/reset_password_screen.dart";
 import "../features/home/screens/home_screen.dart";
 import "../features/search/screens/search_screen.dart";
 import "../features/store/screens/store_screen.dart";
@@ -26,7 +27,7 @@ final GoRouter appRouter = GoRouter(
   redirect: (context, state) {
     final auth = context.read<AuthProvider>();
     final loggedIn = auth.isLoggedIn;
-    final onAuth = ["/login", "/register", "/splash", "/onboarding", "/location", "/complete-profile"].contains(state.matchedLocation);
+    final onAuth = ["/login", "/register", "/splash", "/onboarding", "/location", "/complete-profile", "/reset-password"].contains(state.matchedLocation);
     if (!loggedIn && !onAuth) return "/login";
     return null;
   },
@@ -37,6 +38,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: "/login",        builder: (c,s) => const LoginScreen()),
     GoRoute(path: "/register",          builder: (c,s) => const RegisterScreen()),
     GoRoute(path: "/complete-profile",  builder: (c,s) => const CompleteProfileScreen()),
+    GoRoute(path: "/reset-password",    builder: (c,s) => const ResetPasswordScreen()),
     GoRoute(path: "/",             builder: (c,s) => const HomeScreen()),
     GoRoute(path: "/home",         builder: (c,s) => const HomeScreen()),
     GoRoute(path: "/search",       builder: (c,s) => const SearchScreen()),
