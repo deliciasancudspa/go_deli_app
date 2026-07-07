@@ -76,8 +76,11 @@ class _StoreScreenState extends State<StoreScreen> {
         ElevatedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh, size: 18), label: const Text('Reintentar'), style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent, foregroundColor: Colors.white)),
       ]),
     )));
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Portada 16:9 — mismo ratio que web y store_card
+    final coverHeight = screenWidth * 9 / 16;
     return Scaffold(backgroundColor: AppColors.background, body: CustomScrollView(slivers: [
-      SliverAppBar(expandedHeight: 200, pinned: true, backgroundColor: Colors.transparent, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => context.pop()),
+      SliverAppBar(expandedHeight: coverHeight, pinned: true, backgroundColor: Colors.transparent, leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => context.pop()),
         actions: [
           IconButton(
             icon: Icon(_isFav ? Icons.favorite : Icons.favorite_border,
