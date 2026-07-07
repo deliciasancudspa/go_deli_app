@@ -441,6 +441,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     setState(() => _loading = true);
 
+    // ── Pre-validar stock antes de crear la orden ──────────────────────────
+    try {
+      final cart   = context.read<CartProvider>();
+      final storeItems = cart.getItemsForStore(widget.storeId);
+      final baseIds = storeItems.map((i) => i.id.split("__").first).toSet().toList();
+      if (baseIds.isNotEmpty) {
+        final stockData = await _sb.from("menu_items").select("id,name,stock").inFilter("id", baseIds);
+        final stockMap = <String, Map<String, dynamic>>{};
+        for (final s in (stockData as List)) { stockMap[s["id"]] = s; }
+        for (final item in storeItems) {
+          final baseId = item.id.split("__").first;
+          final info = stockMap[baseId];
+          if (info != null) {
+            final stock = info["stock"] as int?;
+            if (stock != null && item.quantity > stock) {
+              if (mounted) setState(() => _loading = false);
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(stock <= 0
+                  ? "❌ \"${info["name"]}\" está agotado"
+                  : "⚠️ Solo quedan $stock disponibles de \"${info["name"]}\" (pediste ${item.quantity})"),
+                backgroundColor: AppColors.error,
+              ));
+              return;
+            }
+          }
+        }
+      }
+    } catch (_) { /* si falla el pre-check, el trigger lo atrapará */ }
+
     // Si hay una orden pendiente previa (pago cancelado/fallido),
     // reutilizarla en vez de crear una nueva. Validar que siga en estado
     // pending_payment (webpay-return pudo haberla marcado como cancelled).
