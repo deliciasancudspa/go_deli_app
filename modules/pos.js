@@ -237,7 +237,7 @@
   function _loadProducts() {
     if (!window.storeData) return;
     window.sb.from('menu_items')
-      .select('*, menu_categories(name, emoji)')
+      .select('*, menu_categories(name)')
       .eq('store_id', window.storeData.id)
       .eq('is_available', true)
       .order('name')
@@ -249,7 +249,7 @@
         _products.forEach(function(p) {
           if (p.menu_categories && !seen[p.menu_categories.name]) {
             seen[p.menu_categories.name] = true;
-            _categories.push({name: p.menu_categories.name, emoji: p.menu_categories.emoji || '📦'});
+            _categories.push({name: p.menu_categories.name, emoji: '📦'});
           }
         });
         _categories.sort(function(a,b) { return a.name.localeCompare(b.name); });
@@ -473,26 +473,56 @@
     };
 
     // Cargar variantes y opciones lazy (on-demand)
-    var vgIds = (p.menu_item_variant_groups || []).map(function(v) { return v.variant_group_id; }).filter(Boolean);
-    var ogIds = (p.menu_item_option_groups || []).map(function(o) { return o.option_group_id; }).filter(Boolean);
+    // Primero: obtener los IDs de los grupos asociados
+    var vgPromise = window.sb.from('menu_item_variant_groups')
+      .select('variant_group_id').eq('item_id', productId)
+      .then(function(r) {
+        var ids = (r.data || []).map(function(v) { return v.variant_group_id; }).filter(Boolean);
+        if (!ids.length) return [];
+        return window.sb.from('variant_groups').select('id, name, required, multi_select')
+          .in('id', ids).order('name')
+          .then(function(r2) {
+            var groups = r2.data || [];
+            if (!groups.length) return [];
+            // Cargar items para cada grupo
+            var itemPromises = groups.map(function(g) {
+              return window.sb.from('variant_items')
+                .select('id, name, price_modifier, sort_order')
+                .eq('group_id', g.id).order('sort_order')
+                .then(function(r3) { g.variant_items = r3.data || []; return g; });
+            });
+            return Promise.all(itemPromises);
+          });
+      });
 
-    var promises = [];
-    if (vgIds.length) {
-      promises.push(
-        window.sb.from('variant_groups').select('*, variant_items(id, name, price_modifier, sort_order)')
-          .in('id', vgIds).order('name')
-          .then(function(r) { _variantGroupsCache[productId] = r.data || []; })
-      );
-    } else { _variantGroupsCache[productId] = []; }
-    if (ogIds.length) {
-      promises.push(
-        window.sb.from('option_groups').select('*, option_items(id, name, surcharge, sort_order)')
-          .in('id', ogIds).order('name')
-          .then(function(r) { _optionGroupsCache[productId] = r.data || []; })
-      );
-    } else { _optionGroupsCache[productId] = []; }
+    var ogPromise = window.sb.from('menu_item_option_groups')
+      .select('option_group_id').eq('item_id', productId)
+      .then(function(r) {
+        var ids = (r.data || []).map(function(o) { return o.option_group_id; }).filter(Boolean);
+        if (!ids.length) return [];
+        return window.sb.from('option_groups').select('id, name')
+          .in('id', ids).order('name')
+          .then(function(r2) {
+            var groups = r2.data || [];
+            if (!groups.length) return [];
+            var itemPromises = groups.map(function(g) {
+              return window.sb.from('option_items')
+                .select('id, name, surcharge, sort_order')
+                .eq('group_id', g.id).order('sort_order')
+                .then(function(r3) { g.option_items = r3.data || []; return g; });
+            });
+            return Promise.all(itemPromises);
+          });
+      });
 
-    Promise.all(promises).then(function() {
+    Promise.all([vgPromise, ogPromise]).then(function(results) {
+      _variantGroupsCache[productId] = results[0] || [];
+      _optionGroupsCache[productId] = results[1] || [];
+      _renderProductModal(p);
+    }).catch(function(e) {
+      console.error('[POS] Error cargando variantes/opciones:', e);
+      _variantGroupsCache[productId] = [];
+      _optionGroupsCache[productId] = [];
       _renderProductModal(p);
     });
   }
