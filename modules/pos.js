@@ -473,39 +473,46 @@
     };
 
     // Cargar variantes y opciones lazy (on-demand)
-    // Consultar directamente variant_groups y option_groups de la tienda
-    var storeId = window.storeData && window.storeData.id;
-    if (!storeId) { _renderProductModal(p); return; }
-
-    var vgPromise = window.sb.from('variant_groups')
-      .select('id, name, required, multi_select')
-      .eq('store_id', storeId).order('name')
+    // 1. Obtener group_ids asociados al producto desde las tablas puente
+    var vgPromise = window.sb.from('menu_item_variant_groups')
+      .select('group_id').eq('item_id', productId)
       .then(function(r) {
-        var groups = r.data || [];
-        if (!groups.length) return [];
-        var itemPromises = groups.map(function(g) {
-          return window.sb.from('variant_items')
-            .select('id, name, price_modifier, sort_order')
-            .eq('group_id', g.id).order('sort_order')
-            .then(function(r2) { g.variant_items = r2.data || []; return g; });
-        });
-        return Promise.all(itemPromises);
-      });
+        var ids = (r.data || []).map(function(v) { return v.group_id; }).filter(Boolean);
+        if (!ids.length) return [];
+        return window.sb.from('variant_groups').select('id, name, required, multi_select')
+          .in('id', ids).order('name')
+          .then(function(r2) {
+            var groups = r2.data || [];
+            if (!groups.length) return [];
+            var itemPromises = groups.map(function(g) {
+              return window.sb.from('variant_items')
+                .select('id, name, price_modifier, sort_order')
+                .eq('group_id', g.id).order('sort_order')
+                .then(function(r3) { g.variant_items = r3.data || []; return g; });
+            });
+            return Promise.all(itemPromises);
+          });
+      }).catch(function() { return []; });
 
-    var ogPromise = window.sb.from('option_groups')
-      .select('id, name')
-      .eq('store_id', storeId).order('name')
+    var ogPromise = window.sb.from('menu_item_option_groups')
+      .select('group_id').eq('item_id', productId)
       .then(function(r) {
-        var groups = r.data || [];
-        if (!groups.length) return [];
-        var itemPromises = groups.map(function(g) {
-          return window.sb.from('option_items')
-            .select('id, name, surcharge, sort_order')
-            .eq('group_id', g.id).order('sort_order')
-            .then(function(r2) { g.option_items = r2.data || []; return g; });
-        });
-        return Promise.all(itemPromises);
-      });
+        var ids = (r.data || []).map(function(o) { return o.group_id; }).filter(Boolean);
+        if (!ids.length) return [];
+        return window.sb.from('option_groups').select('id, name')
+          .in('id', ids).order('name')
+          .then(function(r2) {
+            var groups = r2.data || [];
+            if (!groups.length) return [];
+            var itemPromises = groups.map(function(g) {
+              return window.sb.from('option_items')
+                .select('id, name, surcharge, sort_order')
+                .eq('group_id', g.id).order('sort_order')
+                .then(function(r3) { g.option_items = r3.data || []; return g; });
+            });
+            return Promise.all(itemPromises);
+          });
+      }).catch(function() { return []; });
 
     Promise.all([vgPromise, ogPromise]).then(function(results) {
       _variantGroupsCache[productId] = results[0] || [];
