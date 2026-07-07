@@ -367,15 +367,26 @@ class _StoreScreenState extends State<StoreScreen> {
     // Validar stock
     final stock = item["stock"] as int?;
     if ((stock ?? 0) <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text("❌ ${item["name"]} está agotado"),
         backgroundColor: AppColors.error,
       ));
       return;
     }
+    // Validar cantidad disponible
+    final itemId = item["id"] as String;
+    final storeId2 = store["id"] as String;
+    final currentQty = cart.getStoreQuantity(storeId2, itemId);
+    if (stock != null && currentQty + 1 > stock) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("⚠️ Solo quedan $stock disponibles de ${item["name"]}"),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
     cart.addItem(CartItem(
-      id: item["id"] as String,
-      storeId: store["id"] as String,
+      id: itemId,
+      storeId: storeId2,
       storeName: store["name"] as String? ?? "",
       name: item["name"] as String? ?? "",
       price: basePrice,

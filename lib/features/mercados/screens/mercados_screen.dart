@@ -908,10 +908,20 @@ class _MercadosScreenState extends State<MercadosScreen> {
       ));
       return;
     }
+    // Validar cantidad disponible
     final storeId   = store["id"] as String;
+    final itemId    = item["id"] as String;
+    final currentQty = cart.getStoreQuantity(storeId, itemId);
+    if (stock != null && currentQty + 1 > stock) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("⚠️ Solo quedan $stock disponibles de ${item["name"]}"),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
     final storeName = store["name"] as String? ?? "";
     final cartItem  = CartItem(
-      id:        item["id"] as String,
+      id:        itemId,
       storeId:   storeId,
       storeName: storeName,
       name:      item["name"] as String? ?? "",

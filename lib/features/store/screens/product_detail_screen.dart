@@ -254,6 +254,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ));
       return;
     }
+    // Validar cantidad disponible (suma de todas las variantes de este producto)
+    final baseId = _item!["id"] as String;
+    final storeIdPD = _store!["id"] as String;
+    final cart = context.read<CartProvider>();
+    final cartList = cart.getItemsForStore(storeIdPD);
+    final currentQty = cartList.where((i) => i.id == baseId || i.id.startsWith('${baseId}__')).fold(0, (s, i) => s + i.quantity);
+    if (stock != null && currentQty + 1 > stock) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("⚠️ Solo quedan $stock disponibles de ${_item!["name"]}"),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
     final cartId  = _buildCompositeCartId();
     final label   = _buildVariantLabel();
     final variant = label.isEmpty ? null : label;
