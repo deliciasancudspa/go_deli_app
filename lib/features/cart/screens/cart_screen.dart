@@ -484,14 +484,13 @@ class _StoreRecsState extends State<_StoreRecs> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: SizedBox(
-                height: 52,
-                width: double.infinity,
+            AspectRatio(
+              aspectRatio: 1,
+              child: ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
                 child: imgUrl != null
-                    ? Image.network(imgUrl, fit: BoxFit.cover,
+                    ? Image.network(imgUrl, fit: BoxFit.cover, width: double.infinity,
                         errorBuilder: (_, __, ___) =>
                             Center(child: Text(emoji, style: const TextStyle(fontSize: 22))))
                     : Center(

@@ -784,7 +784,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: SizedBox(
-                  width: 100, height: 70,
+                  width: 100, height: 100,
                   child: imgUrl != null
                       ? Image.network(imgUrl, fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _prodPh(item))

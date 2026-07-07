@@ -884,12 +884,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           border: Border.all(color: AppColors.homeCardBorder),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: SizedBox(
-              height: 80, width: double.infinity,
+          AspectRatio(
+            aspectRatio: 1,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: imgUrl != null
-                  ? Image.network(imgUrl, fit: BoxFit.cover,
+                  ? Image.network(imgUrl, fit: BoxFit.cover, width: double.infinity,
                       errorBuilder: (_, __, ___) => _recPh(item))
                   : _recPh(item),
             ),

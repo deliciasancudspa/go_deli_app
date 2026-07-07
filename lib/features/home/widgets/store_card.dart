@@ -154,7 +154,7 @@ class StoreCard extends StatelessWidget {
           children: [
             // Imagen del producto
             AspectRatio(
-              aspectRatio: 16 / 9,
+              aspectRatio: 1,
               child: productImg != null
                   ? Image.network(productImg, fit: BoxFit.cover, width: double.infinity,
                       errorBuilder: (_, __, ___) => _gradientPlaceholder(emoji))

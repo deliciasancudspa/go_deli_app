@@ -175,13 +175,20 @@ class _StoreScreenState extends State<StoreScreen> {
             decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
             child: Row(children: [
               Stack(children: [
-                item["image_url"] != null
-                  ? ClipRRect(borderRadius: BorderRadius.circular(12),
-                      child: Image.network(item["image_url"], width: 80, height: 80, fit: BoxFit.cover))
-                  : Container(width: 80, height: 80,
-                      decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12)),
-                      child: Center(child: Text(item["emoji"] ?? "🍽️",
-                          style: const TextStyle(fontSize: 36)))),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: item["image_url"] != null
+                    ? Image.network(item["image_url"], width: 80, height: 80, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 80, height: 80,
+                          color: AppColors.background,
+                          child: Center(child: Text(item["emoji"] ?? "🍽️",
+                              style: const TextStyle(fontSize: 36)))))
+                    : Container(width: 80, height: 80,
+                        color: AppColors.background,
+                        child: Center(child: Text(item["emoji"] ?? "🍽️",
+                            style: const TextStyle(fontSize: 36)))),
+                ),
                 if (discPct > 0) Positioned(top: 4, left: 4,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
