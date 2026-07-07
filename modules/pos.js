@@ -479,7 +479,7 @@
       .then(function(r) {
         var ids = (r.data || []).map(function(v) { return v.group_id; }).filter(Boolean);
         if (!ids.length) return [];
-        return window.sb.from('variant_groups').select('id, name, required, multi_select')
+        return window.sb.from('variant_groups').select('id, name')
           .in('id', ids).order('name')
           .then(function(r2) {
             var groups = r2.data || [];
