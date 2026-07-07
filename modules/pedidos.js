@@ -76,7 +76,7 @@
             (o.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'accepted\')">Aceptar</button><button class="btn btn-danger btn-sm" onclick="GoBusiness.modules.pedidos._openReject(\'' + o.id + '\')">Rechazar</button>' : '') +
             (o.status === 'accepted' ? '<button class="btn btn-warning btn-sm" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'preparing\')">👨‍🍳 Preparando</button>' : '') +
             (o.status === 'preparing' ? '<button class="btn btn-success btn-sm" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'ready\')">✅ Listo</button>' : '') +
-            (['accepted','preparing','ready'].indexOf(o.status) >= 0 && o.order_type !== 'pickup' && o.order_type !== 'dine_in' && !o.deliverer_id && ['searching','needs_manual','external','assigned'].indexOf(o.rider_search_status) < 0
+            (['accepted','preparing','ready'].indexOf(o.status) >= 0 && o.order_type !== 'pickup' && o.order_type !== 'dine_in' && o.delivery_method !== 'own' && !o.deliverer_id && ['searching','needs_manual','external','assigned'].indexOf(o.rider_search_status) < 0
               ? '<button class="btn btn-primary btn-sm" onclick="GoBusiness.modules.pedidos._callRider(\'' + o.id + '\')">🛵 Llamar Rider</button>' : '') +
             (['searching','needs_manual'].indexOf(o.rider_search_status) >= 0
               ? '<span style="background:#FFF3E8;color:#9A3412;font-size:11px;padding:4px 10px;border-radius:8px;font-weight:600">⏳ Esperando rider...</span>' : '') +
@@ -131,7 +131,7 @@
         (o.status === 'pending' ? '<button class="btn btn-success" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'accepted\');closeModal(\'order-modal\')">Aceptar pedido</button><button class="btn btn-danger" onclick="closeModal(\'order-modal\');GoBusiness.modules.pedidos._openReject(\'' + o.id + '\')">Rechazar</button>' : '') +
         (o.status === 'accepted' ? '<button class="btn btn-warning" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'preparing\');closeModal(\'order-modal\')">👨‍🍳 Preparando</button>' : '') +
         (o.status === 'preparing' ? '<button class="btn btn-success" onclick="GoBusiness.modules.pedidos._updateStatus(\'' + o.id + '\',\'ready\');closeModal(\'order-modal\')">✅ Listo</button>' : '') +
-        (['accepted','preparing','ready'].indexOf(o.status) >= 0 && o.order_type !== 'pickup' && o.order_type !== 'dine_in' && !o.deliverer_id && ['searching','needs_manual','external','assigned'].indexOf(o.rider_search_status) < 0
+        (['accepted','preparing','ready'].indexOf(o.status) >= 0 && o.order_type !== 'pickup' && o.order_type !== 'dine_in' && o.delivery_method !== 'own' && !o.deliverer_id && ['searching','needs_manual','external','assigned'].indexOf(o.rider_search_status) < 0
           ? '<button class="btn btn-primary" onclick="GoBusiness.modules.pedidos._callRider(\'' + o.id + '\');closeModal(\'order-modal\')">🛵 Llamar Rider</button>' : '') +
         (['searching','needs_manual'].indexOf(o.rider_search_status) >= 0
           ? '<span style="background:#FFF3E8;color:#9A3412;font-size:13px;padding:8px 14px;border-radius:8px;font-weight:600">⏳ Esperando rider...</span>' : '') +
@@ -274,6 +274,7 @@
   async function callRider(orderId) {
     var allOrders = getAllOrders();
     var localOrder = allOrders.find(function(x) { return x.id === orderId; });
+    if (localOrder && localOrder.delivery_method === 'own') { showToast('Este pedido usa repartidor propio', 'error'); return; }
     if (localOrder) localOrder.rider_search_status = 'searching';
     renderOrders();
     try {
