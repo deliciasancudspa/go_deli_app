@@ -1,5 +1,6 @@
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
+import "package:flutter_svg/flutter_svg.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -902,7 +903,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const SizedBox(height: 8),
         _payMethodCard("webpay", Image.asset("assets/images/webpay_logo.png", fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.credit_card, color: AppColors.textDark, size: 28)), "WebPay", "Débito o crédito online"),
         const SizedBox(height: 8),
-        _payMethodCard("mercadopago", Image.asset("assets/images/mercadopago_logo.png", fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.account_balance_wallet, color: AppColors.textDark, size: 28)), "Mercado Pago", "Débito, crédito y más"),
+        _payMethodCard("mercadopago", SvgPicture.asset("assets/images/mercadopago_logo.svg", width: 72, height: 36, fit: BoxFit.contain, placeholderBuilder: (_) => const Icon(Icons.account_balance_wallet, color: AppColors.textDark, size: 28)), "Mercado Pago", "Débito, crédito y más"),
         const SizedBox(height: 20),
 
         // Cupon
@@ -1116,7 +1117,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           border: Border.all(color: selected && !disabled ? AppColors.primary : AppColors.border, width: selected ? 2 : 1),
         ),
         child: Row(children: [
-          SizedBox(width: 72, height: 36, child: icon),
+          SizedBox(width: 72, height: 36, child: Center(child: icon)),
           const SizedBox(width: 12),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: TextStyle(fontWeight: FontWeight.w700, color: disabled ? AppColors.textLight : AppColors.textDark)),

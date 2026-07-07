@@ -71,6 +71,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       } catch (_) {}
 
       List<Map<String, dynamic>> optGroups = [];
+      // 1. Opciones inline (campo JSON "options" en menu_items)
       try {
         final os = item["options"];
         if (os != null) {
@@ -79,6 +80,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             optGroups = decoded.cast<Map<String, dynamic>>();
           } else if (decoded is Map) {
             optGroups = [decoded.cast<String, dynamic>()];
+          }
+        }
+      } catch (_) {}
+      // 2. Grupos de opciones creados en "Gestionar Grupos" (tablas option_groups + menu_item_option_groups)
+      try {
+        final links = await _sb.from("menu_item_option_groups")
+            .select("group_id")
+            .eq("item_id", widget.productId);
+        if (links.isNotEmpty) {
+          final groupIds = List<Map<String, dynamic>>.from(links)
+              .map((l) => l["group_id"] as String)
+              .whereType<String>()
+              .toList();
+          if (groupIds.isNotEmpty) {
+            final groups = await _sb.from("option_groups")
+                .select("*, option_items(*)")
+                .inFilter("id", groupIds)
+                .eq("is_active", true)
+                .order("sort_order");
+            for (final g in List<Map<String, dynamic>>.from(groups)) {
+              final items = List<Map<String, dynamic>>.from(
+                  g["option_items"] as List? ?? []);
+              optGroups.add({
+                "title": g["name"] as String? ?? "Opciones",
+                "min_sel": (g["min_selections"] as num?)?.toInt() ?? 0,
+                "max_sel": (g["max_selections"] as num?)?.toInt() ?? 0,
+                "items": items.map((oi) => {
+                  "name": oi["name"] as String? ?? "",
+                  "price": (oi["surcharge"] as num?)?.toInt() ?? 0,
+                }).toList(),
+              });
+            }
           }
         }
       } catch (_) {}

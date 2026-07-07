@@ -15,6 +15,33 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   bool _vaciarTodosLoading = false;
+  Map<String, int> _stockCache = {}; // baseItemId -> stock
+
+  @override
+  void initState() { super.initState(); _loadStock(); }
+
+  Future<void> _loadStock() async {
+    try {
+      final cart = context.read<CartProvider>();
+      final allIds = <String>{};
+      for (final storeId in cart.storeIds) {
+        for (final item in cart.getItemsForStore(storeId)) {
+          allIds.add(item.id.split("__").first);
+        }
+      }
+      if (allIds.isEmpty) return;
+      final data = await Supabase.instance.client
+          .from("menu_items")
+          .select("id,stock")
+          .inFilter("id", allIds.toList());
+      final map = <String, int>{};
+      for (final row in List<Map<String, dynamic>>.from(data)) {
+        final s = row["stock"] as int?;
+        if (s != null) map[row["id"] as String] = s;
+      }
+      if (mounted) setState(() => _stockCache = map);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -184,16 +211,10 @@ class _CartScreenState extends State<CartScreen> {
             ),
             // Items
             ...items.map((item) => _buildItemRow(cart, storeId, item)),
-            const SizedBox(height: 4),
-            // Recomendaciones de la misma tienda
-            _StoreRecs(
-              storeId: storeId,
-              storeName: storeName,
-              cart: cart,
-            ),
+            const SizedBox(height: 8),
             // Botón Pagar
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -204,6 +225,17 @@ class _CartScreenState extends State<CartScreen> {
                   child: Text("Pagar · ${_fmt(sub)}"),
                 ),
               ),
+            ),
+            // Separador
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14),
+              child: Divider(height: 1, thickness: 1),
+            ),
+            // Recomendaciones de la misma tienda (debajo de pagar)
+            _StoreRecs(
+              storeId: storeId,
+              storeName: storeName,
+              cart: cart,
             ),
           ],
         ),
@@ -273,6 +305,22 @@ class _CartScreenState extends State<CartScreen> {
           GestureDetector(
             onTap: () {
               cart.activeStoreId = storeId;
+              final baseId = item.id.split("__").first;
+              final stock = _stockCache[baseId];
+              if (stock != null && stock <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text("❌ ${item.name} está agotado"),
+                  backgroundColor: Colors.red,
+                ));
+                return;
+              }
+              if (stock != null && item.quantity >= stock) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text("⚠️ Solo quedan $stock disponibles de ${item.name}"),
+                  backgroundColor: Colors.red,
+                ));
+                return;
+              }
               cart.addItem(item);
             },
             child: Container(

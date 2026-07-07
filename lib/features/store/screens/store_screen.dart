@@ -445,6 +445,8 @@ class _ReviewsSection extends StatefulWidget {
 class _ReviewsSectionState extends State<_ReviewsSection> {
   List<Map<String, dynamic>> _reviews = [];
   bool _loaded = false;
+  bool _hasMore = false;
+  static const _pageSize = 20;
 
   @override
   void initState() { super.initState(); _load(); }
@@ -456,9 +458,23 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
           .eq("store_id", widget.storeId)
           .not("rating_store", "is", null)
           .order("created_at", ascending: false)
-          .limit(10);
-      if (mounted) setState(() { _reviews = List<Map<String, dynamic>>.from(res); _loaded = true; });
+          .limit(_pageSize);
+      if (mounted) setState(() { _reviews = List<Map<String, dynamic>>.from(res); _loaded = true; _hasMore = _reviews.length >= _pageSize; });
     } catch (_) { if (mounted) setState(() => _loaded = true); }
+  }
+
+  Future<void> _loadMore() async {
+    if (!_hasMore) return;
+    try {
+      final res = await widget.sb.from("reviews")
+          .select("rating_store, comment, created_at, users(name)")
+          .eq("store_id", widget.storeId)
+          .not("rating_store", "is", null)
+          .order("created_at", ascending: false)
+          .range(_reviews.length, _reviews.length + _pageSize - 1);
+      final more = List<Map<String, dynamic>>.from(res);
+      if (mounted) setState(() { _reviews.addAll(more); _hasMore = more.length >= _pageSize; });
+    } catch (_) {}
   }
 
   @override
@@ -498,6 +514,17 @@ class _ReviewsSectionState extends State<_ReviewsSection> {
             ]),
           );
         }),
+        if (_hasMore) ...[
+          const SizedBox(height: 4),
+          Center(
+            child: TextButton.icon(
+              onPressed: _loadMore,
+              icon: const Icon(Icons.expand_more, size: 18),
+              label: const Text("Ver más reseñas"),
+              style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+            ),
+          ),
+        ],
       ]),
     );
   }
