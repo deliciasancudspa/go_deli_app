@@ -577,9 +577,11 @@
 
     var hasAnyVariants = vg.length > 0 || inlineVar.length > 0 || inlineVarGroups.length > 0;
 
-    // Relational variant groups
-    if (vg.length) {
+    // Variantes primero ────────────────────────────────────────────────────
+    if (hasAnyVariants) {
       html += '<div class="pm-section"><h4>🎨 Variantes</h4>';
+
+      // Relational variant groups
       vg.forEach(function(g) {
         var items = (g.variant_items || []).sort(function(a,b) { return (a.sort_order||0) - (b.sort_order||0); });
         var isRequired = g.required && !g.multi_select;
@@ -595,83 +597,81 @@
         });
         html += '</div>';
       });
-      html += '</div>';
-    }
 
-    // Inline simple variants (menu_items.variants JSON)
-    if (inlineVar.length) {
-      html += '<div class="pm-section"><h4>' + (hasAnyVariants && vg.length ? '' : '🎨 ') + 'Variantes</h4>';
-      html += '<div class="pm-variant-group"><p class="pm-group-name">Tamaño / Variante</p>';
-      inlineVar.forEach(function(v, i) {
-        var vid = 'inv_' + i;
-        html += '<label class="pm-variant-item">' +
-          '<input type="radio" name="vg_inline" value="' + vid + '" ' +
-          'onchange="GoBusiness.modules.pos._pmOnVariantChange(\'inline\', \'' + vid + '\', ' + (v.price||0) + ', \'radio\', \'' + _escAttr(v.name) + '\')">' +
-          '<span>' + _esc(v.name) + '</span>' +
-          (v.price ? '<span class="pm-price-adj">+$' + Math.round(v.price).toLocaleString('es-CL') + '</span>' : '') +
-        '</label>';
-      });
-      html += '</div></div>';
-    }
-
-    // Inline variant groups (menu_items.variant_groups JSON — tienda style)
-    if (inlineVarGroups.length) {
-      html += '<div class="pm-section"><h4>' + (!hasAnyVariants ? '🎨 ' : '') + 'Variantes</h4>';
-      inlineVarGroups.forEach(function(vg) {
-        html += '<div class="pm-variant-group"><p class="pm-group-name">' + _esc(vg.title || '') + '</p>';
-        (vg.items || []).forEach(function(vi, j) {
-          var vid = 'ivg_' + j;
+      // Inline simple variants (solo si no hay relacionales)
+      if (!vg.length && inlineVar.length) {
+        html += '<div class="pm-variant-group"><p class="pm-group-name">Tamaño / Variante</p>';
+        inlineVar.forEach(function(v, i) {
+          var vid = 'inv_' + i;
           html += '<label class="pm-variant-item">' +
-            '<input type="radio" name="vg_ig_' + _escAttr(vg.title || j) + '" value="' + vid + '" ' +
-            'onchange="GoBusiness.modules.pos._pmOnVariantChange(\'ig_' + _escAttr(vg.title || '') + '\', \'' + vid + '\', ' + (vi.price||0) + ', \'radio\', \'' + _escAttr(vi.name) + '\')">' +
-            '<span>' + _esc(vi.name) + '</span>' +
-            (vi.price ? '<span class="pm-price-adj">+$' + Math.round(vi.price).toLocaleString('es-CL') + '</span>' : '') +
+            '<input type="radio" name="vg_inline" value="' + vid + '" ' +
+            'onchange="GoBusiness.modules.pos._pmOnVariantChange(\'inline\', \'' + vid + '\', ' + (v.price||0) + ', \'radio\', \'' + _escAttr(v.name) + '\')">' +
+            '<span>' + _esc(v.name) + '</span>' +
+            (v.price ? '<span class="pm-price-adj">+$' + Math.round(v.price).toLocaleString('es-CL') + '</span>' : '') +
           '</label>';
         });
         html += '</div>';
-      });
+      }
+
+      // Inline variant groups — tienda style (solo si no hay relacionales)
+      if (!vg.length && inlineVarGroups.length) {
+        inlineVarGroups.forEach(function(vg) {
+          html += '<div class="pm-variant-group"><p class="pm-group-name">' + _esc(vg.title || '') + '</p>';
+          (vg.items || []).forEach(function(vi, j) {
+            var vid = 'ivg_' + j;
+            html += '<label class="pm-variant-item">' +
+              '<input type="radio" name="vg_ig_' + _escAttr(vg.title || j) + '" value="' + vid + '" ' +
+              'onchange="GoBusiness.modules.pos._pmOnVariantChange(\'ig_' + _escAttr(vg.title || '') + '\', \'' + vid + '\', ' + (vi.price||0) + ', \'radio\', \'' + _escAttr(vi.name) + '\')">' +
+              '<span>' + _esc(vi.name) + '</span>' +
+              (vi.price ? '<span class="pm-price-adj">+$' + Math.round(vi.price).toLocaleString('es-CL') + '</span>' : '') +
+            '</label>';
+          });
+          html += '</div>';
+        });
+      }
       html += '</div>';
     }
 
-    // Relational option groups
-    if (og.length) {
+    // Opciones después ──────────────────────────────────────────────────────
+    var hasAnyOptions = og.length > 0 || inlineOpt.length > 0;
+    if (hasAnyOptions) {
       html += '<div class="pm-section"><h4>➕ Opciones</h4>';
-      og.forEach(function(g) {
-        var items = (g.option_items || []).sort(function(a,b) { return (a.sort_order||0) - (b.sort_order||0); });
-        html += '<div class="pm-option-group"><p class="pm-group-name">' + _esc(g.name) + '</p>';
-        items.forEach(function(oi) {
-          html += '<label class="pm-option-item">' +
-            '<input type="checkbox" name="og_' + g.id + '" value="' + oi.id + '" ' +
-            'onchange="GoBusiness.modules.pos._pmOnOptionChange(\'' + g.id + '\', \'' + oi.id + '\', ' + (oi.surcharge||0) + ', \'' + _escAttr(oi.name) + '\')">' +
-            '<span>' + _esc(oi.name) + '</span>' +
-            (oi.surcharge ? '<span class="pm-price-adj">+$' + oi.surcharge.toLocaleString('es-CL') + '</span>' : '') +
-          '</label>';
+
+      // Relational option groups (prioritarias)
+      if (og.length) {
+        og.forEach(function(g) {
+          var items = (g.option_items || []).sort(function(a,b) { return (a.sort_order||0) - (b.sort_order||0); });
+          html += '<div class="pm-option-group"><p class="pm-group-name">' + _esc(g.name) + '</p>';
+          items.forEach(function(oi) {
+            html += '<label class="pm-option-item">' +
+              '<input type="checkbox" name="og_' + g.id + '" value="' + oi.id + '" ' +
+              'onchange="GoBusiness.modules.pos._pmOnOptionChange(\'' + g.id + '\', \'' + oi.id + '\', ' + (oi.surcharge||0) + ', \'' + _escAttr(oi.name) + '\')">' +
+              '<span>' + _esc(oi.name) + '</span>' +
+              (oi.surcharge ? '<span class="pm-price-adj">+$' + oi.surcharge.toLocaleString('es-CL') + '</span>' : '') +
+            '</label>';
+          });
+          html += '</div>';
         });
-        html += '</div>';
-      });
+      }
+
+      // Inline options (solo si no hay relacionales)
+      if (!og.length && inlineOpt.length) {
+        inlineOpt.forEach(function(optGroup) {
+          html += '<div class="pm-option-group"><p class="pm-group-name">' + _esc(optGroup.title || '') + '</p>';
+          (optGroup.items || []).forEach(function(oi, k) {
+            var oid = 'io_' + k;
+            html += '<label class="pm-option-item">' +
+              '<input type="checkbox" name="og_inline_' + _escAttr(optGroup.title || k) + '" value="' + oid + '" ' +
+              'onchange="GoBusiness.modules.pos._pmOnOptionChange(\'iog_' + _escAttr(optGroup.title || '') + '\', \'' + oid + '\', ' + (oi.price||0) + ', \'' + _escAttr(oi.name) + '\')">' +
+              '<span>' + _esc(oi.name) + '</span>' +
+              (oi.price ? '<span class="pm-price-adj">+$' + Math.round(oi.price).toLocaleString('es-CL') + '</span>' : '') +
+            '</label>';
+          });
+          html += '</div>';
+        });
+      }
       html += '</div>';
     }
-
-    // Inline options (menu_items.options JSON)
-    if (inlineOpt.length) {
-      html += '<div class="pm-section"><h4>➕ Opciones</h4>';
-      inlineOpt.forEach(function(og) {
-        html += '<div class="pm-option-group"><p class="pm-group-name">' + _esc(og.title || '') + '</p>';
-        (og.items || []).forEach(function(oi, k) {
-          var oid = 'io_' + k;
-          html += '<label class="pm-option-item">' +
-            '<input type="checkbox" name="og_inline_' + _escAttr(og.title || k) + '" value="' + oid + '" ' +
-            'onchange="GoBusiness.modules.pos._pmOnOptionChange(\'iog_' + _escAttr(og.title || '') + '\', \'' + oid + '\', ' + (oi.price||0) + ', \'' + _escAttr(oi.name) + '\')">' +
-            '<span>' + _esc(oi.name) + '</span>' +
-            (oi.price ? '<span class="pm-price-adj">+$' + Math.round(oi.price).toLocaleString('es-CL') + '</span>' : '') +
-          '</label>';
-        });
-        html += '</div>';
-      });
-      html += '</div>';
-    }
-
-    var hasAnyVariantsOrOptions = hasAnyVariants || og.length > 0 || inlineOpt.length > 0;
 
     // Quantity
     html += '<div class="pm-qty"><label>Cantidad</label>' +
