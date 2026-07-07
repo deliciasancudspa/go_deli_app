@@ -429,6 +429,7 @@
     var sessionRes = await window.sb.from('cash_sessions')
       .select('*').eq('store_id', window.storeData.id).eq('status', 'open')
       .order('opened_at', { ascending: false }).limit(1);
+    if (sessionRes.error) { console.error('cash_sessions query error:', sessionRes.error); }
     if (sessionRes.error || !sessionRes.data || !sessionRes.data.length) {
       window.showToast('🔒 Debes abrir caja para tomar pedidos. Ve a la sección Caja.', 'error'); return;
     }
@@ -448,10 +449,6 @@
     }
     if (discountAmount > subtotal) discountAmount = subtotal;
 
-    // ⚠️ El trigger validate_order_amounts espera:
-    //    total = subtotal + delivery_fee + service_fee
-    //    ("el descuento ya viene restado del subtotal")
-    // Por eso restamos el descuento del subtotal antes de enviar a BD.
     var dbSubtotal = subtotal - discountAmount;
     var total = dbSubtotal + deliveryFee;
     if (total < 0) total = 0;
@@ -515,9 +512,11 @@
       _pendingOrderId = orderId;
       _pendingTotal = total;
 
-      // Abrir modal de pago (reemplaza el flujo anterior de pago directo)
+      // Abrir modal de pago
+      console.log('[POS] Orden creada:', orderId, 'total:', total);
       _showPaymentModal(orderData, orderId, total);
     } catch(e) {
+      console.error('[POS] Error al crear orden:', e);
       window.showToast('Error: ' + (e.message || 'No se pudo crear el pedido'), 'error');
       if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar pedido'; }
     }
@@ -528,6 +527,10 @@
   var _paymentMethods = []; // [{method: 'cash', amount: 0, voucher: ''}, ...]
 
   function _showPaymentModal(orderData, orderId, total) {
+    console.log('[POS] _showPaymentModal llamado, total:', total);
+    var modal = document.getElementById('payment-modal');
+    if (!modal) { console.error('[POS] payment-modal no encontrado en el DOM'); window.showToast('Error: modal de pago no disponible', 'error'); return; }
+
     // Cargar métodos de pago configurados
     var methods = window.storeData && window.storeData.payment_methods;
     if (typeof methods === 'string') {
@@ -677,23 +680,20 @@
 
   function _calcChange() {
     var received = parseInt(document.getElementById('payment-cash-received')?.value) || 0;
+    // Leer monto en efectivo directamente del DOM (no de _cashAmount que puede estar desactualizado)
+    var cashAmtEl = document.getElementById('pay-amt-cash');
+    var cashAmount = parseInt(cashAmtEl && cashAmtEl.value) || 0;
     var changeDiv = document.getElementById('payment-change');
-    var changeAmt = document.getElementById('payment-change-amount');
-    if (!changeDiv || !changeAmt) return;
 
-    if (received > 0 && _cashAmount > 0) {
-      var change = received - _cashAmount;
+    if (!changeDiv) return;
+
+    if (received > 0 && cashAmount > 0) {
+      var change = received - cashAmount;
       changeDiv.style.display = '';
-      changeAmt.textContent = '$' + Math.abs(change).toLocaleString('es-CL');
-      if (change >= 0) {
-        changeDiv.style.background = '#F0FFF4';
-        changeAmt.style.color = 'var(--success)';
-        changeDiv.innerHTML = '💱 Vuelto: <span id="payment-change-amount" style="font-size:18px;color:var(--success)">$' + change.toLocaleString('es-CL') + '</span>';
-      } else {
-        changeDiv.style.background = '#FFF0F0';
-        changeAmt.style.color = 'var(--error)';
-        changeDiv.innerHTML = '⚠️ Faltan: <span id="payment-change-amount" style="font-size:18px;color:var(--error)">$' + Math.abs(change).toLocaleString('es-CL') + '</span>';
-      }
+      changeDiv.style.background = change >= 0 ? '#F0FFF4' : '#FFF0F0';
+      changeDiv.innerHTML = change >= 0
+        ? '💱 Vuelto: <span style="font-size:18px;color:var(--success)">$' + change.toLocaleString('es-CL') + '</span>'
+        : '⚠️ Faltan: <span style="font-size:18px;color:var(--error)">$' + Math.abs(change).toLocaleString('es-CL') + '</span>';
     } else {
       changeDiv.style.display = 'none';
     }
@@ -701,6 +701,7 @@
 
   // ── Confirmar pago ──────────────────────────────────────────────────────
   async function _confirmPayment() {
+    console.log('[POS] _confirmPayment iniciado, _pendingOrderId:', _pendingOrderId, '_paymentMethods:', _paymentMethods.length);
     if (!_pendingOrderId) {
       window.showToast('Error: no hay pedido pendiente', 'error'); return;
     }
