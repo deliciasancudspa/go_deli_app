@@ -401,13 +401,15 @@
     if (!_cart.length) { window.showToast('Agrega al menos un producto', 'error'); return; }
     if (!window.storeData) { window.showToast('Error: tienda no cargada', 'error'); return; }
 
+    var custLat = null, custLng = null;
+
     // Validar datos de delivery
     if (_orderMode === 'DELIVERY') {
       _customerName = document.getElementById('pos-cust-name')?.value.trim() || '';
       _customerPhone = document.getElementById('pos-cust-phone')?.value.trim() || '';
       _customerAddress = document.getElementById('pos-cust-address')?.value.trim() || '';
-      var custLat = parseFloat(document.getElementById('pos-cust-lat')?.value) || null;
-      var custLng = parseFloat(document.getElementById('pos-cust-lng')?.value) || null;
+      custLat = parseFloat(document.getElementById('pos-cust-lat')?.value) || null;
+      custLng = parseFloat(document.getElementById('pos-cust-lng')?.value) || null;
       _customerRef = document.getElementById('pos-cust-ref')?.value.trim() || '';
       _customerNotes = document.getElementById('pos-cust-notes')?.value.trim() || '';
       if (!_customerName || !_customerPhone || !_customerAddress) {
@@ -430,7 +432,6 @@
     if (sessionRes.error || !sessionRes.data || !sessionRes.data.length) {
       window.showToast('🔒 Debes abrir caja para tomar pedidos. Ve a la sección Caja.', 'error'); return;
     }
-    var currentSession = sessionRes.data[0];
 
     var btn = document.getElementById('pos-submit-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Creando pedido...'; }
@@ -446,7 +447,13 @@
       discountAmount = _discountValue;
     }
     if (discountAmount > subtotal) discountAmount = subtotal;
-    var total = subtotal + deliveryFee - discountAmount;
+
+    // ⚠️ El trigger validate_order_amounts espera:
+    //    total = subtotal + delivery_fee + service_fee
+    //    ("el descuento ya viene restado del subtotal")
+    // Por eso restamos el descuento del subtotal antes de enviar a BD.
+    var dbSubtotal = subtotal - discountAmount;
+    var total = dbSubtotal + deliveryFee;
     if (total < 0) total = 0;
 
     var commission = 0;
@@ -460,7 +467,7 @@
       order_mode: _orderMode,
       delivery_method: _deliveryMethod,
       order_type: orderType,
-      subtotal: subtotal,
+      subtotal: dbSubtotal,
       delivery_fee: deliveryFee,
       total: total,
       discount_type: _discountType,
