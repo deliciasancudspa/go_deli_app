@@ -366,7 +366,7 @@ class _StoreScreenState extends State<StoreScreen> {
     }
     // Validar stock
     final stock = item["stock"] as int?;
-    if (stock != null && stock <= 0) {
+    if ((stock ?? 0) <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("❌ ${item["name"]} está agotado"),
         backgroundColor: AppColors.error,

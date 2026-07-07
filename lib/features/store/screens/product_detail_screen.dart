@@ -247,7 +247,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (_item == null || _store == null || !_canAddToCart) return;
     // Validar stock
     final stock = _item!["stock"] as int?;
-    if (stock != null && stock <= 0) {
+    if ((stock ?? 0) <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text("❌ ${_item!["name"]} está agotado"),
         backgroundColor: AppColors.error,
@@ -866,7 +866,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       onTap: () {
         // Validar stock
         final stock = item["stock"] as int?;
-        if (stock != null && stock <= 0) {
+        if ((stock ?? 0) <= 0) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text("❌ ${item["name"]} está agotado"),
             backgroundColor: AppColors.error,
