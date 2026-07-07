@@ -364,6 +364,15 @@ class _StoreScreenState extends State<StoreScreen> {
       ));
       return;
     }
+    // Validar stock
+    final stock = item["stock"] as int?;
+    if (stock != null && stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("❌ ${item["name"]} está agotado"),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
     cart.addItem(CartItem(
       id: item["id"] as String,
       storeId: store["id"] as String,

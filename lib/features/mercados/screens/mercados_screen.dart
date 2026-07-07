@@ -899,6 +899,15 @@ class _MercadosScreenState extends State<MercadosScreen> {
 
   void _addToCart(Map<String, dynamic> item, Map<String, dynamic> store,
       CartProvider cart) {
+    // Validar stock
+    final stock = item["stock"] as int?;
+    if (stock != null && stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("❌ ${item["name"]} está agotado"),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
     final storeId   = store["id"] as String;
     final storeName = store["name"] as String? ?? "";
     final cartItem  = CartItem(

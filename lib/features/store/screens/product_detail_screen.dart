@@ -245,6 +245,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _addToCart() {
     if (_item == null || _store == null || !_canAddToCart) return;
+    // Validar stock
+    final stock = _item!["stock"] as int?;
+    if (stock != null && stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("❌ ${_item!["name"]} está agotado"),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
     final cartId  = _buildCompositeCartId();
     final label   = _buildVariantLabel();
     final variant = label.isEmpty ? null : label;
@@ -855,6 +864,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final hasVars = _itemHasVariants(item);
     return GestureDetector(
       onTap: () {
+        // Validar stock
+        final stock = item["stock"] as int?;
+        if (stock != null && stock <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("❌ ${item["name"]} está agotado"),
+            backgroundColor: AppColors.error,
+          ));
+          return;
+        }
         if (hasVars) {
           context.push("/product/${item["id"]}");
         } else {
