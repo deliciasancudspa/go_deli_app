@@ -26,7 +26,7 @@ GoB.loadModule = function(name) {
     return;
   }
   const script = document.createElement('script');
-  script.src = `/modules/${name}.js`;
+  script.src = `/modules/${name}.js?v=20260707`;
   script.onload = function() {
     GoB._loaded[name] = true;
     const mod = GoB.modules[name];
@@ -57,7 +57,7 @@ GoB.placeholder = function(name, title) {
 ;(function() {
   ['pos','inventory','clients','caja','reportes','catalogo','pedidos','marketing','mi_negocio','configuracion'].forEach(function(name) {
     var s = document.createElement('script');
-    s.src = '/modules/' + name + '.js';
+    s.src = '/modules/' + name + '.js?v=20260707';
     document.head.appendChild(s);
   });
 })();
