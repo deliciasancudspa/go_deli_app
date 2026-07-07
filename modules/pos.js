@@ -494,6 +494,27 @@
           });
       }).catch(function() { return []; });
 
+    // También parsear variantes inline (JSON antiguo: menu_items.variants)
+    var inlineVariants = [];
+    if (p.variants) {
+      try {
+        var raw = typeof p.variants === 'string' ? JSON.parse(p.variants) : p.variants;
+        if (Array.isArray(raw)) {
+          inlineVariants = raw.filter(function(v) { return v.name; });
+        }
+      } catch(e) {}
+    }
+    // Y variant_groups JSON (tienda-style)
+    var inlineVariantGroups = [];
+    if (p.variant_groups) {
+      try {
+        var rawVg = typeof p.variant_groups === 'string' ? JSON.parse(p.variant_groups) : p.variant_groups;
+        if (Array.isArray(rawVg)) {
+          inlineVariantGroups = rawVg.filter(function(v) { return v.title; });
+        }
+      } catch(e) {}
+    }
+
     var ogPromise = window.sb.from('menu_item_option_groups')
       .select('group_id').eq('item_id', productId)
       .then(function(r) {
@@ -514,9 +535,24 @@
           });
       }).catch(function() { return []; });
 
+    // También parsear opciones inline (JSON antiguo: menu_items.options)
+    var inlineOptions = [];
+    if (p.options) {
+      try {
+        var rawOpt = typeof p.options === 'string' ? JSON.parse(p.options) : p.options;
+        if (Array.isArray(rawOpt)) {
+          inlineOptions = rawOpt.filter(function(o) { return o.title; });
+        }
+      } catch(e) {}
+    }
+
     Promise.all([vgPromise, ogPromise]).then(function(results) {
       _variantGroupsCache[productId] = results[0] || [];
       _optionGroupsCache[productId] = results[1] || [];
+      // Guardar inline variants/options para el renderizado
+      _variantGroupsCache[productId + '_inline'] = inlineVariants;
+      _variantGroupsCache[productId + '_inline_groups'] = inlineVariantGroups;
+      _optionGroupsCache[productId + '_inline'] = inlineOptions;
       _renderProductModal(p);
     }).catch(function(e) {
       console.error('[POS] Error cargando variantes/opciones:', e);
@@ -529,6 +565,9 @@
   function _renderProductModal(p) {
     var vg = _variantGroupsCache[p.id] || [];
     var og = _optionGroupsCache[p.id] || [];
+    var inlineVar = _variantGroupsCache[p.id + '_inline'] || [];
+    var inlineVarGroups = _variantGroupsCache[p.id + '_inline_groups'] || [];
+    var inlineOpt = _optionGroupsCache[p.id + '_inline'] || [];
 
     var html = '<div class="pm-header">' +
       '<div class="pm-emoji">' + _currentProductModal.emoji + '</div>' +
@@ -536,7 +575,9 @@
       '<p class="pm-price">$' + (p.price||0).toLocaleString('es-CL') + '</p></div>' +
       '</div>';
 
-    // Variant groups
+    var hasAnyVariants = vg.length > 0 || inlineVar.length > 0 || inlineVarGroups.length > 0;
+
+    // Relational variant groups
     if (vg.length) {
       html += '<div class="pm-section"><h4>🎨 Variantes</h4>';
       vg.forEach(function(g) {
@@ -557,7 +598,42 @@
       html += '</div>';
     }
 
-    // Option groups
+    // Inline simple variants (menu_items.variants JSON)
+    if (inlineVar.length) {
+      html += '<div class="pm-section"><h4>' + (hasAnyVariants && vg.length ? '' : '🎨 ') + 'Variantes</h4>';
+      html += '<div class="pm-variant-group"><p class="pm-group-name">Tamaño / Variante</p>';
+      inlineVar.forEach(function(v, i) {
+        var vid = 'inv_' + i;
+        html += '<label class="pm-variant-item">' +
+          '<input type="radio" name="vg_inline" value="' + vid + '" ' +
+          'onchange="GoBusiness.modules.pos._pmOnVariantChange(\'inline\', \'' + vid + '\', ' + (v.price||0) + ', \'radio\', \'' + _escAttr(v.name) + '\')">' +
+          '<span>' + _esc(v.name) + '</span>' +
+          (v.price ? '<span class="pm-price-adj">+$' + Math.round(v.price).toLocaleString('es-CL') + '</span>' : '') +
+        '</label>';
+      });
+      html += '</div></div>';
+    }
+
+    // Inline variant groups (menu_items.variant_groups JSON — tienda style)
+    if (inlineVarGroups.length) {
+      html += '<div class="pm-section"><h4>' + (!hasAnyVariants ? '🎨 ' : '') + 'Variantes</h4>';
+      inlineVarGroups.forEach(function(vg) {
+        html += '<div class="pm-variant-group"><p class="pm-group-name">' + _esc(vg.title || '') + '</p>';
+        (vg.items || []).forEach(function(vi, j) {
+          var vid = 'ivg_' + j;
+          html += '<label class="pm-variant-item">' +
+            '<input type="radio" name="vg_ig_' + _escAttr(vg.title || j) + '" value="' + vid + '" ' +
+            'onchange="GoBusiness.modules.pos._pmOnVariantChange(\'ig_' + _escAttr(vg.title || '') + '\', \'' + vid + '\', ' + (vi.price||0) + ', \'radio\', \'' + _escAttr(vi.name) + '\')">' +
+            '<span>' + _esc(vi.name) + '</span>' +
+            (vi.price ? '<span class="pm-price-adj">+$' + Math.round(vi.price).toLocaleString('es-CL') + '</span>' : '') +
+          '</label>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Relational option groups
     if (og.length) {
       html += '<div class="pm-section"><h4>➕ Opciones</h4>';
       og.forEach(function(g) {
@@ -575,6 +651,27 @@
       });
       html += '</div>';
     }
+
+    // Inline options (menu_items.options JSON)
+    if (inlineOpt.length) {
+      html += '<div class="pm-section"><h4>➕ Opciones</h4>';
+      inlineOpt.forEach(function(og) {
+        html += '<div class="pm-option-group"><p class="pm-group-name">' + _esc(og.title || '') + '</p>';
+        (og.items || []).forEach(function(oi, k) {
+          var oid = 'io_' + k;
+          html += '<label class="pm-option-item">' +
+            '<input type="checkbox" name="og_inline_' + _escAttr(og.title || k) + '" value="' + oid + '" ' +
+            'onchange="GoBusiness.modules.pos._pmOnOptionChange(\'iog_' + _escAttr(og.title || '') + '\', \'' + oid + '\', ' + (oi.price||0) + ', \'' + _escAttr(oi.name) + '\')">' +
+            '<span>' + _esc(oi.name) + '</span>' +
+            (oi.price ? '<span class="pm-price-adj">+$' + Math.round(oi.price).toLocaleString('es-CL') + '</span>' : '') +
+          '</label>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    var hasAnyVariantsOrOptions = hasAnyVariants || og.length > 0 || inlineOpt.length > 0;
 
     // Quantity
     html += '<div class="pm-qty"><label>Cantidad</label>' +
