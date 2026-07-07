@@ -575,11 +575,53 @@
       '<p class="pm-price">$' + (p.price||0).toLocaleString('es-CL') + '</p></div>' +
       '</div>';
 
-    // DEDUP: eliminar grupos duplicados por id
+    // DEDUP: eliminar grupos duplicados por id (relacionales)
     var seenVg = {};
     vg = vg.filter(function(g) { if (seenVg[g.id]) return false; seenVg[g.id] = true; return true; });
+    // DEDUP items dentro de cada grupo relacional por nombre
+    vg.forEach(function(g) {
+      var seenVi = {};
+      g.variant_items = (g.variant_items || []).filter(function(vi) { if (seenVi[vi.name]) return false; seenVi[vi.name] = true; return true; });
+    });
     var seenOg = {};
     og = og.filter(function(g) { if (seenOg[g.id]) return false; seenOg[g.id] = true; return true; });
+    og.forEach(function(g) {
+      var seenOi = {};
+      g.option_items = (g.option_items || []).filter(function(oi) { if (seenOi[oi.name]) return false; seenOi[oi.name] = true; return true; });
+    });
+
+    // DEDUP inline: filtrar items repetidos por nombre dentro de cada fuente
+    var seenInv = {};
+    inlineVar = inlineVar.filter(function(v) { if (seenInv[v.name]) return false; seenInv[v.name] = true; return true; });
+    inlineVarGroups.forEach(function(ivg) {
+      var seenIvg = {};
+      ivg.items = (ivg.items || []).filter(function(vi) { if (seenIvg[vi.name]) return false; seenIvg[vi.name] = true; return true; });
+    });
+    inlineOpt.forEach(function(iog) {
+      var seenIoi = {};
+      iog.items = (iog.items || []).filter(function(oi) { if (seenIoi[oi.name]) return false; seenIoi[oi.name] = true; return true; });
+    });
+
+    // DEDUP inline vs relacional por nombre
+    var relVarNames = [];
+    vg.forEach(function(g) { (g.variant_items || []).forEach(function(vi) { relVarNames.push(vi.name.toLowerCase()); }); });
+    inlineVar = inlineVar.filter(function(v) { return relVarNames.indexOf((v.name || '').toLowerCase()) < 0; });
+    inlineVarGroups = inlineVarGroups.filter(function(ivg) {
+      if (!ivg.items) return false;
+      ivg.items = ivg.items.filter(function(vi) { return relVarNames.indexOf((vi.name || '').toLowerCase()) < 0; });
+      return ivg.items.length > 0;
+    });
+    var relOptNames = [];
+    og.forEach(function(g) { (g.option_items || []).forEach(function(oi) { relOptNames.push(oi.name.toLowerCase()); }); });
+    inlineOpt = inlineOpt.filter(function(iog) {
+      if (!iog.items) return false;
+      iog.items = iog.items.filter(function(oi) { return relOptNames.indexOf((oi.name || '').toLowerCase()) < 0; });
+      return iog.items.length > 0;
+    });
+
+    console.log('[POS] Modal producto:', p.name,
+      'vg:', vg.length, 'og:', og.length,
+      'inlineVar:', inlineVar.length, 'inlineVarGroups:', inlineVarGroups.length, 'inlineOpt:', inlineOpt.length);
 
     var hasAnyVariants = vg.length > 0 || inlineVar.length > 0 || inlineVarGroups.length > 0;
     // Variantes primero ────────────────────────────────────────────────────
