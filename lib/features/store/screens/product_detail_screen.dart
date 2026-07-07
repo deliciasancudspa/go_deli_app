@@ -816,7 +816,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final maxSel = (group["max_sel"] as num?)?.toInt() ?? 0;
     final selected = _selectedExtras.where((k) => k.startsWith("$title::")).length;
     final isSelected = _selectedExtras.contains(key);
-    final disabled   = maxSel > 0 && !isSelected && selected >= maxSel;
+    // Solo deshabilitar si maxSel > 1 y ya se alcanzo el limite.
+    // Si maxSel == 1, permitir tap para hacer swap automatico.
+    final disabled = maxSel > 1 && !isSelected && selected >= maxSel;
 
     return CheckboxListTile(
       dense: true,
@@ -833,8 +835,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               style: TextStyle(color: disabled ? AppColors.border : AppColors.textLight, fontSize: 12)),
       value: isSelected,
       onChanged: disabled ? null : (v) => setState(() {
-        if (v == true) { _selectedExtras.add(key); }
-        else           { _selectedExtras.remove(key); }
+        if (v == true) {
+          // Si maxSel == 1 y ya hay una seleccion en este grupo, hacer swap
+          if (maxSel == 1 && selected >= 1) {
+            _selectedExtras.removeWhere((k) => k.startsWith("$title::"));
+          }
+          _selectedExtras.add(key);
+        } else {
+          _selectedExtras.remove(key);
+        }
       }),
     );
   }
