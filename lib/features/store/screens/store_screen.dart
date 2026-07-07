@@ -243,39 +243,76 @@ class _StoreScreenState extends State<StoreScreen> {
                           fontSize: 11, color: AppColors.textLight,
                           decoration: TextDecoration.lineThrough)),
                   ]),
-                  if (navigateToDetail)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                          color: AppColors.accent.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.accent.withOpacity(0.4))),
-                      child: const Text("Ver →",
-                          style: TextStyle(color: AppColors.accent,
-                              fontSize: 12, fontWeight: FontWeight.w800)),
-                    )
-                  else if (qty > 0)
-                    Row(children: [
-                      GestureDetector(
-                        onTap: () => cart.removeItem(item["id"] as String, variant: (item["variant"] as String?)),
-                        child: Container(width: 28, height: 28,
-                            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                            child: const Icon(Icons.remove, color: Colors.white, size: 14))),
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: Text("$qty",
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
-                      GestureDetector(
-                        onTap: () => _addToCart(cart, item, basePrice),
-                        child: Container(width: 28, height: 28,
-                            decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
-                            child: const Icon(Icons.add, color: Colors.white, size: 14))),
-                    ])
-                  else
-                    GestureDetector(
+                  // ── Stock badge / botones ──────────────────────────────
+                  Builder(builder: (_) {
+                    final stockVal = item["stock"] as int?;
+                    final agotado = (stockVal ?? 0) <= 0;
+                    final limite = stockVal != null && stockVal > 0 && qty >= stockVal;
+                    if (agotado) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text("Agotado",
+                          style: TextStyle(color: Color(0xFF991B1B), fontSize: 11, fontWeight: FontWeight.w800)),
+                      );
+                    }
+                    if (limite) {
+                      return Row(children: [
+                        GestureDetector(
+                          onTap: () => cart.removeItem(item["id"] as String, variant: (item["variant"] as String?)),
+                          child: Container(width: 28, height: 28,
+                              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                              child: const Icon(Icons.remove, color: Colors.white, size: 14))),
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Text("$qty",
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text("Límite",
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.textLight)),
+                        ),
+                      ]);
+                    }
+                    if (navigateToDetail)
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: AppColors.accent.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.accent.withOpacity(0.4))),
+                        child: const Text("Ver →",
+                            style: TextStyle(color: AppColors.accent,
+                                fontSize: 12, fontWeight: FontWeight.w800)),
+                      );
+                    if (qty > 0)
+                      return Row(children: [
+                        GestureDetector(
+                          onTap: () => cart.removeItem(item["id"] as String, variant: (item["variant"] as String?)),
+                          child: Container(width: 28, height: 28,
+                              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                              child: const Icon(Icons.remove, color: Colors.white, size: 14))),
+                        Padding(padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Text("$qty",
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+                        GestureDetector(
+                          onTap: () => _addToCart(cart, item, basePrice),
+                          child: Container(width: 28, height: 28,
+                              decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                              child: const Icon(Icons.add, color: Colors.white, size: 14))),
+                      ]);
+                    return GestureDetector(
                       onTap: () => _addToCart(cart, item, basePrice),
                       child: Container(width: 32, height: 32,
                           decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
-                          child: const Icon(Icons.add, color: Colors.white, size: 18))),
+                          child: const Icon(Icons.add, color: Colors.white, size: 18)));
+                  }),
                 ]),
               ])),
             ]),

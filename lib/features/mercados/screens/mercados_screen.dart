@@ -856,17 +856,32 @@ class _MercadosScreenState extends State<MercadosScreen> {
                   }),
                 ],
               )),
-              GestureDetector(
-                onTap: () => _itemHasVariants(item)
-                    ? context.push("/product/${item["id"]}")
-                    : _addToCart(item, store, cart),
-                child: Container(
-                  width: 24, height: 24,
-                  decoration: const BoxDecoration(
-                      color: _kOrange, shape: BoxShape.circle),
-                  child: const Icon(Icons.add, color: Colors.white, size: 14),
-                ),
-              ),
+              Builder(builder: (_) {
+                final stockVal = item["stock"] as int?;
+                final agotado = (stockVal ?? 0) <= 0;
+                if (agotado) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text("Agotado",
+                      style: TextStyle(color: Color(0xFF991B1B), fontSize: 10, fontWeight: FontWeight.w800)),
+                  );
+                }
+                return GestureDetector(
+                  onTap: () => _itemHasVariants(item)
+                      ? context.push("/product/${item["id"]}")
+                      : _addToCart(item, store, cart),
+                  child: Container(
+                    width: 24, height: 24,
+                    decoration: const BoxDecoration(
+                        color: _kOrange, shape: BoxShape.circle),
+                    child: const Icon(Icons.add, color: Colors.white, size: 14),
+                  ),
+                );
+              }),
             ]),
           ],
         ),
