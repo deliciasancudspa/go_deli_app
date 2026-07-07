@@ -499,20 +499,21 @@
     if (p.variants) {
       try {
         var raw = typeof p.variants === 'string' ? JSON.parse(p.variants) : p.variants;
-        if (Array.isArray(raw)) {
-          inlineVariants = raw.filter(function(v) { return v.name; });
+        // Soporta array [{name, price}] o objeto con items
+        if (Array.isArray(raw) && raw.length > 0) {
+          inlineVariants = raw.filter(function(v) { return v && v.name; });
         }
-      } catch(e) {}
+      } catch(e) { console.error('[POS] Error parseando p.variants:', e); }
     }
-    // Y variant_groups JSON (tienda-style)
+    // Y variant_groups JSON (tienda-style: [{title, items: [{name, price}]}])
     var inlineVariantGroups = [];
     if (p.variant_groups) {
       try {
         var rawVg = typeof p.variant_groups === 'string' ? JSON.parse(p.variant_groups) : p.variant_groups;
-        if (Array.isArray(rawVg)) {
-          inlineVariantGroups = rawVg.filter(function(v) { return v.title; });
+        if (Array.isArray(rawVg) && rawVg.length > 0) {
+          inlineVariantGroups = rawVg.filter(function(v) { return v && v.title; });
         }
-      } catch(e) {}
+      } catch(e) { console.error('[POS] Error parseando p.variant_groups:', e); }
     }
 
     var ogPromise = window.sb.from('menu_item_option_groups')
@@ -540,10 +541,10 @@
     if (p.options) {
       try {
         var rawOpt = typeof p.options === 'string' ? JSON.parse(p.options) : p.options;
-        if (Array.isArray(rawOpt)) {
-          inlineOptions = rawOpt.filter(function(o) { return o.title; });
+        if (Array.isArray(rawOpt) && rawOpt.length > 0) {
+          inlineOptions = rawOpt.filter(function(o) { return o && o.title; });
         }
-      } catch(e) {}
+      } catch(e) { console.error('[POS] Error parseando p.options:', e); }
     }
 
     Promise.all([vgPromise, ogPromise]).then(function(results) {
@@ -646,8 +647,8 @@
         html += '</div>';
       });
 
-      // Inline simple variants (solo si no hay relacionales)
-      if (!vg.length && inlineVar.length) {
+      // Inline simple variants
+      if (inlineVar.length) {
         html += '<div class="pm-variant-group"><p class="pm-group-name">Tamaño / Variante</p>';
         inlineVar.forEach(function(v, i) {
           var vid = 'inv_' + i;
@@ -661,8 +662,8 @@
         html += '</div>';
       }
 
-      // Inline variant groups — tienda style (solo si no hay relacionales)
-      if (!vg.length && inlineVarGroups.length) {
+      // Inline variant groups — tienda style
+      if (inlineVarGroups.length) {
         inlineVarGroups.forEach(function(vg) {
           html += '<div class="pm-variant-group"><p class="pm-group-name">' + _esc(vg.title || '') + '</p>';
           (vg.items || []).forEach(function(vi, j) {
@@ -702,8 +703,8 @@
         });
       }
 
-      // Inline options (solo si no hay relacionales)
-      if (!og.length && inlineOpt.length) {
+      // Inline options
+      if (inlineOpt.length) {
         inlineOpt.forEach(function(optGroup) {
           html += '<div class="pm-option-group"><p class="pm-group-name">' + _esc(optGroup.title || '') + '</p>';
           (optGroup.items || []).forEach(function(oi, k) {
