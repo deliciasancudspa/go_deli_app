@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#FF6B00">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Go Riders — Reparte con Go Deli</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD5KPaRRZRi0ek7Vk0yIX1Cv0qgf-_w-vQ&libraries=places" defer></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --primary:#FF6B00; --secondary:#9E00FF; --dark:#1A0033; --accent:#FFB800;
+  --success:#22C55E; --error:#EF4444; --warning:#F59E0B;
+  --bg:#F0F2F5; --surface:#fff; --text:#1A0033;
+  --muted:#6B7280; --border:#E5E7EB;
+}
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); }
+
+/* ── LANDING PAGE ── */
+#landing { display:block; min-height:100vh; background:var(--bg); }
+.landing-nav { position:sticky; top:0; z-index:100; background:rgba(255,255,255,0.95); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); padding:14px 5%; display:flex; align-items:center; gap:24px; }
+.landing-nav-brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:17px; color:var(--text); text-decoration:none; }
+.landing-nav-brand .brand-dot { width:34px; height:34px; background:var(--primary); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; }
+.landing-nav-links { display:flex; gap:28px; font-size:14px; font-weight:600; }
+.landing-nav-links a { color:var(--muted); text-decoration:none; cursor:pointer; transition:color 0.15s; }
+.landing-nav-links a:hover { color:var(--primary); }
+.landing-nav-actions { margin-left:auto; display:flex; gap:10px; align-items:center; }
+.btn-nav { padding:10px 20px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; border:none; transition:all 0.2s; }
+.btn-nav-outline { background:transparent; border:2px solid var(--primary); color:var(--primary); }
+.btn-nav-outline:hover { background:var(--primary); color:#fff; }
+.btn-nav-primary { background:var(--primary); color:#fff; }
+.btn-nav-primary:hover { opacity:0.9; }
+.landing-hero { background:linear-gradient(135deg,#1A1A2E,#2d1b69); padding:100px 5% 90px; text-align:center; }
+.landing-hero .badge { display:inline-flex; align-items:center; gap:8px; background:rgba(255,184,0,0.15); border:1px solid rgba(255,184,0,0.3); padding:6px 18px; border-radius:24px; color:var(--accent,#FFB800); font-size:13px; font-weight:700; margin-bottom:24px; }
+.landing-hero h1 { font-size:clamp(32px,5vw,54px); font-weight:900; color:#fff; margin-bottom:20px; line-height:1.2; }
+.landing-hero p { color:rgba(255,255,255,0.7); font-size:18px; max-width:620px; margin:0 auto 40px; line-height:1.6; }
+.landing-hero .cta-group { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+.btn-cta { padding:16px 36px; border-radius:14px; font-size:16px; font-weight:700; cursor:pointer; border:none; transition:all 0.2s; }
+.btn-cta-primary { background:var(--primary); color:#fff; }
+.btn-cta-primary:hover { background:#e05a00; transform:translateY(-1px); box-shadow:0 8px 24px rgba(255,107,0,0.3); }
+.btn-cta-outline { background:transparent; border:2px solid rgba(255,255,255,0.3); color:#fff; }
+.btn-cta-outline:hover { border-color:#fff; }
+.section-header { text-align:center; padding:60px 5% 10px; }
+.section-header h2 { font-size:32px; font-weight:900; margin-bottom:12px; }
+.section-header p { color:var(--muted); font-size:16px; max-width:560px; margin:0 auto; }
+.features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; padding:32px 5% 60px; max-width:1100px; margin:0 auto; }
+.feature-card { background:var(--surface); border-radius:18px; padding:32px 24px; text-align:center; border:1px solid var(--border); transition:transform 0.2s,box-shadow 0.2s; }
+.feature-card:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(0,0,0,0.08); }
+.feature-card .ficon { font-size:44px; margin-bottom:14px; }
+.feature-card h3 { font-size:17px; font-weight:800; margin-bottom:8px; }
+.feature-card p { color:var(--muted); font-size:14px; line-height:1.6; }
+.steps-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; padding:32px 5% 60px; max-width:1100px; margin:0 auto; }
+.step-card { background:var(--surface); border-radius:18px; padding:28px 20px; text-align:center; border:1px solid var(--border); position:relative; }
+.step-card .step-num { width:44px; height:44px; background:var(--primary); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:900; margin:0 auto 14px; }
+.step-card .sticon { font-size:32px; margin-bottom:10px; }
+.step-card h4 { font-size:15px; font-weight:800; margin-bottom:6px; }
+.step-card p { color:var(--muted); font-size:13px; line-height:1.5; }
+.stats-bar { background:linear-gradient(135deg,var(--primary),#e05a00); padding:48px 5%; }
+.stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:32px; max-width:900px; margin:0 auto; text-align:center; }
+.stat-item .stat-num { font-size:42px; font-weight:900; color:#fff; }
+.stat-item .stat-label { color:rgba(255,255,255,0.8); font-size:14px; font-weight:600; margin-top:4px; }
+.earnings-section { padding:40px 5% 60px; max-width:800px; margin:0 auto; }
+.earnings-box { background:var(--surface); border-radius:20px; overflow:hidden; border:1px solid var(--border); }
+.earnings-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 24px; border-bottom:1px solid var(--border); font-size:14px; }
+.earnings-row:last-child { border-bottom:none; }
+.earnings-row-header { background:var(--dark); color:#fff; font-weight:800; }
+.earnings-row-highlight { background:#FFF5F2; font-weight:700; }
+.earnings-row-highlight span:last-child { color:var(--primary); font-size:16px; }
+.earnings-example { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; max-width:800px; margin:32px auto 0; }
+.earnings-card { background:var(--surface); border-radius:16px; padding:24px; text-align:center; border:1px solid var(--border); }
+.earnings-card .dist { font-size:13px; color:var(--muted); font-weight:600; margin-bottom:8px; }
+.earnings-card .amount { font-size:28px; font-weight:900; color:var(--primary); }
+.earnings-card .detail { font-size:11px; color:var(--muted); margin-top:4px; }
+.landing-cta-banner { background:linear-gradient(135deg,#1A1A2E,#2d1b69); padding:64px 5%; text-align:center; }
+.landing-cta-banner h2 { color:#fff; font-size:32px; font-weight:900; margin-bottom:12px; }
+.landing-cta-banner p { color:rgba(255,255,255,0.6); font-size:16px; margin-bottom:32px; }
+.landing-footer { background:var(--dark); padding:32px 5%; text-align:center; }
+.landing-footer .ft-brand { color:#fff; font-size:18px; font-weight:800; margin-bottom:8px; }
+.landing-footer .ft-links { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; }
+.landing-footer .ft-links a { color:rgba(255,255,255,0.5); font-size:13px; cursor:pointer; text-decoration:none; }
+.landing-footer .ft-copy { color:rgba(255,255,255,0.3); font-size:12px; }
+
+/* ── LOGIN MODAL ── */
+#login-modal { display:none; position:fixed; inset:0; z-index:200; align-items:center; justify-content:center; }
+#login-modal.open { display:flex; }
+.modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); }
+.login-modal-box { position:relative; background:var(--surface); border-radius:24px; overflow:hidden; display:flex; max-width:720px; width:92%; box-shadow:0 24px 64px rgba(0,0,0,0.3); }
+.login-modal-left { flex:0 0 280px; background:var(--dark); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 24px; text-align:center; }
+.login-modal-left .logo-icon { width:72px; height:72px; background:var(--primary); border-radius:18px; display:flex; align-items:center; justify-content:center; font-size:36px; margin-bottom:16px; }
+.login-modal-left h2 { color:#fff; font-size:22px; font-weight:800; }
+.login-modal-left p { color:rgba(255,255,255,0.5); font-size:13px; margin-top:4px; }
+.login-modal-left .mlist { list-style:none; margin-top:24px; text-align:left; }
+.login-modal-left .mlist li { display:flex; align-items:center; gap:10px; color:rgba(255,255,255,0.65); font-size:12px; margin-bottom:10px; }
+.login-modal-left .mlist .mic { width:28px; height:28px; background:rgba(255,107,53,0.2); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.login-modal-right { flex:1; padding:40px 32px; }
+.login-modal-right h3 { font-size:22px; font-weight:800; margin-bottom:6px; }
+.login-modal-right .msub { color:var(--muted); font-size:14px; margin-bottom:24px; }
+.login-modal-close { position:absolute; top:14px; right:14px; width:32px; height:32px; border-radius:50%; background:rgba(0,0,0,0.08); border:none; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--muted); z-index:10; }
+.login-modal-close:hover { background:rgba(0,0,0,0.15); }
+
+/* ── REGISTRO ── */
+#registro { display:none; min-height:100vh; background:var(--bg); }
+.reg-header { background:var(--dark); padding:20px 32px; display:flex; align-items:center; gap:16px; }
+.reg-header .logo-sm { width:40px; height:40px; background:var(--primary); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+.reg-header h2 { color:#fff; font-size:18px; font-weight:800; }
+.reg-header p { color:rgba(255,255,255,0.5); font-size:12px; }
+.reg-progress { background:var(--surface); border-bottom:1px solid var(--border); padding:20px 32px; }
+.progress-steps { display:flex; align-items:center; gap:0; }
+.step { display:flex; align-items:center; flex:1; }
+.step-circle { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; transition:all 0.3s; }
+.step-circle.done { background:var(--success); color:#fff; }
+.step-circle.active { background:var(--primary); color:#fff; box-shadow:0 0 0 4px rgba(255,107,53,0.2); }
+.step-circle.pending { background:var(--border); color:var(--muted); }
+.step-line { flex:1; height:2px; background:var(--border); transition:background 0.3s; }
+.step-line.done { background:var(--success); }
+.step-label { font-size:11px; color:var(--muted); font-weight:600; margin-top:4px; text-align:center; }
+.reg-body { max-width:700px; margin:32px auto; padding:0 24px; }
+.reg-card { background:var(--surface); border-radius:20px; padding:32px; border:1px solid var(--border); }
+.reg-card h3 { font-size:20px; font-weight:800; margin-bottom:6px; }
+.reg-card .desc { color:var(--muted); font-size:14px; margin-bottom:28px; }
+.form-group { margin-bottom:16px; }
+.form-group label { display:block; font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+.form-group input, .form-group select, .form-group textarea { width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:10px; font-size:14px; outline:none; background:var(--surface); transition:border 0.2s; }
+.form-group input:focus, .form-group select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(255,107,53,0.1); }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.reg-nav { display:flex; justify-content:space-between; margin-top:28px; }
+.btn-primary { width:100%; padding:14px; background:var(--primary); color:#fff; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
+.btn-primary:hover { opacity:0.9; }
+.btn-primary:disabled { opacity:0.6; cursor:not-allowed; }
+.btn-secondary { padding:12px 24px; background:var(--bg); border:1.5px solid var(--border); border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; transition:all 0.2s; }
+.btn-secondary:hover { border-color:var(--primary); color:var(--primary); }
+.btn-next { padding:12px 28px; background:var(--primary); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
+.btn-next:hover { opacity:0.9; }
+.auth-error { color:var(--error); font-size:13px; margin-bottom:12px; text-align:center; }
+.terms-box { background:var(--bg); border-radius:12px; padding:20px; max-height:300px; overflow-y:auto; font-size:13px; line-height:1.7; color:var(--muted); margin-bottom:16px; }
+.terms-box h4 { color:var(--text); font-size:14px; margin-bottom:8px; }
+.check-row { display:flex; align-items:flex-start; gap:10px; margin-bottom:12px; }
+.check-row input[type=checkbox] { margin-top:3px; accent-color:var(--primary); width:16px; height:16px; flex-shrink:0; }
+.check-row label { font-size:13px; color:var(--muted); line-height:1.5; }
+.vehicle-option { border:2px solid var(--border); border-radius:14px; padding:20px; cursor:pointer; text-align:center; transition:all 0.2s; }
+.vehicle-option:hover, .vehicle-option.selected { border-color:var(--primary); background:#FFF5F2; }
+.vehicle-option .vicon { font-size:40px; margin-bottom:8px; }
+.vehicle-option .vname { font-weight:800; font-size:15px; }
+.vehicle-option .vdesc { font-size:12px; color:var(--muted); margin-top:4px; }
+
+/* ── INCOME CARDS ── */
+.income-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; max-width:800px; margin:32px auto 0; }
+.income-card { background:var(--surface); border-radius:16px; padding:24px; text-align:center; border:1px solid var(--border); }
+.income-emoji { font-size:40px; margin-bottom:12px; }
+.income-amount { font-size:24px; font-weight:900; color:var(--primary); }
+.income-sub { font-size:13px; color:var(--muted); margin-top:4px; }
+
+/* ── RESPONSIVE ── */
+@media(max-width:1024px){
+  .features-grid{grid-template-columns:1fr 1fr;}
+  .steps-grid{grid-template-columns:1fr 1fr;}
+  .landing-nav-links{display:none;}
+  .income-grid{grid-template-columns:1fr 1fr;}
+}
+@media(max-width:640px){
+  .features-grid,.steps-grid{grid-template-columns:1fr;}
+  .stats-grid{grid-template-columns:1fr;gap:20px;}
+  .stat-item .stat-num{font-size:30px;}
+  .landing-hero{padding:60px 5% 50px;}
+  .landing-hero h1{font-size:28px;}
+  .landing-hero p{font-size:15px;}
+  .btn-cta{padding:14px 24px;font-size:14px;}
+  .section-header h2{font-size:24px;}
+  .landing-nav{padding:10px 16px;}
+  .landing-nav-actions{gap:6px;}
+  .btn-nav{padding:8px 14px;font-size:12px;}
+  .login-modal-box{flex-direction:column;max-width:95vw;max-height:90vh;overflow-y:auto;}
+  .login-modal-left{display:none;}
+  .login-modal-right{padding:28px 20px;}
+  .form-row{grid-template-columns:1fr;}
+  .income-grid{grid-template-columns:1fr;gap:12px;}
+  .reg-body{padding:0 12px;margin:20px auto;}
+  .reg-card{padding:20px 16px;}
+  .reg-header{padding:14px 16px;}
+  .reg-progress{padding:14px 16px;}
+  .step-label{display:none;}
+  .earnings-row{padding:12px 16px;font-size:13px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     LANDING PAGE
+══════════════════════════════════════════════════════ -->
+<div id="landing">
+
+  <!-- Nav -->
+  <nav class="landing-nav" id="landing-nav">
+    <div class="landing-nav-brand"><img src="/rider-logo.png" alt="Go Riders" style="width:34px;height:34px;border-radius:10px">Go Riders</div>
+    <div class="landing-nav-links">
+      <a onclick="scrollToSection('sec-features')">Beneficios</a>
+      <a onclick="scrollToSection('sec-steps')">Cómo funciona</a>
+      <a onclick="scrollToSection('sec-earnings')">Ganancias</a>
+      <a onclick="scrollToSection('sec-requirements')">Requisitos</a>
+    </div>
+    <div class="landing-nav-actions">
+      <button class="btn-nav btn-nav-outline" onclick="openLoginModal()">Iniciar sesión</button>
+      <button class="btn-nav btn-nav-primary" onclick="showRegistro()">Quiero repartir</button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="landing-hero">
+    <div class="badge">🛵 Go Deli Riders</div>
+    <h1>Gana dinero repartiendo en tu propio horario</h1>
+    <p>Conéctate cuando quieras, acepta los pedidos que te convengan y recibe tu pago cada semana. Sin jefes, sin horarios fijos.</p>
+    <div class="cta-group">
+      <button class="btn-cta btn-cta-primary" onclick="showRegistro()">Registrarme como repartidor</button>
+      <button class="btn-cta btn-cta-outline" onclick="scrollToSection('sec-earnings')">Ver ganancias</button>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <div id="sec-features" class="section-header"><h2>Por qué repartir con Go Deli</h2><p>Libertad, buenas ganancias y sin compromisos</p></div>
+  <div class="features-grid">
+    <div class="feature-card"><div class="ficon">🕐</div><h3>Horario flexible</h3><p>Tú decides cuándo trabajar. Conéctate y desconéctate cuando quieras. Sin turnos mínimos ni obligaciones.</p></div>
+    <div class="feature-card"><div class="ficon">💰</div><h3>Pago semanal garantizado</h3><p>Transferencia cada martes a tu cuenta bancaria. Con liquidación detallada de cada pedido. Sin monto mínimo.</p></div>
+    <div class="feature-card"><div class="ficon">📍</div><h3>Cerca de ti</h3><p>Recibe pedidos en tu comuna y alrededores. El sistema te asigna los más cercanos para que aproveches cada viaje.</p></div>
+    <div class="feature-card"><div class="ficon">📱</div><h3>App fácil de usar</h3><p>Acepta o rechaza pedidos con un toque. Navegación con GPS integrada. Todo desde tu celular.</p></div>
+    <div class="feature-card"><div class="ficon">🛡️</div><h3>Tú decides qué aceptar</h3><p>Sin penalización por rechazar pedidos. Solo tomas los que te convengan por distancia, zona y pago.</p></div>
+    <div class="feature-card"><div class="ficon">📊</div><h3>Historial transparente</h3><p>Revisa todos tus pedidos, ganancias y rutas. Todo queda registrado en tu app.</p></div>
+  </div>
+
+  <!-- How it works -->
+  <div id="sec-steps" class="section-header"><h2>Cómo funciona</h2><p>Empieza en minutos</p></div>
+  <div class="steps-grid">
+    <div class="step-card"><div class="step-num">1</div><div class="sticon">📝</div><h4>Regístrate</h4><p>Completa el formulario con tus datos, vehículo y cuenta bancaria. Solo toma 5 minutos.</p></div>
+    <div class="step-card"><div class="step-num">2</div><div class="sticon">✅</div><h4>Verificación</h4><p>Revisamos tu documentación. Te notificamos por email cuando estés aprobado (24-48 h hábiles).</p></div>
+    <div class="step-card"><div class="step-num">3</div><div class="sticon">📱</div><h4>Conéctate</h4><p>Descarga Go Rider, activa tu disponibilidad y empieza a recibir pedidos cerca de ti.</p></div>
+    <div class="step-card"><div class="step-num">4</div><div class="sticon">💳</div><h4>Recibe tu pago</h4><p>Cada martes transferimos tus ganancias a tu cuenta. Con liquidación detallada.</p></div>
+  </div>
+
+  <!-- Earnings -->
+  <div id="sec-earnings" class="section-header"><h2>Ganancias atractivas</h2><p>Repartir con Go Deli te permite generar ingresos estables y flexibles</p></div>
+  <div class="earnings-section">
+    <div class="earnings-box">
+      <div class="earnings-row earnings-row-header"><span>Concepto</span><span>Valor</span></div>
+      <div class="earnings-row"><span>Ingreso mensual estimado</span><span style="font-weight:900;color:var(--primary)">$700.000 – $1.000.000+</span></div>
+      <div class="earnings-row"><span>Pago por pedido</span><span style="font-weight:900">Calculado por distancia</span></div>
+      <div class="earnings-row"><span>Costo de activación</span><span style="font-weight:900">$0</span></div>
+      <div class="earnings-row"><span>Mensualidad</span><span style="font-weight:900">$0</span></div>
+      <div class="earnings-row"><span>Propinas</span><span style="font-weight:900;color:var(--success)">100% para ti</span></div>
+      <div class="earnings-row earnings-row-highlight"><span>Pago</span><span>Cada martes por transferencia</span></div>
+    </div>
+
+    <p style="text-align:center;color:var(--muted);font-size:14px;margin-top:20px;line-height:1.7">Tus ganancias dependen de cuántos pedidos hagas. Muchos repartidores activos alcanzan <strong style="color:var(--primary)">$1.000.000 mensuales o más</strong>. Entre más repartes, más ganas.</p>
+
+    <div class="income-grid">
+      <div class="income-card">
+        <div class="income-emoji">💵</div>
+        <div class="income-amount">$700k</div>
+        <div class="income-sub">Tiempo parcial (~25 h/sem)</div>
+      </div>
+      <div class="income-card">
+        <div class="income-emoji">💰</div>
+        <div class="income-amount">$1.000.000</div>
+        <div class="income-sub">Tiempo completo (~40 h/sem)</div>
+      </div>
+      <div class="income-card">
+        <div class="income-emoji">🚀</div>
+        <div class="income-amount">+$1.2M</div>
+        <div class="income-sub">Alta demanda (+45 h/sem)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Requirements -->
+  <div id="sec-requirements" class="section-header"><h2>Requisitos</h2><p>Lo que necesitas para empezar</p></div>
+  <div class="features-grid" style="padding-bottom:40px">
+    <div class="feature-card"><div class="ficon">🪪</div><h3>Cédula de identidad vigente</h3><p>Chilena o extranjera con residencia. Debes ser mayor de 18 años.</p></div>
+    <div class="feature-card"><div class="ficon">🏍️</div><h3>Vehículo</h3><p>Moto, auto o bicicleta. Con documentación al día (licencia de conducir, SOAP, revisión técnica si aplica).</p></div>
+    <div class="feature-card"><div class="ficon">📱</div><h3>Smartphone con internet</h3><p>Android 8.0 o superior. Con datos móviles y GPS activo para recibir pedidos y navegar.</p></div>
+    <div class="feature-card"><div class="ficon">🏦</div><h3>Cuenta bancaria</h3><p>Para recibir tus pagos semanales. Cuenta Vista, Corriente o de Ahorro a tu nombre.</p></div>
+    <div class="feature-card"><div class="ficon">📍</div><h3>Vivir en zona de cobertura</h3><p>Operamos en múltiples comunas de Chile. Al registrarte verificamos si hay cobertura en tu comuna.</p></div>
+    <div class="feature-card"><div class="ficon">📋</div><h3>Sin antecedentes penales</h3><p>Por seguridad de nuestros clientes y comercios asociados.</p></div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stats-grid">
+      <div class="stat-item"><div class="stat-num" id="stat-riders">-</div><div class="stat-label">Repartidores activos</div></div>
+      <div class="stat-item"><div class="stat-num" id="stat-deliveries">-</div><div class="stat-label">Entregas completadas</div></div>
+      <div class="stat-item"><div class="stat-num">$0</div><div class="stat-label">Costo de inscripción</div></div>
+    </div>
+  </div>
+
+  <!-- Final CTA -->
+  <section class="landing-cta-banner">
+    <h2>¿Listo para empezar a ganar?</h2>
+    <p>Únete a los repartidores que ya trabajan con Go Deli</p>
+    <button class="btn-cta btn-cta-primary" onclick="showRegistro()" style="font-size:18px;padding:18px 48px">Registrarme como repartidor</button>
+  </section>
+
+  <!-- Footer -->
+  <footer class="landing-footer">
+    <div class="ft-brand"><img src="/rider-logo.png" alt="Go Riders" style="width:22px;height:22px;vertical-align:middle;margin-right:6px;border-radius:6px">Go Riders</div>
+    <div class="ft-links">
+      <a href="mailto:soporte@godeli.cl">Soporte</a>
+      <a onclick="scrollToSection('sec-earnings')">Ganancias</a>
+      <a href="mailto:soporte@godeli.cl">Contacto</a>
+      <a href="https://godeli.cl" target="_blank">Go Deli</a>
+      <a href="/aliados">Go Aliados</a>
+    </div>
+    <div class="ft-copy">© 2026 Go Deli — Empresas Go</div>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     LOGIN MODAL
+══════════════════════════════════════════════════════ -->
+<div id="login-modal">
+  <div class="modal-backdrop" onclick="closeLoginModal()"></div>
+  <div class="login-modal-box">
+    <button class="login-modal-close" onclick="closeLoginModal()">✕</button>
+    <div class="login-modal-left">
+      <img src="/rider-logo.png" alt="Go Riders" style="width:72px;height:72px;border-radius:18px;margin-bottom:16px">
+      <h2>Go Riders</h2>
+      <p>App para repartidores</p>
+      <ul class="mlist">
+        <li><div class="mic">📍</div>Recibe pedidos cerca de ti</li>
+        <li><div class="mic">📍</div>Navegación GPS integrada</li>
+        <li><div class="mic">💰</div>Pago semanal garantizado</li>
+        <li><div class="mic">🕐</div>Horario 100% flexible</li>
+      </ul>
+    </div>
+    <div class="login-modal-right">
+      <h3>Accede a tu cuenta</h3>
+      <p class="msub">Bienvenido de vuelta a Go Riders</p>
+      <div id="login-error" class="auth-error" style="display:none"></div>
+      <div class="form-group"><label>Correo electrónico</label><input type="email" id="login-email" placeholder="tu@correo.com"></div>
+      <div class="form-group"><label>Contraseña</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+      <div id="forgot-form" style="display:none">
+        <div class="form-group"><label>Correo para recuperación</label><input type="email" id="forgot-email" placeholder="tu@correo.com"></div>
+        <div style="display:flex;gap:8px"><button class="btn-primary" onclick="doForgot()" style="flex:1">Enviar enlace</button><button class="btn-outline" onclick="toggleForgot()" style="font-size:12px;background:none;border:1px solid var(--border);padding:10px 16px;border-radius:10px;cursor:pointer">Cancelar</button></div>
+        <div id="forgot-msg" style="font-size:13px;margin-top:8px"></div>
+      </div>
+      <!-- RESET PASSWORD: formulario que aparece tras hacer clic en el enlace de recuperacion -->
+      <div id="reset-pw-form" style="display:none">
+        <div class="form-group"><label>Nueva contraseña</label><input type="password" id="reset-pw-new" placeholder="Mínimo 8 caracteres"></div>
+        <div class="form-group"><label>Confirmar contraseña</label><input type="password" id="reset-pw-confirm" placeholder="Repite la contraseña"></div>
+        <button class="btn-primary" onclick="doResetPassword()" style="width:100%">Cambiar contraseña</button>
+        <div id="reset-pw-msg" style="font-size:13px;margin-top:8px"></div>
+      </div>
+      <div id="login-btns" style="display:block">
+        <button class="btn-primary" onclick="doLogin()" style="margin-bottom:12px">Entrar</button>
+        <p style="text-align:center;font-size:13px;color:var(--muted)">¿Olvidaste tu contraseña? <a onclick="toggleForgot()" style="color:var(--primary);font-weight:700;cursor:pointer">Recuperar</a></p>
+        <p style="text-align:center;font-size:13px;color:var(--muted);margin-top:8px">¿No tienes cuenta? <a onclick="closeLoginModal();showRegistro()" style="color:var(--primary);font-weight:700;cursor:pointer">Regístrate como repartidor</a></p>
+        <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:8px">¿Necesitas ayuda? <a href="mailto:soporte@godeli.cl" style="color:var(--primary);font-weight:600">Contáctanos</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     REGISTRO (5 pasos)
+══════════════════════════════════════════════════════ -->
+<div id="registro">
+  <div class="reg-header">
+    <img src="/rider-logo.png" alt="Go Riders" style="width:40px;height:40px;border-radius:10px">
+    <div><h2>Go Riders</h2><p>Registro de repartidor</p></div>
+    <button onclick="showLanding()" style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;">← Volver</button>
+  </div>
+  <div class="reg-progress">
+    <div class="progress-steps" id="progress-steps"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px" id="progress-labels"></div>
+  </div>
+  <div class="reg-body">
+
+    <!-- PASO 1: Datos personales -->
+    <div id="paso-1" class="reg-card">
+      <h3>Datos personales</h3>
+      <p class="desc">Información básica para tu cuenta de repartidor</p>
+      <div class="form-row">
+        <div class="form-group"><label>Nombre completo *</label><input type="text" id="r-name" placeholder="Tu nombre completo"></div>
+        <div class="form-group"><label>RUT *</label><input type="text" id="r-rut" placeholder="12.345.678-9" oninput="formatRUT(this)"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Correo electrónico *</label><input type="email" id="r-email" placeholder="tu@correo.com"></div>
+        <div class="form-group"><label>Teléfono *</label><input type="tel" id="r-phone" placeholder="+56 9 xxxx xxxx" oninput="formatPhone56(this)"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Crea una contraseña *</label><input type="password" id="r-pass" placeholder="Mínimo 8 caracteres"></div>
+        <div class="form-group"><label>Comuna donde repartirás *</label><select id="r-comuna" style="width:100%" onchange="document.getElementById('r-commune-id').value=this.value"><option value="">Cargando comunas...</option></select><input type="hidden" id="r-commune-id"></div>
+      </div>
+      <div class="form-group"><label>Dirección (opcional)</label><input type="text" id="r-address" placeholder="Tu dirección o sector"></div>
+      <div class="reg-nav">
+        <div></div>
+        <button class="btn-next" onclick="nextPaso(1)">Siguiente →</button>
+      </div>
+    </div>
+
+    <!-- PASO 2: Vehículo -->
+    <div id="paso-2" class="reg-card" style="display:none">
+      <h3>Tu vehículo</h3>
+      <p class="desc">Selecciona el tipo de vehículo con el que repartirás</p>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+        <div class="vehicle-option selected" id="veh-moto" onclick="selectVehicle('Moto','veh-moto')">
+          <div class="vicon">🏍️</div>
+          <div class="vname">Moto</div>
+          <div class="vdesc">Ágil y rápida</div>
+        </div>
+        <div class="vehicle-option" id="veh-auto" onclick="selectVehicle('Auto','veh-auto')">
+          <div class="vicon">🚗</div>
+          <div class="vname">Auto</div>
+          <div class="vdesc">Mayor capacidad</div>
+        </div>
+        <div class="vehicle-option" id="veh-bici" onclick="selectVehicle('Bicicleta','veh-bici')">
+          <div class="vicon">🚲</div>
+          <div class="vname">Bicicleta</div>
+          <div class="vdesc">Sin combustible</div>
+        </div>
+      </div>
+      <input type="hidden" id="r-vehicle" value="Moto">
+
+      <div class="form-group">
+        <label>Patente (si aplica) *</label>
+        <input type="text" id="r-plate" placeholder="AAAA00 o XX0000" style="text-transform:uppercase">
+        <p style="font-size:11px;color:var(--muted);margin-top:4px">Para bicicleta escribe "N/A"</p>
+      </div>
+
+      <div class="reg-nav">
+        <button class="btn-secondary" onclick="prevPaso(2)">← Anterior</button>
+        <button class="btn-next" onclick="nextPaso(2)">Siguiente →</button>
+      </div>
+    </div>
+
+    <!-- PASO 3: Datos bancarios -->
+    <div id="paso-3" class="reg-card" style="display:none">
+      <h3>Información bancaria</h3>
+      <p class="desc">Aquí recibirás tus pagos semanales</p>
+      <div class="form-group"><label>Nombre del titular *</label><input type="text" id="r-bank-holder" placeholder="Tu nombre completo"></div>
+      <div class="form-group"><label>RUT del titular *</label><input type="text" id="r-bank-rut" placeholder="12.345.678-9" oninput="formatRUT(this)"></div>
+      <div class="form-group"><label>Banco *</label>
+        <select id="r-banco">
+          <option value="">Selecciona...</option>
+          <option>BancoEstado</option><option>Banco de Chile</option>
+          <option>Banco Internacional</option><option>Scotiabank Chile</option>
+          <option>BCI</option><option>Banco BICE</option><option>HSBC Chile</option>
+          <option>Banco Santander Chile</option><option>Banco Itaú Chile</option>
+          <option>Banco Security</option><option>Banco Falabella</option>
+          <option>Banco Ripley</option><option>Banco Consorcio</option>
+          <option>Mercado Pago</option><option>MACH</option>
+          <option>Tenpo</option><option>Global66</option>
+          <option>Copec Pay</option><option>Superdigital</option>
+          <option>Coopeuch</option><option>Caja Los Andes</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Tipo de cuenta *</label>
+          <select id="r-cuenta-tipo">
+            <option value="Cuenta Vista">Cuenta Vista</option>
+            <option value="Cuenta Corriente">Cuenta Corriente</option>
+            <option value="Cuenta de Ahorro">Cuenta de Ahorro</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Número de cuenta *</label><input type="text" id="r-cuenta-num" placeholder="Número de cuenta"></div>
+      </div>
+      <div class="reg-nav">
+        <button class="btn-secondary" onclick="prevPaso(3)">← Anterior</button>
+        <button class="btn-next" onclick="nextPaso(3)">Siguiente →</button>
+      </div>
+    </div>
+
+    <!-- PASO 4: Contrato y firma -->
+    <div id="paso-4" class="reg-card" style="display:none">
+      <h3>Contrato de Repartidor Independiente</h3>
+      <p class="desc">Lee el contrato y fírmalo digitalmente para completar tu registro</p>
+
+      <div class="terms-box">
+        <h4 style="font-size:15px;font-weight:900;margin-bottom:12px;color:var(--primary)">CONTRATO MARCO DE PRESTACIÓN DE SERVICIOS DE REPARTO INDEPENDIENTE — GO DELI</h4>
+        <p><strong>EMPRESAS GO SpA</strong>, RUT 78.445.567-K, domiciliada en Santiago, Región Metropolitana, representada por su Gerente General, Derian Osorio, en adelante "<strong>GO DELI</strong>" o la "<strong>PLATAFORMA</strong>". Por la otra, la persona natural que complete el proceso de registro y acepte electrónicamente el presente instrumento, en adelante el "<strong>REPARTIDOR</strong>".</p>
+        <br>
+        <p><strong>PRIMERA: DEFINICIONES.</strong> a) Plataforma: Sistema tecnológico operado por GO DELI que conecta comercios afiliados con repartidores independientes y clientes finales. b) Repartidor: Persona natural que presta servicios de entrega utilizando la Plataforma. c) Comercio Afiliado: Establecimiento comercial registrado en GO DELI. d) Cliente: Usuario final que realiza pedidos. e) Pedido: Solicitud de compra y entrega. f) Aplicación: App móvil Go Rider para dispositivos Android.</p>
+        <br>
+        <p><strong>SEGUNDA: OBJETO.</strong> GO DELI proporciona servicios de intermediación tecnológica que permiten al Repartidor recibir ofertas de entrega de pedidos realizados por clientes a comercios afiliados. El Repartidor utiliza la Plataforma por cuenta propia y bajo su exclusiva responsabilidad.</p>
+        <br>
+        <p><strong>TERCERA: NATURALEZA JURÍDICA — AUTONOMÍA DEL REPARTIDOR.</strong> El Repartidor declara conocer y aceptar que NO existe relación laboral, vínculo de subordinación ni dependencia con GO DELI, ni con los comercios afiliados. El Repartidor actúa como contratista independiente, organiza libremente su actividad, decide cuándo conectarse y desconectarse, y elige qué pedidos aceptar o rechazar sin penalización alguna. Nada de lo dispuesto en este contrato crea entre las partes una relación de trabajo, sociedad, joint venture, agencia, franquicia o representación.</p>
+        <br>
+        <p><strong>CUARTA: REGISTRO Y HABILITACIÓN.</strong> Para registrarse, el Repartidor debe proporcionar: cédula de identidad vigente, licencia de conducir cuando corresponda, SOAP y revisión técnica al día si aplica, cuenta bancaria a su nombre, y un smartphone compatible. GO DELI podrá verificar los antecedentes del Repartidor y rechazar solicitudes sin expresión de causa. La aprobación del registro queda sujeta a la revisión de la documentación por parte de GO DELI.</p>
+        <br>
+        <p><strong>QUINTA: VEHÍCULOS.</strong> El Repartidor podrá utilizar motocicleta, automóvil o bicicleta. El vehículo debe mantenerse en condiciones óptimas de funcionamiento y seguridad. El Repartidor es el único responsable por el mantenimiento, combustible, seguros, permisos de circulación y toda obligación legal asociada al vehículo.</p>
+        <br>
+        <p><strong>SEXTA: FUNCIONAMIENTO DE LA PLATAFORMA.</strong> El Repartidor se conecta y desconecta libremente mediante la Aplicación. Al estar conectado, la Plataforma le enviará ofertas de pedidos con información de: tienda de origen, dirección de entrega, distancia estimada, y tarifa ofrecida por el pedido. El Repartidor podrá aceptar o rechazar libremente cada oferta. La aceptación de un pedido genera la obligación de recogerlo en el comercio y entregarlo al cliente en la dirección indicada.</p>
+        <br>
+        <p><strong>SÉPTIMA: TARIFAS POR PEDIDO.</strong> GO DELI determina unilateralmente la tarifa de cada pedido ofrecido al Repartidor, calculada en función de la distancia estimada entre la tienda de origen y la dirección de entrega del cliente. La tarifa se compone de un valor base más un adicional proporcional a la distancia recorrida. El Repartidor conoce la tarifa exacta antes de aceptar cada pedido. GO DELI podrá modificar los parámetros de cálculo de tarifas informándolo a través de la Plataforma.</p>
+        <br>
+        <p><strong>OCTAVA: PAGOS.</strong> GO DELI transferirá al Repartidor los montos correspondientes a los pedidos completados mediante transferencia bancaria semanal, los días martes, respecto de los pedidos completados entre el lunes y domingo inmediatamente anteriores. Cada pago irá acompañado de una liquidación detallada con el desglose de pedidos, distancias y tarifas. No se aplican descuentos, comisiones ni retenciones sobre las tarifas del Repartidor.</p>
+        <br>
+        <p><strong>NOVENA: DOCUMENTACIÓN TRIBUTARIA.</strong> El Repartidor será exclusivamente responsable de declarar los ingresos percibidos y cumplir con todas las obligaciones tributarias que le correspondan conforme a la legislación chilena vigente. GO DELI no realiza retenciones de impuestos sobre los pagos efectuados al Repartidor. Los montos transferidos corresponden a valores brutos.</p>
+        <br>
+        <p><strong>DÉCIMA: OBLIGACIONES DEL REPARTIDOR.</strong> El Repartidor se obliga a: cumplir estrictamente la normativa de tránsito, mantener vigente su documentación personal y del vehículo, portar los elementos de seguridad exigidos por ley, entregar los pedidos en la dirección indicada y en condiciones adecuadas, verificar la identidad del cliente al entregar, mantener absoluta confidencialidad respecto de la información de clientes y comercios, y tratar con respeto y cortesía a clientes y personal de los comercios afiliados.</p>
+        <br>
+        <p><strong>DÉCIMO PRIMERA: PROHIBICIONES.</strong> Queda estrictamente prohibido al Repartidor: apropiarse indebidamente de productos o dinero, manipular, adulterar o consumir productos, realizar entregas ficticias o fraudulentas, suplantar la identidad de otro repartidor, compartir su cuenta con terceros, utilizar la Plataforma para actividades ilícitas, y cualquier conducta que pueda dañar la reputación de GO DELI o de los comercios afiliados.</p>
+        <br>
+        <p><strong>DÉCIMO SEGUNDA: GEOLOCALIZACIÓN.</strong> El Repartidor autoriza expresa e irrevocablemente a GO DELI para recolectar, almacenar y tratar los datos de geolocalización de su dispositivo móvil de forma continua mientras esté conectado en la Aplicación. Estos datos son esenciales para el funcionamiento de la Plataforma: asignación de pedidos cercanos, cálculo de distancias, navegación GPS, y verificación de entregas. El tratamiento de estos datos se rige por la Política de Privacidad de GO DELI.</p>
+        <br>
+        <p><strong>DÉCIMO TERCERA: PROTECCIÓN DE DATOS PERSONALES.</strong> Las partes se obligan a cumplir la normativa chilena vigente sobre protección de datos personales. El Repartidor utilizará los datos de clientes exclusivamente para la correcta ejecución de las entregas. Queda prohibida la utilización de datos de clientes para fines distintos a los autorizados.</p>
+        <br>
+        <p><strong>DÉCIMO CUARTA: PROPIEDAD INTELECTUAL.</strong> Todos los derechos de propiedad intelectual asociados a GO DELI y Go Rider pertenecen exclusivamente a EMPRESAS GO SpA, incluyendo marca, nombre de dominio, aplicaciones móviles, software, bases de datos, algoritmos, diseños y logotipos. El registro del Repartidor no confiere derecho alguno sobre dichos activos.</p>
+        <br>
+        <p><strong>DÉCIMO QUINTA: LIMITACIÓN DE RESPONSABILIDAD DE GO DELI.</strong> GO DELI actúa exclusivamente como intermediario tecnológico. GO DELI no será responsable por: accidentes de tránsito, daños al vehículo, multas o infracciones, lesiones personales, pérdida o deterioro de productos durante el transporte, lucro cesante, pérdida de oportunidades, ni daños indirectos de cualquier naturaleza. El Repartidor mantendrá indemne a GO DELI respecto de cualquier reclamación derivada de sus actos u omisiones.</p>
+        <br>
+        <p><strong>DÉCIMO SEXTA: SEGUROS.</strong> El Repartidor es el único responsable de contratar y mantener los seguros que estime necesarios, incluyendo seguros de accidentes personales, de responsabilidad civil y del vehículo. GO DELI no proporciona cobertura de seguros al Repartidor.</p>
+        <br>
+        <p><strong>DÉCIMO SÉPTIMA: SUSPENSIÓN DE LA CUENTA.</strong> GO DELI podrá suspender temporal o definitivamente la cuenta del Repartidor cuando: la documentación esté vencida, existan reclamos reiterados de clientes o comercios, se detecte fraude o conductas prohibidas, se incumplan reiteradamente las obligaciones del contrato, o existan conductas que pongan en riesgo la seguridad de clientes o la reputación de la Plataforma.</p>
+        <br>
+        <p><strong>DÉCIMO OCTAVA: CONFIDENCIALIDAD.</strong> Toda información técnica, comercial, financiera u operativa intercambiada entre las partes, así como los datos de clientes y comercios afiliados, tendrá carácter confidencial. Esta obligación se mantendrá vigente durante toda la relación contractual y por un plazo de 3 años contado desde su terminación.</p>
+        <br>
+        <p><strong>DÉCIMO NOVENA: MODIFICACIONES CONTRACTUALES.</strong> GO DELI podrá modificar el presente contrato por razones legales, regulatorias, operativas, comerciales o tecnológicas. Las modificaciones serán comunicadas mediante correo electrónico o publicación en la Plataforma con al menos 15 días corridos de anticipación. La continuidad en el uso de la Plataforma constituirá aceptación de dichas modificaciones.</p>
+        <br>
+        <p><strong>VIGÉSIMA: CESIÓN.</strong> El Repartidor no podrá ceder sus derechos u obligaciones sin autorización previa y escrita de GO DELI. GO DELI podrá ceder el presente contrato a empresas relacionadas, sucesoras legales o adquirentes de su negocio.</p>
+        <br>
+        <p><strong>VIGÉSIMO PRIMERA: FIRMA ELECTRÓNICA.</strong> La aceptación electrónica del presente contrato mediante casilla de aceptación, firma electrónica simple, firma manuscrita digitalizada o confirmación electrónica dentro de la Plataforma producirá los mismos efectos jurídicos que una firma manuscrita presencial, conforme a la Ley N° 19.799 sobre Documentos Electrónicos y Firma Electrónica.</p>
+        <br>
+        <p><strong>VIGÉSIMO SEGUNDA: LEY APLICABLE Y JURISDICCIÓN.</strong> El presente contrato se regirá por las leyes de la República de Chile. Toda controversia será sometida a la jurisdicción de los Tribunales Ordinarios de Justicia con competencia en la comuna de Ancud, Región de Los Lagos.</p>
+        <br>
+        <p style="color:var(--muted);font-size:11px">EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · Versión contrato: 1.0 · Rige la legislación chilena</p>
+      </div>
+
+      <!-- Consentimientos -->
+      <div style="margin-top:20px">
+        <p style="font-weight:800;font-size:14px;margin-bottom:14px;color:var(--text)">📋 Consentimientos requeridos</p>
+
+        <div class="check-row">
+          <input type="checkbox" id="term-contract">
+          <label for="term-contract"><strong>Acepto el Contrato de Repartidor Independiente.</strong> He leído y acepto el Contrato Marco de Prestación de Servicios de Reparto Independiente de GO DELI en su totalidad. La firma digital constituye mi aceptación expresa conforme a la Ley N° 19.799.</label>
+        </div>
+
+        <div class="check-row">
+          <input type="checkbox" id="term-privacy">
+          <label for="term-privacy"><strong>Política de Privacidad.</strong> He leído y acepto la Política de Privacidad de GO DELI. Autorizo el tratamiento de mis datos personales y de geolocalización conforme a dicha política.</label>
+        </div>
+
+        <div class="check-row">
+          <input type="checkbox" id="term-geo">
+          <label for="term-geo"><strong>Autorización de Geolocalización.</strong> Autorizo expresa e irrevocablemente a GO DELI a recolectar, almacenar y tratar los datos de ubicación de mi dispositivo móvil de forma continua mientras esté conectado en la aplicación Go Rider, con la finalidad de asignarme pedidos cercanos, calcular distancias y tarifas, proporcionar navegación GPS y verificar entregas.</label>
+        </div>
+      </div>
+
+      <!-- Firma digital -->
+      <div style="background:var(--bg);border-radius:14px;padding:20px;margin:20px 0;border:2px solid var(--border)">
+        <p style="font-weight:800;font-size:14px;margin-bottom:16px">✍️ Firma digital del repartidor</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">Nombre completo *</label>
+            <input type="text" id="firma-nombre" placeholder="Nombre del firmante">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:12px">RUT del firmante *</label>
+            <input type="text" id="firma-rut" placeholder="12.345.678-9" oninput="formatRUT(this)">
+          </div>
+        </div>
+        <div style="background:#fff;border:2px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
+          <canvas id="firma-canvas" width="480" height="120" style="width:100%;border-bottom:2px solid var(--border);cursor:crosshair;touch-action:none"></canvas>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <span style="font-size:11px;color:var(--muted)">Dibuja tu firma arriba</span>
+            <button type="button" onclick="clearFirma()" style="font-size:11px;background:none;border:1px solid var(--border);padding:4px 10px;border-radius:6px;cursor:pointer;color:var(--muted)">Limpiar</button>
+          </div>
+        </div>
+        <p style="font-size:11px;color:var(--muted)">Al firmar y enviar declaro que los datos ingresados son verdaderos y acepto el contrato de repartidor independiente de Go Deli.</p>
+      </div>
+
+      <div style="background:#F0FDF4;border-radius:10px;padding:12px 14px;margin-top:16px;border:1px solid #BBF7D0">
+        <p style="font-size:11px;color:#166534;margin:0">
+          🔒 <strong>Al firmar y enviar se registrará:</strong> tu dirección IP, navegador, correo electrónico, fecha y hora. Versión del contrato: <strong>1.0</strong>. Estos metadatos respaldan legalmente tu firma digital.
+        </p>
+      </div>
+
+      <div id="reg-error" class="auth-error" style="display:none;margin-top:12px"></div>
+      <div class="reg-nav">
+        <button class="btn-secondary" onclick="prevPaso(4)">← Anterior</button>
+        <button class="btn-next" id="btn-submit" onclick="submitRegistro()">Firmar y enviar solicitud ✍️</button>
+      </div>
+    </div>
+
+    <!-- ÉXITO / CONFIRMACIÓN EMAIL -->
+    <div id="paso-exito" class="reg-card" style="display:none;text-align:center">
+      <div style="font-size:64px;margin-bottom:20px">📧</div>
+      <h3>Confirma tu correo electrónico</h3>
+      <p class="desc" style="margin-bottom:8px">Hemos enviado un enlace de confirmación a <strong id="exito-email">-</strong>.</p>
+      <p class="desc">Revisa tu bandeja de entrada (y carpeta spam) y haz clic en el enlace para verificar tu cuenta.</p>
+      <div style="background:#F3EEFF;border-radius:14px;padding:20px;margin:24px 0;text-align:left;border:1px solid #DDD6FE">
+        <p style="font-weight:800;color:#7C3AED;margin-bottom:8px">📋 ¿Qué sigue después?</p>
+        <p style="font-size:13px;color:#6B7280;line-height:1.6;margin:0">Una vez confirmado tu correo, tu solicitud será enviada a revisión por el equipo de Go Deli. El proceso de aprobación puede tomar hasta <strong>48 horas hábiles</strong>. Te notificaremos por email cuando estés aprobado para empezar a repartir.</p>
+      </div>
+      <div style="margin-top:16px;text-align:left">
+        <label style="font-weight:700;font-size:13px;display:block;margin-bottom:4px">Contraseña de confirmación</label>
+        <input type="password" id="confirm-pass" placeholder="Ingresa la contraseña que creaste" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;box-sizing:border-box">
+      </div>
+      <button class="btn-next" onclick="checkEmailConfirmedAndComplete()" style="width:100%;margin-bottom:12px">✅ Ya confirmé mi correo — Continuar</button>
+      <p style="font-size:12px;color:var(--muted)">Al hacer clic, verificaremos tu cuenta e iniciaremos sesión para completar tu registro.</p>
+      <p style="font-size:12px;color:var(--muted);margin-top:12px">¿No recibiste el correo? Revisa tu carpeta de spam o <a href="#" onclick="event.preventDefault();resendConfirmEmail()" style="color:var(--primary);font-weight:700">haz clic aquí para reenviar</a>.</p>
+      <button onclick="showRegistro()" style="margin-top:16px;padding:10px 20px;background:var(--bg);border:1px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)">← Volver al formulario</button>
+    </div>
+
+    <!-- REGISTRO COMPLETADO -->
+    <div id="paso-completado" class="reg-card" style="display:none;text-align:center">
+      <div style="font-size:64px;margin-bottom:20px">🎉</div>
+      <h3>¡Solicitud enviada!</h3>
+      <p class="desc">Tu solicitud está en revisión. Te notificaremos por email en las próximas 48 horas hábiles.</p>
+      <div style="background:var(--bg);border-radius:14px;padding:20px;margin:20px 0;text-align:left">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="color:var(--success);font-size:20px">✓</span><span>Datos personales registrados</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="color:var(--success);font-size:20px">✓</span><span>Vehículo registrado</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="color:var(--success);font-size:20px">✓</span><span>Datos bancarios guardados</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="color:var(--success);font-size:20px">✓</span><span>Contrato firmado digitalmente y consentimientos aceptados</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="color:var(--warning);font-size:20px">⏳</span><span>En revisión por el equipo Go Deli</span></div>
+      </div>
+      <button class="btn-next" onclick="showLanding()" style="width:100%">Volver al inicio</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════════════ -->
+<script>
+const SUPA_URL = 'https://yxseolcaububyifhksud.supabase.co';
+const SUPA_KEY = 'sb_publishable_wc8oyi80Iu2RPgJr-9zS4g_DJ3l-3nV';
+const { createClient } = supabase;
+const sb = createClient(SUPA_URL, SUPA_KEY);
+window.sb = sb;
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// ── Estado global ──
+let authUserId = null;
+let userData = null;
+let riderData = null;
+let firmaTouched = false;
+let firmaCanvas = null;
+let selectedVehicle = 'Moto';
+let currentPaso = 1;
+const TOTAL_PASOS = 4;
+
+// ── RUT formatter ──
+function formatRUT(el) {
+  let v = el.value.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (v.length > 1) v = v.slice(0,-1) + '-' + v.slice(-1);
+  if (v.length > 2) {
+    const num = v.slice(0,-2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    v = num + v.slice(-2);
+  }
+  el.value = v;
+}
+
+function validateRUT(rut) {
+  const cleaned = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (cleaned.length < 2) return false;
+  const dv = cleaned.slice(-1);
+  const num = cleaned.slice(0,-1);
+  let sum = 0, mul = 2;
+  for (let i = num.length - 1; i >= 0; i--) {
+    sum += parseInt(num[i]) * mul;
+    mul = mul < 7 ? mul + 1 : 2;
+  }
+  const expected = 11 - (sum % 11);
+  const expectedDV = expected === 11 ? '0' : expected === 10 ? 'K' : String(expected);
+  return dv === expectedDV;
+}
+
+// ── Phone formatter (+56 9) ──
+function formatPhone56(el) {
+  let v = el.value.replace(/[^0-9+]/g, '');
+  if (!v.startsWith('+56')) { if (v.startsWith('56')) v = '+' + v; else if (v.length > 0 && !v.startsWith('+')) v = '+56' + v; }
+  if (v.length > 4) v = v.slice(0,4) + ' ' + v.slice(4);
+  if (v.length > 7) v = v.slice(0,7) + ' ' + v.slice(7);
+  if (v.length > 11) v = v.slice(0,11) + ' ' + v.slice(11);
+  if (v.length > 16) v = v.slice(0,16);
+  el.value = v;
+}
+
+// ── Navegación landing ──
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showLanding() {
+  document.getElementById('landing').style.display = 'block';
+  document.getElementById('registro').style.display = 'none';
+  document.getElementById('login-modal').classList.remove('open');
+  loadLandingStats();
+}
+
+function openLoginModal() {
+  document.getElementById('login-modal').classList.add('open');
+}
+
+function closeLoginModal() {
+  document.getElementById('login-modal').classList.remove('open');
+}
+
+function toggleForgot() {
+  const form = document.getElementById('forgot-form');
+  const btns = document.getElementById('login-btns');
+  if (form.style.display === 'none') {
+    form.style.display = 'block';
+    btns.style.display = 'none';
+    document.getElementById('login-error').style.display = 'none';
+    document.getElementById('forgot-msg').innerHTML = '';
+  } else {
+    form.style.display = 'none';
+    btns.style.display = 'block';
+  }
+}
+
+async function doForgot() {
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!email) return;
+  const msg = document.getElementById('forgot-msg');
+  msg.innerHTML = 'Enviando...';
+  try {
+    await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://godeli.cl/riders.html'
+    });
+    msg.innerHTML = '<span style="color:#16a34a">✅ Enlace de recuperación enviado. Revisa tu correo.</span>';
+  } catch(e) {
+    msg.innerHTML = '<span style="color:#ef4444">❌ Error al enviar: ' + esc(e.message) + '</span>';
+  }
+}
+
+// ── RESET PASSWORD (callback tras enlace de recuperacion) ──
+function showResetPasswordForm() {
+  document.getElementById('login-btns').style.display = 'none';
+  document.getElementById('forgot-form').style.display = 'none';
+  document.getElementById('reset-pw-form').style.display = 'block';
+  document.getElementById('reset-pw-msg').innerHTML = '';
+  document.getElementById('reset-pw-new').value = '';
+  document.getElementById('reset-pw-confirm').value = '';
+}
+
+async function doResetPassword() {
+  const pw1 = document.getElementById('reset-pw-new').value;
+  const pw2 = document.getElementById('reset-pw-confirm').value;
+  const msg = document.getElementById('reset-pw-msg');
+
+  if (!pw1 || pw1.length < 8) {
+    msg.innerHTML = '<span style="color:#ef4444">La contraseña debe tener al menos 8 caracteres.</span>';
+    return;
+  }
+  if (pw1 !== pw2) {
+    msg.innerHTML = '<span style="color:#ef4444">Las contraseñas no coinciden.</span>';
+    return;
+  }
+
+  msg.innerHTML = 'Cambiando contraseña...';
+  try {
+    const { error } = await sb.auth.updateUser({ password: pw1 });
+    if (error) throw error;
+    msg.innerHTML = '<span style="color:#16a34a">✅ Contraseña cambiada exitosamente. Redirigiendo...</span>';
+    setTimeout(() => {
+      document.getElementById('reset-pw-form').style.display = 'none';
+      document.getElementById('login-btns').style.display = 'block';
+      document.getElementById('login-modal').classList.remove('open');
+      showLanding();
+    }, 1500);
+  } catch(e) {
+    msg.innerHTML = '<span style="color:#ef4444">❌ Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+// ── Login ──
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const pass  = document.getElementById('login-pass').value;
+  const err   = document.getElementById('login-error');
+  err.style.display = 'none';
+  const btn = document.querySelector('#login-modal .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Ingresando...'; }
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    authUserId = data.user.id;
+
+    // Verificar si hay registro pendiente en localStorage
+    const pendingReg = localStorage.getItem('godeli_rider_pending_reg');
+    let regData = null;
+    if (pendingReg) {
+      try { regData = JSON.parse(pendingReg); } catch(e) { regData = null; localStorage.removeItem('godeli_rider_pending_reg'); }
+      if (regData && regData.email !== email) regData = null;
+    }
+
+    // Caso 1: Hay datos de registro pendientes y el usuario de app NO existe → completar ahora
+    if (regData) {
+      const { data: existingProfile } = await sb.from('users').select('id').eq('auth_id', authUserId).maybeSingle();
+      if (!existingProfile) {
+        await completePendingRegistration(regData);
+        return;
+      }
+      // Si el usuario ya existe, seguimos; si no tiene rider, lo creamos abajo
+    }
+
+    const { data: profile, error: e2 } = await sb.from('users').select('*').eq('auth_id', data.user.id).single();
+    if (e2 || !profile) {
+      if (regData) localStorage.removeItem('godeli_rider_pending_reg');
+      throw new Error('Usuario no encontrado en el sistema');
+    }
+    if (profile.role !== 'deliverer') throw new Error('No tienes acceso de repartidor. Usa la app Go Rider.');
+    userData = profile;
+
+    const { data: rider } = await sb.from('deliverers').select('*').eq('user_id', profile.id).maybeSingle();
+    if (!rider) {
+      // Caso 2: Usuario de app existe pero no tiene perfil rider → crear con datos pendientes
+      if (regData) {
+        await completePendingRegistration(regData);
+        return;
+      }
+      throw new Error('No tienes un perfil de repartidor. Completa el registro.');
+    }
+    riderData = rider;
+
+    if (rider.status === 'pending') {
+      showPendingScreen();
+      return;
+    }
+    if (rider.status === 'rejected') {
+      throw new Error('Tu solicitud fue rechazada. Contacta a soporte@godeli.cl');
+    }
+
+    // Rider aprobado: informar que use la app
+    alert('¡Tu cuenta está aprobada! Descarga la app Go Rider en Android para empezar a repartir.\n\nBusca "Go Rider" en Google Play o solicita el APK a soporte@godeli.cl');
+    closeLoginModal();
+  } catch(e) {
+    err.textContent = e.message; err.style.display = 'block';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+  }
+}
+
+// ── Pending screen ──
+function showPendingScreen() {
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('registro').style.display = 'none';
+  document.getElementById('login-modal').classList.remove('open');
+  let pending = document.getElementById('pending-screen');
+  if (!pending) {
+    pending = document.createElement('div');
+    pending.id = 'pending-screen';
+    pending.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F8F7FF;padding:24px';
+    pending.innerHTML = `
+      <div style="max-width:480px;width:100%;background:#fff;border-radius:24px;padding:40px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.08);border:1px solid #E5E7EB">
+        <div style="font-size:64px;margin-bottom:16px">⏳</div>
+        <h2 style="font-size:22px;font-weight:900;color:#1A0033;margin-bottom:8px">Solicitud en revisión</h2>
+        <p style="color:#6B7280;font-size:15px;line-height:1.6;margin-bottom:24px">Tu solicitud de registro ha sido recibida. El equipo de Go Deli está revisando tu información.<br><br>El proceso de aprobación puede tomar hasta <strong>48 horas hábiles</strong>.</p>
+        <div style="background:#F3EEFF;border-radius:14px;padding:20px;margin-bottom:24px;text-align:left">
+          <div style="font-weight:800;color:#7C3AED;margin-bottom:12px">📋 Estado de tu solicitud</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">
+            <span style="color:#6B7280">Nombre</span>
+            <strong>${esc(userData?.name || '-')}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px">
+            <span style="color:#6B7280">Vehículo</span>
+            <strong>${esc(riderData?.vehicle_type || '-')}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:14px">
+            <span style="color:#6B7280">Estado</span>
+            <span style="background:#FEF9C3;color:#854D0E;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700">⏳ Pendiente de aprobación</span>
+          </div>
+        </div>
+        <p style="font-size:13px;color:#9CA3AF;margin-bottom:20px">Cuando seas aprobado, podrás descargar la app Go Rider y empezar a repartir. ¿Tienes dudas? Escríbenos a <a href="mailto:soporte@godeli.cl" style="color:var(--primary);font-weight:600">soporte@godeli.cl</a></p>
+        <button onclick="doLogout()" style="padding:12px 24px;background:#F3F4F6;border:none;border-radius:10px;font-weight:700;cursor:pointer;color:#374151">Cerrar sesión</button>
+      </div>`;
+    document.body.appendChild(pending);
+  } else {
+    pending.style.display = 'flex';
+  }
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  authUserId = null; userData = null; riderData = null;
+  const pending = document.getElementById('pending-screen');
+  if (pending) pending.style.display = 'none';
+  showLanding();
+}
+
+// ── Stats ──
+async function loadLandingStats() {
+  try {
+    const [{count:riderCount},{data:deliveries}] = await Promise.all([
+      sb.from('deliverers').select('id',{count:'exact',head:true}).eq('status','approved'),
+      sb.from('orders').select('id',{count:'exact',head:true}).eq('status','delivered')
+    ]);
+    document.getElementById('stat-riders').textContent = riderCount || '-';
+    document.getElementById('stat-deliveries').textContent = deliveries ? (deliveries.length || '-') : '-';
+  } catch(e) { /* no crítico */ }
+}
+
+// ── Registro ──
+function showRegistro() {
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('login-modal').classList.remove('open');
+  const pending = document.getElementById('pending-screen');
+  if (pending) pending.style.display = 'none';
+  document.getElementById('registro').style.display = 'block';
+  currentPaso = 1;
+  initRegistro();
+}
+
+const PASOS = ['Datos personales','Vehículo','Datos bancarios','Contrato'];
+
+function initRegistro() {
+  // Progress bar
+  const stepsDiv = document.getElementById('progress-steps');
+  const labelsDiv = document.getElementById('progress-labels');
+  stepsDiv.innerHTML = '';
+  labelsDiv.innerHTML = '';
+  PASOS.forEach((label, i) => {
+    const stepDiv = document.createElement('div');
+    stepDiv.className = 'step';
+    stepDiv.innerHTML = `<div class="step-circle ${i===0?'active':'pending'}">${i+1}</div>`;
+    if (i < PASOS.length - 1) stepDiv.innerHTML += `<div class="step-line"></div>`;
+    stepsDiv.appendChild(stepDiv);
+    const lbl = document.createElement('div');
+    lbl.className = 'step-label';
+    lbl.textContent = label;
+    labelsDiv.appendChild(lbl);
+  });
+
+  // Mostrar paso 1, ocultar resto
+  for (let i = 1; i <= TOTAL_PASOS; i++) {
+    document.getElementById('paso-'+i).style.display = i === 1 ? 'block' : 'none';
+  }
+  document.getElementById('paso-exito').style.display = 'none';
+  document.getElementById('paso-completado').style.display = 'none';
+
+  // Cargar comunas
+  loadComunas();
+
+  // Init firma canvas (paso 4)
+  firmaCanvas = document.getElementById('firma-canvas');
+  if (firmaCanvas) {
+    const ctx = firmaCanvas.getContext('2d');
+    ctx.clearRect(0, 0, firmaCanvas.width, firmaCanvas.height);
+    firmaTouched = false;
+  }
+
+  document.getElementById('r-vehicle').value = 'Moto';
+  selectedVehicle = 'Moto';
+  document.querySelectorAll('.vehicle-option').forEach(el => el.classList.remove('selected'));
+  document.getElementById('veh-moto')?.classList.add('selected');
+
+  window.scrollTo(0,0);
+}
+
+// ── Cargar comunas ──
+async function loadComunas() {
+  const sel = document.getElementById('r-comuna');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Cargando comunas...</option>';
+  try {
+    const { data, error } = await sb.rpc('list_communes');
+    if (error) throw error;
+    sel.innerHTML = '<option value="">Selecciona tu comuna...</option>';
+    (data || []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.commune_id;
+      opt.textContent = `${c.commune_name} — ${c.region_name || ''}`;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    sel.innerHTML = '<option value="">Error al cargar comunas</option>';
+  }
+}
+
+// ── Seleccionar vehículo ──
+function selectVehicle(type, elId) {
+  selectedVehicle = type;
+  document.getElementById('r-vehicle').value = type;
+  document.querySelectorAll('.vehicle-option').forEach(el => el.classList.remove('selected'));
+  document.getElementById(elId)?.classList.add('selected');
+  // Si es bicicleta, autocompletar patente
+  if (type === 'Bicicleta') {
+    document.getElementById('r-plate').value = 'N/A';
+    document.getElementById('r-plate').placeholder = 'No aplica';
+  } else {
+    document.getElementById('r-plate').value = '';
+    document.getElementById('r-plate').placeholder = type === 'Moto' ? 'AAAA00' : 'AAAA00 o XX0000';
+  }
+}
+
+// ── Navegación pasos ──
+function nextPaso(n) {
+  // Validaciones básicas por paso
+  if (n === 1) {
+    const name = document.getElementById('r-name').value.trim();
+    const rut = document.getElementById('r-rut').value.trim();
+    const email = document.getElementById('r-email').value.trim();
+    const pass = document.getElementById('r-pass').value;
+    const phone = document.getElementById('r-phone').value.trim();
+    if (!name || !rut || !email || !pass || !phone) {
+      alert('Completa todos los campos obligatorios (Nombre, RUT, Email, Teléfono, Contraseña)');
+      return;
+    }
+    if (!validateRUT(rut)) { alert('El RUT ingresado no es válido'); return; }
+    if (pass.length < 8) { alert('La contraseña debe tener al menos 8 caracteres'); return; }
+    if (!email.includes('@')) { alert('Ingresa un correo electrónico válido'); return; }
+    if (!document.getElementById('r-commune-id').value) { alert('Selecciona tu comuna'); return; }
+  }
+  if (n === 2) {
+    const plate = document.getElementById('r-plate').value.trim();
+    if (!plate) { alert('Ingresa la patente de tu vehículo (o N/A para bicicleta)'); return; }
+  }
+  if (n === 3) {
+    const holder = document.getElementById('r-bank-holder').value.trim();
+    const bankRut = document.getElementById('r-bank-rut').value.trim();
+    const bank = document.getElementById('r-banco').value;
+    const accNum = document.getElementById('r-cuenta-num').value.trim();
+    if (!holder || !bankRut || !bank || !accNum) {
+      alert('Completa todos los campos bancarios obligatorios');
+      return;
+    }
+    if (!validateRUT(bankRut)) { alert('El RUT bancario no es válido'); return; }
+  }
+
+  document.getElementById('paso-'+n).style.display = 'none';
+  document.getElementById('paso-'+(n+1)).style.display = 'block';
+  currentPaso = n+1;
+  updateProgress();
+  window.scrollTo(0,0);
+}
+
+function prevPaso(n) {
+  document.getElementById('paso-'+n).style.display = 'none';
+  document.getElementById('paso-'+(n-1)).style.display = 'block';
+  currentPaso = n-1;
+  updateProgress();
+  window.scrollTo(0,0);
+}
+
+function updateProgress() {
+  const circles = document.querySelectorAll('#progress-steps .step-circle');
+  const lines = document.querySelectorAll('#progress-steps .step-line');
+  circles.forEach((c, i) => {
+    c.className = 'step-circle';
+    if (i+1 < currentPaso) c.classList.add('done');
+    else if (i+1 === currentPaso) c.classList.add('active');
+    else c.classList.add('pending');
+  });
+  lines.forEach((l, i) => {
+    l.className = 'step-line';
+    if (i+1 < currentPaso) l.classList.add('done');
+  });
+}
+
+// ── Firma digital ──
+function initFirmaCanvas() {
+  firmaCanvas = document.getElementById('firma-canvas');
+  if (!firmaCanvas) return;
+  const ctx = firmaCanvas.getContext('2d');
+  let drawing = false;
+
+  function start(e) {
+    e.preventDefault();
+    drawing = true;
+    firmaTouched = true;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  }
+
+  function move(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = '#1A0033';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  function stop() { drawing = false; }
+
+  function getPos(e) {
+    const rect = firmaCanvas.getBoundingClientRect();
+    const scaleX = firmaCanvas.width / rect.width;
+    const scaleY = firmaCanvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+
+  firmaCanvas.addEventListener('mousedown', start);
+  firmaCanvas.addEventListener('mousemove', move);
+  firmaCanvas.addEventListener('mouseup', stop);
+  firmaCanvas.addEventListener('mouseleave', stop);
+  firmaCanvas.addEventListener('touchstart', start, {passive: false});
+  firmaCanvas.addEventListener('touchmove', move, {passive: false});
+  firmaCanvas.addEventListener('touchend', stop);
+}
+
+function clearFirma() {
+  if (!firmaCanvas) return;
+  const ctx = firmaCanvas.getContext('2d');
+  ctx.clearRect(0, 0, firmaCanvas.width, firmaCanvas.height);
+  firmaTouched = false;
+}
+
+// ── Submit registro ──
+async function submitRegistro() {
+  const err = document.getElementById('reg-error');
+  err.style.display = 'none';
+
+  // Validar consentimientos
+  const requiredChecks = ['term-contract','term-privacy','term-geo'];
+  for (const id of requiredChecks) {
+    if (!document.getElementById(id)?.checked) {
+      err.textContent = 'Debes aceptar todos los consentimientos legales para continuar';
+      err.style.display = 'block';
+      document.getElementById(id)?.scrollIntoView({ behavior:'smooth', block:'center' });
+      return;
+    }
+  }
+  // Validar RUTs
+  const rutPersonal = document.getElementById('r-rut')?.value;
+  if (rutPersonal && !validateRUT(rutPersonal)) { err.textContent = 'El RUT personal ingresado no es válido'; err.style.display = 'block'; return; }
+  const rutBank = document.getElementById('r-bank-rut')?.value;
+  if (rutBank && !validateRUT(rutBank)) { err.textContent = 'El RUT bancario ingresado no es válido'; err.style.display = 'block'; return; }
+
+  // Validar firma
+  const firmaNombre = document.getElementById('firma-nombre')?.value.trim();
+  const firmaRut    = document.getElementById('firma-rut')?.value.trim();
+  if (!firmaNombre) { err.textContent = 'Ingresa tu nombre para la firma digital'; err.style.display = 'block'; return; }
+  if (!firmaRut || !validateRUT(firmaRut)) { err.textContent = 'RUT del firmante inválido'; err.style.display = 'block'; return; }
+  if (!firmaTouched) { err.textContent = 'Debes dibujar tu firma en el recuadro'; err.style.display = 'block'; return; }
+
+  const firmaImg = firmaCanvas ? firmaCanvas.toDataURL('image/png') : null;
+
+  document.getElementById('btn-submit').disabled = true;
+  document.getElementById('btn-submit').textContent = 'Enviando...';
+
+  try {
+    const email = document.getElementById('r-email').value;
+    const pass  = document.getElementById('r-pass').value;
+
+    // Guardar datos de registro para completar después de confirmar email
+    saveRegData(firmaImg);
+
+    // Registrar en Supabase Auth (envía email de confirmación)
+    const { data: auth, error: authErr } = await sb.auth.signUp({ email, password: pass });
+    if (authErr) throw authErr;
+
+    // Mostrar pantalla de confirmación de email
+    showEmailConfirmScreen(email);
+  } catch(e) {
+    err.textContent = 'Error: ' + e.message; err.style.display = 'block';
+    document.getElementById('btn-submit').disabled = false;
+    document.getElementById('btn-submit').textContent = 'Firmar y enviar solicitud ✍️';
+  }
+}
+
+function saveRegData(firmaImg) {
+  const data = {
+    name: document.getElementById('r-name').value.trim(),
+    rut: document.getElementById('r-rut').value.trim(),
+    email: document.getElementById('r-email').value.trim(),
+    phone: document.getElementById('r-phone').value.trim(),
+    address: document.getElementById('r-address').value.trim(),
+    commune_id: document.getElementById('r-commune-id').value,
+    vehicle: selectedVehicle,
+    plate: document.getElementById('r-plate').value.trim(),
+    bank_holder: document.getElementById('r-bank-holder').value.trim(),
+    bank_rut: document.getElementById('r-bank-rut').value.trim(),
+    bank_name: document.getElementById('r-banco').value,
+    account_type: document.getElementById('r-cuenta-tipo').value,
+    account_number: document.getElementById('r-cuenta-num').value.trim(),
+    signer_name: document.getElementById('firma-nombre').value.trim(),
+    signer_rut: document.getElementById('firma-rut').value.trim(),
+    firma_img: firmaImg,
+    contract_accepted: true,
+    privacy_accepted: true,
+    geo_authorized: true,
+    contract_version: '1.0',
+    firma_dt: new Date().toISOString(),
+  };
+  localStorage.setItem('godeli_rider_pending_reg', JSON.stringify(data));
+}
+
+function showEmailConfirmScreen(email) {
+  for (let i = 1; i <= TOTAL_PASOS; i++) {
+    document.getElementById('paso-'+i).style.display = 'none';
+  }
+  document.getElementById('paso-completado').style.display = 'none';
+  const exito = document.getElementById('paso-exito');
+  exito.style.display = 'block';
+  document.getElementById('exito-email').textContent = email;
+  window.scrollTo(0,0);
+}
+
+async function checkEmailConfirmedAndComplete() {
+  const stored = localStorage.getItem('godeli_rider_pending_reg');
+  if (!stored) { alert('No se encontraron datos de registro. Por favor completa el formulario nuevamente.'); showRegistro(); return; }
+  let data;
+  try { data = JSON.parse(stored); } catch(e) { localStorage.removeItem('godeli_rider_pending_reg'); alert('Datos de registro corruptos. Por favor completa el formulario nuevamente.'); showRegistro(); return; }
+
+  const btn = document.querySelector('#paso-exito .btn-next');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verificando...'; }
+
+  try {
+    const inputPass = document.getElementById('confirm-pass');
+    const pass = inputPass ? inputPass.value : '';
+    if (!pass) { alert('Por favor ingresa tu contraseña.'); if (btn) { btn.disabled = false; btn.textContent = '✅ Ya confirmé mi correo — Continuar'; } return; }
+
+    const { data: authData, error } = await sb.auth.signInWithPassword({ email: data.email, password: pass });
+    if (error) {
+      if (error.message.includes('Email not confirmed')) {
+        alert('Aún no has confirmado tu correo. Revisa tu bandeja de entrada y haz clic en el enlace de confirmación.');
+      } else {
+        alert('Error: ' + error.message + '\n\nAsegúrate de haber confirmado tu correo primero. Revisa tu bandeja de entrada.');
+      }
+      if (btn) { btn.disabled = false; btn.textContent = '✅ Ya confirmé mi correo — Continuar'; }
+      return;
+    }
+    authUserId = authData.user.id;
+    await completePendingRegistration(data);
+  } catch(e) {
+    alert('Error: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Ya confirmé mi correo — Continuar'; }
+  }
+}
+
+async function resendConfirmEmail() {
+  const stored = localStorage.getItem('godeli_rider_pending_reg');
+  if (!stored) { alert('No hay datos de registro pendientes.'); return; }
+  let data;
+  try { data = JSON.parse(stored); } catch(e) { localStorage.removeItem('godeli_rider_pending_reg'); alert('Datos de registro corruptos.'); return; }
+  try {
+    const { error } = await sb.auth.resend({ type: 'signup', email: data.email });
+    if (error) throw error;
+    alert('Correo de confirmación reenviado. Revisa tu bandeja de entrada.');
+  } catch(e) {
+    alert('Error al reenviar: ' + e.message);
+  }
+}
+
+async function completePendingRegistration(data) {
+  try {
+    // 1. Obtener IP del navegador
+    let ip = 'desconocida';
+    try { ip = await (await fetch('https://api.ipify.org?format=json')).json().then(r => r.ip); } catch(_) {}
+
+    // 2. Crear o recuperar perfil de usuario
+    let { data: profile } = await sb.from('users').select('id').eq('auth_id', authUserId).maybeSingle();
+    let userId = profile?.id;
+
+    if (!userId) {
+      const { data: newId, error: userErr } = await sb.rpc('create_user_on_signup', {
+        p_auth_id: authUserId,
+        p_email: data.email,
+        p_name: data.name,
+        p_phone: data.phone,
+        p_role: 'deliverer'
+      });
+      if (userErr) throw new Error('Error creando usuario: ' + userErr.message);
+      userId = newId;
+      await sb.from('users').update({ role: 'deliverer' }).eq('id', userId).then(()=>{}).catch(()=>{});
+    }
+
+    // Asegurar rol deliverer
+    await sb.from('users').update({ role: 'deliverer' }).eq('id', userId).then(()=>{}).catch(()=>{});
+
+    // 3. Verificar si ya existe rider para este user (idempotente)
+    let { data: existingRider } = await sb.from('deliverers').select('id').eq('user_id', userId).maybeSingle();
+    let riderInsert = existingRider;
+
+    if (!riderInsert) {
+      const { data: newRider, error: riderErr } = await sb.from('deliverers').insert({
+        user_id: userId,
+        vehicle_type: data.vehicle,
+        vehicle_plate: data.plate,
+        status: 'pending',
+        is_online: false,
+        is_available: false,
+        commune_id: data.commune_id || null,
+      }).select('id').single();
+      if (riderErr) throw new Error('Error creando perfil de repartidor: ' + riderErr.message);
+      riderInsert = newRider;
+    }
+
+    // 4. Info bancaria (solo si no existe)
+    if (!existingRider) {
+      const { error: bankErr } = await sb.from('deliverer_bank_info').insert({
+        deliverer_id: riderInsert.id,
+        bank_name: data.bank_name,
+        account_type: data.account_type,
+        account_number: data.account_number,
+        account_holder: data.bank_holder,
+        rut: data.bank_rut,
+      });
+      if (bankErr) throw new Error('Error guardando datos bancarios: ' + bankErr.message);
+    }
+
+    // 5. Guardar contrato y consentimientos en notificación admin
+    if (!existingRider) {
+      const signedAt = new Date().toISOString();
+      try {
+        await sb.from('notifications').insert({
+          type: 'alert', emoji: '🛵', target: 'admin', is_read: false,
+          title: '🛵 Nuevo repartidor registrado (web)',
+          message: `${data.name} · ${data.vehicle} · ${data.email}`,
+          data: {
+            name: data.name, rut: data.rut, phone: data.phone, email: data.email,
+            vehicle: data.vehicle, plate: data.plate,
+            commune_id: data.commune_id,
+            contract_accepted: true,
+            privacy_accepted: true,
+            geolocation_authorized: true,
+            contract_version: data.contract_version || '1.0',
+            signer_name: data.signer_name,
+            signer_rut: data.signer_rut,
+            signed_at: signedAt,
+            signature_image: data.firma_img,
+            ip_address: ip,
+            user_agent: navigator.userAgent,
+            source: 'web_riders',
+          }
+        });
+      } catch(_) { /* non-blocking */ }
+    }
+
+    // 6. Limpiar storage y mostrar éxito
+    localStorage.removeItem('godeli_rider_pending_reg');
+    document.getElementById('paso-exito').style.display = 'none';
+    const completado = document.getElementById('paso-completado');
+    completado.style.display = 'block';
+    window.scrollTo(0,0);
+
+  } catch(e) {
+    alert('Error al completar el registro: ' + e.message);
+  }
+}
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  // Detectar si el usuario viene de un enlace de recuperacion de contrasena
+  const hash = window.location.hash;
+  if (hash.includes('type=recovery')) {
+    openLoginModal();
+    showResetPasswordForm();
+    return;
+  }
+  loadLandingStats();
+  initFirmaCanvas();
+});
+</script>
+
+</body>
+</html>
