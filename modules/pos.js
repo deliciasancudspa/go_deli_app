@@ -10,6 +10,8 @@
 (function() {
   'use strict';
 
+  console.log('🧪 [POS] pos.js v20260707b CARGADO — flujo con modal de pago post-confirmación');
+
   // ── Estado privado ──────────────────────────────────────────────────────
   var _cart = [];
   var _products = [];
