@@ -621,7 +621,8 @@
 
     console.log('[POS] Modal producto:', p.name,
       'vg:', vg.length, 'og:', og.length,
-      'inlineVar:', inlineVar.length, 'inlineVarGroups:', inlineVarGroups.length, 'inlineOpt:', inlineOpt.length);
+      'inlineVar:', inlineVar.length, 'inlineVarGroups:', inlineVarGroups.length, 'inlineOpt:', inlineOpt.length,
+      'rawVariants:', typeof p.variants, 'rawVariantGroups:', typeof p.variant_groups, 'rawOptions:', typeof p.options);
 
     var hasAnyVariants = vg.length > 0 || inlineVar.length > 0 || inlineVarGroups.length > 0;
     // Variantes primero ────────────────────────────────────────────────────
