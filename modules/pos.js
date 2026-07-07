@@ -473,46 +473,38 @@
     };
 
     // Cargar variantes y opciones lazy (on-demand)
-    // Primero: obtener los IDs de los grupos asociados
-    var vgPromise = window.sb.from('menu_item_variant_groups')
-      .select('variant_group_id').eq('item_id', productId)
+    // Consultar directamente variant_groups y option_groups de la tienda
+    var storeId = window.storeData && window.storeData.id;
+    if (!storeId) { _renderProductModal(p); return; }
+
+    var vgPromise = window.sb.from('variant_groups')
+      .select('id, name, required, multi_select')
+      .eq('store_id', storeId).order('name')
       .then(function(r) {
-        var ids = (r.data || []).map(function(v) { return v.variant_group_id; }).filter(Boolean);
-        if (!ids.length) return [];
-        return window.sb.from('variant_groups').select('id, name, required, multi_select')
-          .in('id', ids).order('name')
-          .then(function(r2) {
-            var groups = r2.data || [];
-            if (!groups.length) return [];
-            // Cargar items para cada grupo
-            var itemPromises = groups.map(function(g) {
-              return window.sb.from('variant_items')
-                .select('id, name, price_modifier, sort_order')
-                .eq('group_id', g.id).order('sort_order')
-                .then(function(r3) { g.variant_items = r3.data || []; return g; });
-            });
-            return Promise.all(itemPromises);
-          });
+        var groups = r.data || [];
+        if (!groups.length) return [];
+        var itemPromises = groups.map(function(g) {
+          return window.sb.from('variant_items')
+            .select('id, name, price_modifier, sort_order')
+            .eq('group_id', g.id).order('sort_order')
+            .then(function(r2) { g.variant_items = r2.data || []; return g; });
+        });
+        return Promise.all(itemPromises);
       });
 
-    var ogPromise = window.sb.from('menu_item_option_groups')
-      .select('option_group_id').eq('item_id', productId)
+    var ogPromise = window.sb.from('option_groups')
+      .select('id, name')
+      .eq('store_id', storeId).order('name')
       .then(function(r) {
-        var ids = (r.data || []).map(function(o) { return o.option_group_id; }).filter(Boolean);
-        if (!ids.length) return [];
-        return window.sb.from('option_groups').select('id, name')
-          .in('id', ids).order('name')
-          .then(function(r2) {
-            var groups = r2.data || [];
-            if (!groups.length) return [];
-            var itemPromises = groups.map(function(g) {
-              return window.sb.from('option_items')
-                .select('id, name, surcharge, sort_order')
-                .eq('group_id', g.id).order('sort_order')
-                .then(function(r3) { g.option_items = r3.data || []; return g; });
-            });
-            return Promise.all(itemPromises);
-          });
+        var groups = r.data || [];
+        if (!groups.length) return [];
+        var itemPromises = groups.map(function(g) {
+          return window.sb.from('option_items')
+            .select('id, name, surcharge, sort_order')
+            .eq('group_id', g.id).order('sort_order')
+            .then(function(r2) { g.option_items = r2.data || []; return g; });
+        });
+        return Promise.all(itemPromises);
       });
 
     Promise.all([vgPromise, ogPromise]).then(function(results) {
