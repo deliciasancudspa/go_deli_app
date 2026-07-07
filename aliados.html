@@ -3342,6 +3342,17 @@ async function loadVentas(period, btn) {
 
 // ======================================================================
 // REPORTE GODELI (Aliado — solo delivery)
+// ── Helpers para liquidación Go Rider ──────────────────────────
+// Go Rider + pago no efectivo: Go Deli recibe el pago, el aliado no ve el total.
+// Solo se descuenta la tarifa Go Rider ($2.500).
+function _isNonCashGR(o) { return o.delivery_method==='go_rider' && o.payment_method!=='cash'; }
+function _goRiderFee(o) { return o.delivery_method==='go_rider' ? (o.go_rider_platform_fee||2500) : 0; }
+function _netGR(o) {
+  if (_isNonCashGR(o)) return -_goRiderFee(o);
+  return (o.total||0) - (o.service_fee||0) - (o.platform_fee||0) - _goRiderFee(o);
+}
+function _grossGR(o) { return _isNonCashGR(o) ? 0 : (o.total||0); }
+
 // ======================================================================
 async function loadReporteGoDeliAliado(period, btn) {
   if (!storeData) return;
@@ -3353,12 +3364,12 @@ async function loadReporteGoDeliAliado(period, btn) {
     .neq('status','cancelled').neq('status','returned')
     .gte('created_at', from.toISOString()).order('created_at',{ascending:false});
   const orders = data||[];
-  const gross = orders.reduce((s,o)=>s+(o.total||0),0);
+  const gross = orders.reduce((s,o)=>s+_grossGR(o),0);
   const serviceFee = orders.reduce((s,o)=>s+(o.service_fee||0),0);
   const comm = orders.reduce((s,o)=>s+(o.platform_fee||0),0);
-  const riderFee = orders.reduce((s,o)=>s+(o.delivery_method==='go_rider'?(o.go_rider_platform_fee||2500):0),0);
+  const riderFee = orders.reduce((s,o)=>s+_goRiderFee(o),0);
   const deductions = comm + riderFee;
-  const net = gross - serviceFee - comm - riderFee;
+  const net = orders.reduce((s,o)=>s+_netGR(o),0);
   const goRider = orders.filter(o=>o.delivery_method==='go_rider').length;
   const own = orders.filter(o=>o.delivery_method==='own').length;
 
@@ -3376,8 +3387,8 @@ async function loadReporteGoDeliAliado(period, btn) {
   document.getElementById('gd-table').innerHTML = orders.length===0 ? '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Sin pedidos delivery en este período</td></tr>' :
     orders.slice(0,50).map(o=>{
       const type = o.delivery_method==='go_rider'?'🛵 Go Rider':o.delivery_method==='own'?'🚗 Propio':'📦 Delivery';
-      const rf = o.delivery_method==='go_rider'?(o.go_rider_platform_fee||2500):0;
-      const n = (o.total||0)-(o.service_fee||0)-(o.platform_fee||0)-rf;
+      const rf = _goRiderFee(o);
+      const n = _netGR(o);
       return `<tr>
         <td style="font-family:monospace;font-size:11px">#${(o.id||'').slice(0,8)}</td>
         <td style="font-size:11px">${type}</td>
@@ -3449,11 +3460,11 @@ async function loadFinanzasAliado(period, btn) {
   const gd = orders.filter(o=>(o.order_source||'GO_DELI')==='GO_DELI');
   const pos = orders.filter(o=>o.order_source==='POS');
 
-  const totalGross = orders.reduce((s,o)=>s+(o.total||0),0);
+  const totalGross = orders.reduce((s,o)=>s+_grossGR(o),0);
   const totalComm = gd.reduce((s,o)=>s+(o.platform_fee||0),0);
-  const totalRider = orders.reduce((s,o)=>s+(o.delivery_method==='go_rider'?(o.go_rider_platform_fee||2500):0),0);
+  const totalRider = orders.reduce((s,o)=>s+_goRiderFee(o),0);
   const totalSF = orders.reduce((s,o)=>s+(o.service_fee||0),0);
-  const net = totalGross - totalSF - totalComm - totalRider;
+  const net = orders.reduce((s,o)=>s+_netGR(o),0);
 
   document.getElementById('fin-gross').textContent = fmtCLP(totalGross);
   document.getElementById('fin-comm').textContent = fmtCLP(totalComm);
@@ -3467,11 +3478,11 @@ async function loadFinanzasAliado(period, btn) {
   ];
   document.getElementById('fin-channels').innerHTML = chs.map(ch=>{
     if (!ch.orders.length) return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;opacity:0.5"><div style="font-size:24px;margin-bottom:8px">${ch.icon}</div><div style="font-weight:800;font-size:15px">${ch.name}</div><p style="color:var(--muted);font-size:12px;margin-top:8px">Sin transacciones</p></div>`;
-    const g = ch.orders.reduce((s,o)=>s+(o.total||0),0);
+    const g = ch.orders.reduce((s,o)=>s+_grossGR(o),0);
     const sf = ch.orders.reduce((s,o)=>s+(o.service_fee||0),0);
     const c = ch.hasComm ? ch.orders.reduce((s,o)=>s+(o.platform_fee||0),0) : 0;
-    const r = ch.orders.reduce((s,o)=>s+(o.delivery_method==='go_rider'?(o.go_rider_platform_fee||2500):0),0);
-    const n = g - sf - c - r;
+    const r = ch.orders.reduce((s,o)=>s+_goRiderFee(o),0);
+    const n = ch.orders.reduce((s,o)=>s+_netGR(o),0);
     const riders = ch.orders.filter(o=>o.delivery_method==='go_rider').length;
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
@@ -3492,9 +3503,9 @@ async function loadFinanzasAliado(period, btn) {
   document.getElementById('fin-table').innerHTML = orders.length===0 ? '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Sin transacciones en este período</td></tr>' :
     orders.slice(0,50).map(o=>{
       const ch = (o.order_source||'GO_DELI')==='POS'?'💻 POS':'🛵 GoDeli';
-      const rf = o.delivery_method==='go_rider'?(o.go_rider_platform_fee||2500):0;
+      const rf = _goRiderFee(o);
       const cm = (o.order_source||'GO_DELI')==='POS'?0:(o.platform_fee||0);
-      const n = (o.total||0)-(o.service_fee||0)-cm-rf;
+      const n = _netGR(o);
       return `<tr>
         <td style="font-family:monospace;font-size:11px">#${(o.id||'').slice(0,8)}</td>
         <td>${ch}</td>
