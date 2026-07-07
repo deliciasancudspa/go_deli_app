@@ -575,8 +575,13 @@
       '<p class="pm-price">$' + (p.price||0).toLocaleString('es-CL') + '</p></div>' +
       '</div>';
 
-    var hasAnyVariants = vg.length > 0 || inlineVar.length > 0 || inlineVarGroups.length > 0;
+    // DEDUP: eliminar grupos duplicados por id
+    var seenVg = {};
+    vg = vg.filter(function(g) { if (seenVg[g.id]) return false; seenVg[g.id] = true; return true; });
+    var seenOg = {};
+    og = og.filter(function(g) { if (seenOg[g.id]) return false; seenOg[g.id] = true; return true; });
 
+    var hasAnyVariants = vg.length > 0 || inlineVar.length > 0 || inlineVarGroups.length > 0;
     // Variantes primero ────────────────────────────────────────────────────
     if (hasAnyVariants) {
       html += '<div class="pm-section"><h4>🎨 Variantes</h4>';
