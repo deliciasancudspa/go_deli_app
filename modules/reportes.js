@@ -106,15 +106,16 @@
   function _net(o) {
     // Delivery con Go Rider: Total - tarifa Go Rider (sin comisión)
     if (o.order_type === 'delivery' && o.delivery_method === 'go_rider') return (o.total || 0) - _goRiderFee(o);
-    // Retiro / local / delivery propio: Total - service_fee - comisión
-    return (o.total || 0) - (o.service_fee || 0) - _commission(o);
+    // Go Deli (app/web): Total - comisión (8%). POS y otros canales: sin comisión.
+    var src = o.order_source || 'GO_DELI';
+    if (src === 'GO_DELI') return (o.total || 0) - _commission(o);
+    return (o.total || 0); // POS, WhatsApp, etc.: sin comisión ni descuentos
   }
 
   // ── KPIs ───────────────────────────────────────────────────────────────
   function _renderKPIs(orders) {
     var gross = orders.reduce(function(s,o){return s+(o.total||0);},0);
     var count = orders.length;
-    var servFee   = orders.reduce(function(s,o){return s+(o.service_fee||0);},0);
     var commTotal = orders.reduce(function(s,o){return s+_commission(o);},0);
     var riderTotal = orders.reduce(function(s,o){return s+_goRiderFee(o);},0);
     var deductions = commTotal + riderTotal;
@@ -154,7 +155,6 @@
       var info = labels[key];
       var subtotal   = chOrders.reduce(function(s,o){return s+(o.subtotal||0);},0);
       var total      = chOrders.reduce(function(s,o){return s+(o.total||0);},0);
-      var servFee    = chOrders.reduce(function(s,o){return s+(o.service_fee||0);},0);
       var commTotal  = chOrders.reduce(function(s,o){return s+_commission(o);},0);
       var riderTotal = chOrders.reduce(function(s,o){return s+_goRiderFee(o);},0);
       var riderCount = chOrders.filter(function(o){return o.order_type === 'delivery' && o.delivery_method === 'go_rider';}).length;

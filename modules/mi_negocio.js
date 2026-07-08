@@ -68,8 +68,9 @@
         var fees = JSON.parse(res.data.value);
         if (fees.store_portion != null) {
           var portion = fees.store_portion;
+          var maxFee = _getDeliveryFeeMax();
           if (portion === 0) selectFeeOption('store');
-          else if (portion >= 2500) selectFeeOption('client');
+          else if (portion >= maxFee) selectFeeOption('client');
           else { selectFeeOption('split'); document.getElementById('fee-store-amount').value = portion; syncSplitFee('store'); }
         }
       }
@@ -87,6 +88,29 @@
     if (minOrder) updates.min_order = parseInt(minOrder.value) || 0;
     await window.sb.from('stores').update(updates).eq('id', storeData.id);
     Object.assign(storeData, updates);
+
+    // Persistir fee split en config.delivery_fees
+    var selectedOption = null;
+    ['store','client','split'].forEach(function(o) {
+      var el = document.getElementById('fee-opt-' + o);
+      if (el && el.classList.contains('selected')) selectedOption = o;
+    });
+    if (selectedOption) {
+      var maxFee = _getDeliveryFeeMax();
+      var storePortion = 0;
+      if (selectedOption === 'store') storePortion = maxFee;    // tienda paga todo → store_portion = maxFee
+      else if (selectedOption === 'client') storePortion = 0;    // cliente paga todo → store_portion = 0
+      else storePortion = parseInt(document.getElementById('fee-store-amount')?.value) || 0; // split
+
+      try {
+        var res = await window.sb.from('config').select('value').eq('key','delivery_fees').maybeSingle();
+        var fees = {};
+        try { if (res.data?.value) fees = JSON.parse(res.data.value); } catch(e) {}
+        fees.store_portion = storePortion;
+        await window.sb.from('config').upsert({ key: 'delivery_fees', value: JSON.stringify(fees) }, { onConflict: 'key' });
+      } catch(e) { /* non-blocking: el split se guarda como best-effort */ }
+    }
+
     showToast('Configuración de delivery guardada');
   }
 
@@ -103,15 +127,20 @@
     updateFeePreview(option);
   }
 
+  function _getDeliveryFeeMax() {
+    return (window.storeData && window.storeData.delivery_fee_max) || GoB._config.DELIVERY_FEE_MAX || 2500;
+  }
+
   function syncSplitFee(from) {
+    var maxFee = _getDeliveryFeeMax();
     var storeAmt  = parseInt(document.getElementById('fee-store-amount')?.value) || 0;
     var clientAmt = parseInt(document.getElementById('fee-client-amount')?.value) || 0;
     if (from === 'store') {
-      clientAmt = 2500 - storeAmt;
+      clientAmt = maxFee - storeAmt;
       var clientEl = document.getElementById('fee-client-amount');
       if (clientEl) clientEl.value = Math.max(0, clientAmt);
     } else {
-      storeAmt = 2500 - clientAmt;
+      storeAmt = maxFee - clientAmt;
       var storeEl = document.getElementById('fee-store-amount');
       if (storeEl) storeEl.value = Math.max(0, storeAmt);
     }
@@ -121,8 +150,9 @@
   function updateFeePreview(option) {
     var preview = document.getElementById('fee-preview');
     if (!preview) return;
+    var maxFee = _getDeliveryFeeMax();
     if (option === 'store') preview.textContent = 'Gratis';
-    else if (option === 'client') preview.textContent = '$2.500';
+    else if (option === 'client') preview.textContent = '$' + maxFee.toLocaleString('es-CL');
     else {
       var clientAmt = parseInt(document.getElementById('fee-client-amount')?.value) || 0;
       preview.textContent = '$' + clientAmt.toLocaleString('es-CL');

@@ -9,10 +9,15 @@ window.GoBusiness = window.GoBusiness || {
     COMMISSION_APP_PCT: 8,
     COMMISSION_POS_PCT: 0,
     GO_RIDER_PLATFORM_FEE: 2500,
-    DELIVERY_FEE_MAX: 2500,
+    DELIVERY_FEE_MAX: 2500, // default; se puede sobrescribir con storeData.delivery_fee_max o config.delivery_fees
     ORDER_SOURCES: ['GO_DELI','POS','WHATSAPP','INSTAGRAM','FACEBOOK','TELEFONO','WEB','MARKETPLACE','OTRO'],
     ORDER_MODES: ['INMEDIATA','RETIRO','DELIVERY'],
     PAYMENT_METHODS: ['cash','debit','credit','transfer','qr','webpay','mercadopago','go_wallet'],
+  },
+  // Obtener el delivery_fee_max real (store > config > default)
+  getDeliveryFeeMax: function() {
+    if (window.storeData && window.storeData.delivery_fee_max) return window.storeData.delivery_fee_max;
+    return this._config.DELIVERY_FEE_MAX;
   }
 };
 

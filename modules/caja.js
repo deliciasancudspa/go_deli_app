@@ -202,7 +202,8 @@
               '</tr>';
           }).join('');
         }
-        var cashEst = movs.filter(function(m){return m.payment_method==='cash'}).reduce(function(s,m){return s + (m.type==='retiro'?-m.amount:m.amount);},0);
+        // Efectivo estimado: incluye movimientos de efectivo + todos los retiros (siempre son cash)
+        var cashEst = movs.filter(function(m){return m.payment_method==='cash' || m.type==='retiro';}).reduce(function(s,m){return s + (m.type==='retiro'?-m.amount:m.amount);},0);
         // Incluir saldo inicial
         if (_currentSession) cashEst += (_currentSession.opening_amount||0);
         var el = document.getElementById('caja-cash-est');
@@ -296,8 +297,8 @@
           .eq('store_id', window.storeData.id).gte('created_at', today);
       }).then(function(r) {
         (r.data||[]).forEach(function(m) {
-          if (m.type === 'ingreso') summary.ingresos += (m.amount||0);
-          if (m.type === 'retiro') summary.retiros += (m.amount||0);
+          if (m.type === 'ingreso' && m.payment_method === 'cash') summary.ingresos += (m.amount||0);
+          if (m.type === 'retiro') summary.retiros += (m.amount||0); // retiros siempre son efectivo
         });
         summary.expected = (_currentSession.opening_amount||0) + summary.cashSales + summary.ingresos - summary.retiros;
         callback(summary);

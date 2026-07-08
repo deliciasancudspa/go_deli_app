@@ -51,6 +51,8 @@
     var cards = container.querySelectorAll('.delivery-mode-card');
     cards.forEach(function(card) {
       card.addEventListener('click', function() {
+        var currentVal = document.getElementById('delivery-mode-value').value;
+        // Si estaba en 'both', ahora el usuario elige explícitamente uno
         document.getElementById('delivery-mode-value').value = this.dataset.value;
         cards.forEach(function(c) { c.style.borderColor = 'var(--border)'; c.style.background = 'var(--surface)'; });
         this.style.borderColor = 'var(--primary)';
@@ -93,12 +95,17 @@
 
     // Delivery mode toggle
     var priority = storeData.delivery_priority || 'go_rider';
-    if (priority === 'both') priority = 'go_rider';
-    document.getElementById('delivery-mode-value').value = priority;
+    // 'both' = la tienda acepta ambos métodos (Go Rider + repartidor propio).
+    // No sobrescribir silenciosamente: mostrar ambas tarjetas destacadas.
+    if (priority === 'both') {
+      document.getElementById('delivery-mode-value').value = 'both';
+    } else {
+      document.getElementById('delivery-mode-value').value = priority;
+    }
 
     var cards = document.querySelectorAll('.delivery-mode-card');
     cards.forEach(function(c) {
-      if (c.dataset.value === priority) {
+      if (priority === 'both' || c.dataset.value === priority) {
         c.style.borderColor = 'var(--primary)';
         c.style.background = '#FFF5F2';
       } else {
@@ -125,10 +132,13 @@
     var deliveryMode = document.getElementById('delivery-mode-value')?.value || 'go_rider';
     var deliveryFeePos = parseInt(document.getElementById('delivery-fee-pos-cfg')?.value) || 2500;
 
+    // delivery_methods: array con los métodos habilitados
+    var deliveryMethods = deliveryMode === 'both' ? ['go_rider', 'own'] : [deliveryMode];
+
     var updates = {
       payment_methods: JSON.stringify(paymentMethods),
       delivery_priority: deliveryMode,
-      delivery_methods: JSON.stringify([deliveryMode]),
+      delivery_methods: JSON.stringify(deliveryMethods),
       delivery_fee_max: deliveryFeePos,
     };
 

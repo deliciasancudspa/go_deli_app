@@ -1032,8 +1032,17 @@
 
     // Validar datos de delivery
     if (_orderMode === 'DELIVERY') {
-      _customerName = document.getElementById('pos-cust-name')?.value.trim() || '';
-      _customerPhone = document.getElementById('pos-cust-phone')?.value.trim() || '';
+      // Recoger datos según el tipo de cliente seleccionado
+      if (_customerType === 'new') {
+        _customerName = document.getElementById('pos-new-cust-name')?.value.trim() || '';
+        _customerPhone = document.getElementById('pos-new-cust-phone')?.value.trim() || '';
+      } else if (_customerType === 'registered') {
+        _customerName = _selectedClientName || '';
+        _customerPhone = _selectedClientPhone || '';
+      } else {
+        _customerName = document.getElementById('pos-cust-name')?.value.trim() || '';
+        _customerPhone = document.getElementById('pos-cust-phone')?.value.trim() || '';
+      }
       _customerAddress = document.getElementById('pos-cust-address')?.value.trim() || '';
       custLat = parseFloat(document.getElementById('pos-cust-lat')?.value) || null;
       custLng = parseFloat(document.getElementById('pos-cust-lng')?.value) || null;
@@ -1381,7 +1390,13 @@
         .order('opened_at', { ascending: false }).limit(1);
       var activeSessionId = (sessionRes.data && sessionRes.data.length) ? sessionRes.data[0].id : null;
 
-      // 1. Insertar order_payments
+      // 1. Determinar payment_method principal y actualizar la orden primero
+      var mainMethod = activePayments.length === 1 ? activePayments[0].method : 'mixed';
+      await window.sb.from('orders').update({
+        payment_method: mainMethod
+      }).eq('id', _pendingOrderId);
+
+      // 2. Insertar order_payments (después de asegurar que la orden se actualizó)
       var payInserts = activePayments.map(function(pm) {
         return {
           order_id: _pendingOrderId,
@@ -1392,15 +1407,7 @@
       });
       await window.sb.from('order_payments').insert(payInserts);
 
-      // 2. Determinar payment_method principal
-      var mainMethod = activePayments.length === 1 ? activePayments[0].method : 'mixed';
-
-      // 3. Actualizar orden
-      await window.sb.from('orders').update({
-        payment_method: mainMethod
-      }).eq('id', _pendingOrderId);
-
-      // 4. Registrar cash_movements (solo parte efectivo va a caja)
+      // 3. Registrar cash_movements (solo parte efectivo va a caja)
       if (cashPm) {
         window.sb.from('cash_movements').insert({
           store_id: window.storeData.id,
@@ -1413,13 +1420,13 @@
         }).then(function(){}, function(){});
       }
 
-      // 5. Otros métodos (débito, crédito, transferencia) NO generan movimiento de caja
+      // 4. Otros métodos (débito, crédito, transferencia) NO generan movimiento de caja
       // Solo se registran en order_payments (ya hecho arriba)
 
-      // 6. Referencia a la impresora
+      // 5. Referencia a la impresora
       var printer = window.GoBusiness && window.GoBusiness.modules && window.GoBusiness.modules.printer;
 
-      // 7. Guardar orden para toast de reimpresión
+      // 6. Guardar orden para toast de reimpresión
       _lastCompletedOrder = {
         id: _pendingOrderId,
         orderType: _pendingOrderData.order_type,

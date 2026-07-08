@@ -2698,9 +2698,8 @@ async function loadDashboard() {
   if (!storeData) return;
   const todayLocal = new Date(); todayLocal.setHours(0,0,0,0);
   const { data: orders } = await sb.from('orders').select('*,order_items(item_name,quantity)').eq('store_id', storeData.id).gte('created_at', todayLocal.toISOString()).order('created_at',{ascending:false});
-  // Excluir órdenes Webpay/Khipu que no han sido pagadas aún
-  // Excluir órdenes Webpay/Khipu no pagadas Y órdenes canceladas/devueltas
-  const list = (orders || []).filter(o => ((o.payment_method !== 'webpay' && o.payment_method !== 'khipu') || o.payment_status === 'paid') && o.status !== 'cancelled' && o.status !== 'returned');
+  // Excluir órdenes con pago pendiente (Webpay/Khipu/MercadoPago no pagadas) y canceladas/devueltas
+  const list = (orders || []).filter(o => ((o.payment_method !== 'webpay' && o.payment_method !== 'khipu' && o.payment_method !== 'mercadopago' && o.payment_method !== 'pending') || o.payment_status === 'paid') && o.status !== 'cancelled' && o.status !== 'returned');
   const delivered = list.filter(o => o.status === 'delivered');
   const totalSales = delivered.reduce((s,o) => s+(o.subtotal||0), 0);
   const totalComm  = delivered.reduce((s,o) => s+(o.platform_fee||0)+(o.fixed_fee||0), 0);
@@ -2727,114 +2726,50 @@ async function loadDashboard() {
       top.map(([name,qty]) => `<tr><td>${name}</td><td><strong>${qty}</strong></td></tr>`).join('') + '</tbody></table>';
 }
 
-// ── PEDIDOS ───────────────────────────────────────────────
+// ── PEDIDOS (delegan al módulo pedidos.js si está disponible) ──────────
 async function loadOrders() {
+  var mod = window.GoBusiness && window.GoBusiness.modules && window.GoBusiness.modules.pedidos;
+  if (mod && mod._loadOrders) { mod._loadOrders(); return; }
+  // Fallback mínimo si el módulo no cargó
   if (!storeData) return;
   document.getElementById('orders-table').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  const { data } = await sb.from('orders').select('*, users!client_id(name,email,phone), order_items(item_name,quantity,item_price,subtotal)').eq('store_id', storeData.id).order('created_at',{ascending:false}).limit(100);
-  // Excluir órdenes Webpay/Khipu no pagadas
-  allOrders = (data || []).filter(o => (o.payment_method !== 'webpay' && o.payment_method !== 'khipu') || o.payment_status === 'paid');
-  renderOrders();
+  var res = await sb.from('orders').select('*, users!client_id(name,email,phone), order_items(item_name,quantity,item_price,subtotal)').eq('store_id', storeData.id).order('created_at',{ascending:false}).limit(100);
+  allOrders = (res.data || []).filter(function(o) { return (o.payment_method !== 'webpay' && o.payment_method !== 'khipu' && o.payment_method !== 'mercadopago' && o.payment_method !== 'pending') || o.payment_status === 'paid'; });
+  if (mod && mod._renderOrders) mod._renderOrders();
 }
 
 function filterOrders(status, btn) {
-  currentOrderFilter = status;
-  document.querySelectorAll('#order-filters .period-tab').forEach(b => b.classList.remove('active'));
+  window.currentOrderFilter = status;
+  document.querySelectorAll('#order-filters .period-tab').forEach(function(b) { b.classList.remove('active'); });
   if (btn) btn.classList.add('active');
-  renderOrders();
+  var mod = window.GoBusiness && window.GoBusiness.modules && window.GoBusiness.modules.pedidos;
+  if (mod && mod._renderOrders) mod._renderOrders();
 }
 
 function renderOrders() {
-  const filtered = currentOrderFilter==='all' ? allOrders : allOrders.filter(o => o.status===currentOrderFilter);
-  if (!filtered.length) {
-    document.getElementById('orders-table').innerHTML = '<div class="empty"><div class="empty-icon">📦</div><p>Sin pedidos en este estado</p></div>';
-    return;
-  }
-  document.getElementById('orders-table').innerHTML = '<table><thead><tr><th>ID</th><th>Tipo</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Hora</th><th>Acciones</th></tr></thead><tbody>' +
-    filtered.map(o => `<tr>
-      <td style="font-family:monospace;font-size:12px;color:var(--muted)">#${o.id.slice(0,8)}</td>
-      <td>${o.order_type==='pickup'?'<span class="badge badge-green">🏪 Retiro</span>':(o.order_type==='dine_in'?'<span class="badge" style="background:#FDF4FF;color:#6b21a8;border:1px solid #C084FC">🍽️ En local</span>':'<span class="badge badge-blue">🛵 Delivery</span>')}</td>
-      <td>${o.users?.name||o.users?.email||'N/A'}</td>
-      <td><strong>${fmtCLP(aliadoTotal(o))}</strong></td>
-      <td><span class="badge ${SBADGE[o.status]||'badge-gray'}">${STATUS[o.status]||o.status}</span></td>
-      <td style="color:var(--muted);font-size:12px">${fmtDate(o.created_at)}</td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-sec btn-sm" onclick="viewOrder('${o.id}')">Ver</button>
-        ${['accepted','preparing','ready','assigned'].includes(o.status)?`<button class="btn btn-sm" style="background:#374151;color:#fff" onclick="printOrder('${o.id}')">🖨️</button>`:''}
-        ${o.prescription_url?'<span class="badge" style="background:#FDF4FF;color:#6b21a8;border:1px solid #C084FC">💊 Receta</span>':''}
-        ${o.status==='pending'&&o.payment_method!=='pending'?`<button class="btn btn-success btn-sm" onclick="updateStatus('${o.id}','accepted')">Aceptar</button><button class="btn btn-danger btn-sm" onclick="openReject('${o.id}')">Rechazar</button>`:''}
-        ${o.status==='accepted'?`<button class="btn btn-warning btn-sm" onclick="updateStatus('${o.id}','preparing')">👨‍🍳 Preparando</button>`:''}
-        ${o.status==='preparing'?`<button class="btn btn-success btn-sm" onclick="updateStatus('${o.id}','ready')">✅ Listo</button>`:''}
-        ${['accepted','preparing','ready'].includes(o.status) && o.order_type!=='pickup' && o.order_type!=='dine_in' && o.delivery_method!=='own' && !o.deliverer_id && !['searching','needs_manual','external','assigned'].includes(o.rider_search_status)
-          ? `<button class="btn btn-primary btn-sm" onclick="llamarRider('${o.id}')">🛵 Llamar Rider</button>` : ''}
-        ${['searching','needs_manual'].includes(o.rider_search_status)
-          ? '<span style="background:#FFF3E8;color:#9A3412;font-size:11px;padding:4px 10px;border-radius:8px;font-weight:600;">⏳ Esperando rider...</span>' : ''}
-        ${o.rider_search_status==='external' ? `<button class="btn btn-sm" style="background:#7C3AED;color:#fff" onclick="viewOrder('${o.id}')">🔑 Ingresar código</button>` : ''}
-        ${o.status==='assigned' && o.rider_search_status!=='external' ? `<button class="btn btn-sm" style="background:#7C3AED;color:#fff" onclick="viewOrder('${o.id}')">🔑 Ingresar código</button>` : ''}
-      </td>
-    </tr>`).join('') + '</tbody></table>';
+  var mod = window.GoBusiness && window.GoBusiness.modules && window.GoBusiness.modules.pedidos;
+  if (mod && mod._renderOrders) { mod._renderOrders(); }
 }
 
 async function viewOrder(id) {
-  const o = allOrders.find(x => x.id===id);
+  var mod = window.GoBusiness && window.GoBusiness.modules && window.GoBusiness.modules.pedidos;
+  if (mod && mod._viewOrder) { mod._viewOrder(id); return; }
+  // Fallback mínimo
+  var o = allOrders.find(function(x) { return x.id === id; });
   if (!o) return;
-  const items = o.order_items || [];
-  document.getElementById('order-modal-content').innerHTML = `
-    <div style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted);font-size:13px">Tipo</span>${o.order_type==='pickup'?'<span class="badge badge-green">🏪 Retiro en tienda</span>':(o.order_type==='dine_in'?'<span class="badge" style="background:#FDF4FF;color:#6b21a8;border:1px solid #C084FC">🍽️ En local</span>':'<span class="badge badge-blue">🛵 Delivery a domicilio</span>')}</div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted);font-size:13px">Cliente</span><strong>${o.users?.name||o.users?.email||'N/A'}</strong></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted);font-size:13px">Telefono</span><strong>${o.users?.phone||'-'}</strong></div>
-      ${(o.order_type!=='pickup' && o.order_type!=='dine_in')?`<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted);font-size:13px">Direccion</span><strong>${esc(o.delivery_address||'-')}</strong></div>`:''}
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted);font-size:13px">Pago</span><strong>${o.payment_method||'-'}</strong></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted);font-size:13px">Estado</span><span class="badge ${SBADGE[o.status]||'badge-gray'}">${STATUS[o.status]||o.status}</span></div>
-      ${o.notes?`<div style="background:#FFF5F2;border-radius:10px;padding:12px;margin-top:8px;border:1.5px solid #FFD5C0"><div style="font-weight:700;font-size:13px;color:var(--primary);margin-bottom:4px">📝 Nota del cliente</div><div style="font-size:13px;color:var(--text)">${esc(o.notes)}</div></div>`:''}
-
-    </div>
-    ${o.prescription_url?`<div style="background:#FDF4FF;border-radius:12px;padding:16px;margin-bottom:16px;border:2px solid #C084FC">
-      <div style="font-weight:800;color:#6b21a8;margin-bottom:4px">💊 Receta médica adjunta</div>
-      <p style="font-size:12px;color:#7e22ce;margin-bottom:10px">Revisa la receta ANTES de aceptar. Si no corresponde al producto o no es válida, rechaza el pedido indicando el motivo.</p>
-      <a href="${o.prescription_url}" target="_blank" title="Clic para ampliar">
-        <img src="${o.prescription_url}" style="max-width:100%;max-height:320px;border-radius:10px;border:1px solid #E9D5FF;display:block;margin-bottom:10px;cursor:zoom-in" onerror="this.style.display='none'">
-      </a>
-      <div style="display:flex;gap:10px">
-        <a href="${o.prescription_url}" target="_blank" style="padding:8px 16px;background:#7C3AED;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">🔍 Ampliar</a>
-        <a href="${o.prescription_url}" download style="padding:8px 16px;background:#fff;color:#6b21a8;border:1px solid #E9D5FF;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">⬇️ Descargar</a>
-      </div>
-    </div>`:''}
-    <div style="border-top:1px solid var(--border);padding-top:16px">
-      <p style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px">PRODUCTOS</p>
-      ${items.map(i=>`<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span>${i.quantity}x ${i.item_name}</span><strong>${fmtCLP(i.subtotal)}</strong></div>`).join('')}
-      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
-        <strong>Total</strong><strong style="color:var(--primary);font-size:18px">${fmtCLP(aliadoTotal(o))}</strong>
-      </div>
-    </div>
-    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" style="background:#374151;color:#fff" onclick="printOrder('${o.id}')">🖨️ Imprimir</button>
-      ${o.status==='pending'&&o.payment_method!=='pending'?`<button class="btn btn-success" onclick="updateStatus('${o.id}','accepted');closeModal('order-modal')">Aceptar pedido</button><button class="btn btn-danger" onclick="closeModal('order-modal');openReject('${o.id}')">Rechazar</button>`:''}
-      ${o.status==='accepted'?`<button class="btn btn-warning" onclick="updateStatus('${o.id}','preparing');closeModal('order-modal')">👨‍🍳 Preparando</button>`:''}
-      ${o.status==='preparing'?`<button class="btn btn-success" onclick="updateStatus('${o.id}','ready');closeModal('order-modal')">✅ Listo</button>`:''}
-      ${['accepted','preparing','ready'].includes(o.status) && o.order_type!=='pickup' && o.order_type!=='dine_in' && o.delivery_method!=='own' && !o.deliverer_id && !['searching','needs_manual','external','assigned'].includes(o.rider_search_status)
-        ? `<button class="btn btn-primary" onclick="llamarRider('${o.id}');closeModal('order-modal')">🛵 Llamar Rider</button>` : ''}
-      ${['searching','needs_manual'].includes(o.rider_search_status)
-        ? '<span style="background:#FFF3E8;color:#9A3412;font-size:13px;padding:8px 14px;border-radius:8px;font-weight:600;">⏳ Esperando rider...</span>' : ''}
-      ${(o.status==='assigned' || o.rider_search_status==='external') && o.order_type!=='pickup' && o.order_type!=='dine_in'?`
-      <div style="margin-top:16px;background:#F5F0FF;border-radius:14px;padding:16px;border:2px solid #7C3AED">
-        <p style="font-weight:800;font-size:13px;margin-bottom:4px;color:#4C1D95">🛵 CÓDIGO DE RETIRO</p>
-        <p style="color:#6B7280;font-size:12px;margin-bottom:12px">El repartidor te mostrará un código. Ingrésalo para confirmar que retiró el pedido.</p>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="rider-code-${o.id}" placeholder="CÓDIGO" maxlength="6" inputmode="text" style="text-transform:uppercase;flex:1;padding:10px 14px;border:1.5px solid #7C3AED;border-radius:10px;font-size:24px;font-weight:900;letter-spacing:8px;text-align:center;outline:none;font-family:monospace;background:#fff">
-          <button onclick="verifyRiderCode('${o.id}')" style="padding:10px 18px;background:#7C3AED;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer">✓ Confirmar</button>
-        </div>
-        <p id="rider-code-msg-${o.id}" style="font-size:12px;margin-top:8px;display:none"></p>
-      </div>`:''}
-    </div>`;
-  document.getElementById('order-modal').classList.add('open');
+  var items = o.order_items || [];
+  document.getElementById('order-modal-content').innerHTML = '<p style="padding:20px;text-align:center">Cargando...</p>';
+  if (mod && mod._viewOrder) mod._viewOrder(id);
+  else document.getElementById('order-modal-content').innerHTML = '<p style="padding:20px;text-align:center;color:var(--error)">Error al cargar detalle del pedido</p>';
+  openModal('order-modal');
 }
 
 async function updateStatus(id, status) {
-  const { error } = await sb.from('orders').update({ status }).eq('id', id);
-  if (error) { showToast('Error: '+error.message, 'error'); return; }
-  showToast('Estado actualizado: '+(STATUS[status]||status));
+  var mod = window.GoBusiness && window.GoBusiness.modules && window.GoBusiness.modules.pedidos;
+  if (mod && mod._updateStatus) { mod._updateStatus(id, status); return; }
+  var res = await sb.from('orders').update({ status: status }).eq('id', id);
+  if (res.error) { showToast('Error: ' + res.error.message, 'error'); return; }
+  showToast('Estado actualizado: ' + (STATUS[status] || status));
   loadOrders(); loadDashboard();
 }
 
@@ -4037,13 +3972,18 @@ async function verifyRiderCode(orderId) {
     msgEl.textContent = 'Ingresa el código completo'; msgEl.style.color = 'var(--error)'; msgEl.style.display = 'block'; return;
   }
   msgEl.textContent = 'Verificando...'; msgEl.style.color = 'var(--muted)'; msgEl.style.display = 'block';
-  const { data: order, error } = await sb.from('orders').select('pickup_code, rider_search_status').eq('id', orderId).single();
+  const { data: order, error } = await sb.from('orders').select('pickup_code, rider_search_status, status').eq('id', orderId).single();
   if (error || !order) {
     msgEl.textContent = 'Error al verificar: ' + (error?.message||'pedido no encontrado');
     msgEl.style.color = 'var(--error)'; return;
   }
+  // Validar que la orden esté en un estado que permita retiro por rider
+  var validStatuses = ['assigned', 'ready', 'preparing', 'accepted'];
+  if (validStatuses.indexOf(order.status) < 0) {
+    msgEl.textContent = '❌ Este pedido no está listo para ser retirado. Estado actual: ' + (STATUS[order.status] || order.status);
+    msgEl.style.color = 'var(--error)'; return;
+  }
   const storedCode = (order.pickup_code || '').toUpperCase();
-  // debug: verifyRiderCode
   if (!storedCode) {
     msgEl.textContent = '⚠️ Este pedido no tiene código asignado. Contacta al admin.';
     msgEl.style.color = 'var(--error)'; return;
@@ -4099,8 +4039,8 @@ function subscribeRealtime() {
     sb.channel('store-orders-'+storeData.id)
       .on('postgres_changes', { event:'INSERT', schema:'public', table:'orders', filter:'store_id=eq.'+storeData.id }, async (payload) => {
         const order = payload.new;
-        // Ignorar órdenes Webpay/Khipu que aún no han sido pagadas
-        if ((order.payment_method === 'webpay' || order.payment_method === 'khipu') && order.payment_status !== 'paid') return;
+        // Ignorar órdenes con pago pendiente (Webpay/Khipu/MercadoPago) que aún no han sido pagadas
+        if ((order.payment_method === 'webpay' || order.payment_method === 'khipu' || order.payment_method === 'mercadopago' || order.payment_method === 'pending') && order.payment_status !== 'paid') return;
         const { data: items } = await sb.from('order_items').select('*').eq('order_id', order.id);
         order.order_items = items || [];
         // POS: no mostrar alerta (el aliado mismo la creó), pero sí refrescar dashboard
@@ -4111,8 +4051,8 @@ function subscribeRealtime() {
       .on('postgres_changes', { event:'UPDATE', schema:'public', table:'orders', filter:'store_id=eq.'+storeData.id }, async (payload) => {
         const o = payload.new;
         const prev = payload.old;
-        // Webpay/Khipu: notificar al aliado solo cuando el pago se confirma
-        if ((o.payment_method === 'webpay' || o.payment_method === 'khipu') && o.payment_status === 'paid' && prev.payment_status !== 'paid') {
+        // Pago online: notificar al aliado solo cuando el pago se confirma
+        if ((o.payment_method === 'webpay' || o.payment_method === 'khipu' || o.payment_method === 'mercadopago') && o.payment_status === 'paid' && prev.payment_status !== 'paid') {
           const { data: items } = await sb.from('order_items').select('*').eq('order_id', o.id);
           o.order_items = items || [];
           showOrderAlert(o);

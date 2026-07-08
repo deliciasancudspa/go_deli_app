@@ -309,6 +309,13 @@
     }
     var storedCode = order.pickup_code || order.delivery_code || '';
 
+    // Validar que la orden esté en un estado que permita retiro por rider
+    var validStatuses = ['assigned', 'ready', 'preparing', 'accepted'];
+    if (validStatuses.indexOf(order.status) < 0) {
+      if (msgEl) { msgEl.textContent = '❌ Este pedido no está listo para ser retirado. Estado actual: ' + (STATUS[order.status] || order.status); msgEl.style.color = 'var(--error)'; msgEl.style.display = 'block'; }
+      return;
+    }
+
     // Check standard codes
     if (storedCode === entered) {
       var isExternal = order.rider_search_status === 'external';
