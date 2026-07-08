@@ -1,5 +1,7 @@
 import "dart:async";
 import "package:flutter/material.dart";
+import "package:go_router/go_router.dart";
+import "package:url_launcher/url_launcher.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/color_utils.dart";
 
@@ -45,7 +47,9 @@ class _HomeBannerState extends State<HomeBanner> {
             final b      = widget.banners[i];
             final imgUrl = b["image_url"] as String?;
             final bg = parseHexColor(b["bg_color"] as String?, fallback: AppColors.homeOrange);
-            return Container(
+            return GestureDetector(
+              onTap: () => _handleTap(b),
+              child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
@@ -104,7 +108,7 @@ class _HomeBannerState extends State<HomeBanner> {
                           ),
                         ),
                     ]),
-            );
+            ));
           },
         ),
       ),
@@ -124,6 +128,23 @@ class _HomeBannerState extends State<HomeBanner> {
         ),
       ],
     ]);
+  }
+
+  void _handleTap(Map<String, dynamic> b) {
+    final type  = b["link_type"]  as String?;
+    final value = b["link_value"] as String?;
+    final linkUrl = b["link_url"] as String?;
+    if ((type == null || value == null) && linkUrl != null && linkUrl.isNotEmpty) {
+      launchUrl(Uri.parse(linkUrl), mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (type == null || value == null || value.isEmpty) return;
+    if (type == "store") {
+      final ctx = context; // needs BuildContext from State
+      ctx.push("/store/$value");
+      return;
+    }
+    if (type == "url") launchUrl(Uri.parse(value), mode: LaunchMode.externalApplication);
   }
 
   Widget _defaultBanner() => AspectRatio(

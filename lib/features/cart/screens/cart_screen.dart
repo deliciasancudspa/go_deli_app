@@ -412,6 +412,7 @@ class _StoreRecsState extends State<_StoreRecs> {
           .select("id, name, price, emoji, image_url, is_available")
           .eq("store_id", widget.storeId)
           .eq("is_available", true)
+          .eq("is_popular", true)
           .order("sort_order")
           .limit(8);
       if (mounted) {
@@ -522,7 +523,7 @@ class _StoreRecsState extends State<_StoreRecs> {
         }
       },
       child: Container(
-        width: 100,
+        width: 120,
         margin: const EdgeInsets.only(right: 10),
         decoration: BoxDecoration(
           color: AppColors.background,
@@ -547,14 +548,14 @@ class _StoreRecsState extends State<_StoreRecs> {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Text(name,
                           style: const TextStyle(
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textDark),
                           maxLines: 2,
@@ -563,12 +564,16 @@ class _StoreRecsState extends State<_StoreRecs> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          "\$${price.toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}",
-                          style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.accent),
+                        Flexible(
+                          child: Text(
+                            "\$${price.toString().replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}",
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.accent),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         Container(
                           width: 18,

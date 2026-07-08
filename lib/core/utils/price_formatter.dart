@@ -28,7 +28,9 @@ bool hasOwnDelivery(Map<String, dynamic>? store) {
   if (store == null) return false;
   final methods = store['delivery_methods'];
   if (methods is List) {
-    return methods.contains('own') && !methods.contains('go_rider');
+    // Si el aliado tiene delivery propio habilitado, no se cobra tarifa de
+    // envío al cliente (la tienda usa sus propios repartidores).
+    return methods.contains('own');
   }
   // Fallback: delivery_priority como string
   final priority = store['delivery_priority'];

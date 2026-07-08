@@ -620,10 +620,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } catch (e) {
       debugPrint('_placeOrder error: $e');
       final errStr = e.toString();
-      // Si el error viene de webpay-create, mostramos el detalle para diagnóstico
-      final msg = errStr.contains("Exception: ")
-          ? errStr.replaceFirst("Exception: ", "")
-          : "No se pudo crear el pedido. Intenta de nuevo.";
+      String msg;
+      // Extraer mensaje útil de diferentes tipos de error
+      if (errStr.contains("Exception: ")) {
+        msg = errStr.replaceFirst("Exception: ", "");
+      } else if (errStr.contains("PostgrestException")) {
+        // Errores de base de datos: extraer el mensaje después del código
+        final detailMatch = RegExp(r'message["\s:]*([^"]+)').firstMatch(errStr);
+        msg = detailMatch != null ? detailMatch.group(1)! : "Error de base de datos. Intenta de nuevo.";
+      } else if (errStr.contains("AuthException") || errStr.contains("JWT")) {
+        msg = "Tu sesión expiró. Inicia sesión de nuevo.";
+      } else if (errStr.contains("SocketException") || errStr.contains("timeout")) {
+        msg = "Error de conexión. Verifica tu internet e intenta de nuevo.";
+      } else {
+        msg = "No se pudo crear el pedido. Intenta de nuevo.";
+      }
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, maxLines: 4), backgroundColor: AppColors.error, duration: const Duration(seconds: 8)));
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -797,6 +808,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     int delivFee = 0;
     int serviceFee = 0;
     String? delivLabel;
+    // Tarifas de plataforma (comisión % + cargo fijo) — igual que en _placeOrder
+    final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 8) as num) / 100).round();
+    final fixedFee   = (_storeData?["fixed_fee"] ?? 2500) as num;
+
     if (_deliveryType == "delivery") {
       if (hasOwnDelivery(_storeData)) {
         delivLabel = "🚗 Delivery propio";
@@ -810,7 +825,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         delivLabel = "🛵 Envío";
       }
     }
-    final total = finalSub + delivFee + serviceFee;
+    // Total completo (igual que en _placeOrder): subtotal + envío + servicio + comisión + cargo fijo
+    final total = finalSub + delivFee + serviceFee + platformFee + fixedFee;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -984,8 +1000,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 outOfRange ? "Fuera de cobertura" : delivFee == 0 ? "Gratis" : _fmt(delivFee),
                 color: outOfRange ? AppColors.error : delivFee == 0 ? AppColors.success : null,
               ),
-            if (_deliveryType == "delivery" && !outOfRange && serviceFee > 0)
-              _summaryRow("Tarifa de servicio", _fmt(serviceFee)),
+            if (_deliveryType == "delivery" && !outOfRange)
+              _summaryRow("Tarifa de servicio Go Deli", serviceFee > 0 ? _fmt(serviceFee) : "Incluido",
+                  color: serviceFee == 0 ? AppColors.success : null),
             const Divider(thickness: 2),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text("Total", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),

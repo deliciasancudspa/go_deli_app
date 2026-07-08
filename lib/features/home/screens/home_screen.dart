@@ -51,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loadingHome = true;
   String? _homeError;
   Map<String, List<Map<String, dynamic>>> _featuredItems = {};
+  Map<String, Map<String, dynamic>> _sectionBanners = {}; // banners de secciones (cualquier banner_type)
   double? _userLat;
   double? _userLng;
 
@@ -383,11 +384,35 @@ class _HomeScreenState extends State<HomeScreen> {
       // Banners asignados a secciones: excluirlos del carrusel principal
       final sectionBannerIds = sections
           .where((s) => s.sectionType == 'banner' && s.bannerId != null)
-          .map((s) => s.bannerId)
+          .map((s) => s.bannerId!)
           .toSet();
       final carouselBanners = (List<Map<String, dynamic>>.from(_cachedBanners ?? []))
           .where((b) => !sectionBannerIds.contains(b['id'] as String?))
           .toList();
+
+      // Cargar banners de secciones que no estén en _cachedBanners (pueden
+      // tener cualquier banner_type, no solo "web_home").
+      Map<String, Map<String, dynamic>> sectionBannersMap = {};
+      final missingBannerIds = sectionBannerIds
+          .where((id) => !(_cachedBanners ?? []).any((b) => b['id'] == id))
+          .toList();
+      if (missingBannerIds.isNotEmpty) {
+        try {
+          final extraBanners = await _sb.from("banners")
+              .select()
+              .inFilter("id", missingBannerIds)
+              .eq("is_active", true);
+          for (final b in (extraBanners as List).cast<Map<String, dynamic>>()) {
+            sectionBannersMap[b['id'] as String] = b;
+          }
+        } catch (_) {}
+      }
+      // Incluir también los que sí están en caché
+      for (final b in (_cachedBanners ?? [])) {
+        if (sectionBannerIds.contains(b['id'] as String?)) {
+          sectionBannersMap[b['id'] as String] = b;
+        }
+      }
 
       if (mounted) setState(() {
         _categories    = List<Map<String, dynamic>>.from(_cachedCategories ?? []);
@@ -395,6 +420,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _allStores     = allStoresList;
         _homeSections  = sections;
         _featuredItems = featItems;
+        _sectionBanners = sectionBannersMap;
         _loadingHome   = false;
         _homeError     = null;
         _recomputeStores();
@@ -721,7 +747,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBanners() {
     if (_banners.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
       child: Column(children: [
         AspectRatio(
           aspectRatio: 2,
@@ -798,7 +824,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleBannerTap(Map<String, dynamic> b) {
     final type  = b["link_type"]  as String?;
     final value = b["link_value"] as String?;
-    if (type == null || value == null) return;
+    final linkUrl = b["link_url"] as String?; // fallback legacy field
+
+    // Si no hay link_type/link_value, intentar con link_url
+    if ((type == null || value == null) && linkUrl != null && linkUrl.isNotEmpty) {
+      launchUrl(Uri.parse(linkUrl), mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (type == null || value == null || value.isEmpty) return;
+
     if (type == "store") { context.push("/store/$value"); return; }
     if (type == "category") {
       final cat = _categories.firstWhere(
@@ -1247,11 +1281,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBannerSection(_HomeSection sec) {
     // Mostrar solo el banner específico de esta sección, no todos los banners
     if (sec.bannerId == null) return const SizedBox.shrink();
-    // Buscar en _cachedBanners (lista completa), no en _banners (solo carrusel)
-    final banner = (_cachedBanners ?? <Map<String, dynamic>>[]).firstWhere(
-      (b) => b['id'] == sec.bannerId,
-      orElse: () => <String, dynamic>{},
-    );
+    // Buscar primero en _sectionBanners (cargados específicamente para secciones,
+    // sin filtrar por banner_type), luego en _cachedBanners como fallback.
+    Map<String, dynamic> banner = _sectionBanners[sec.bannerId!] ?? {};
+    if (banner.isEmpty) {
+      banner = (_cachedBanners ?? <Map<String, dynamic>>[]).firstWhere(
+        (b) => b['id'] == sec.bannerId,
+        orElse: () => <String, dynamic>{},
+      );
+    }
     if (banner.isEmpty) return const SizedBox.shrink();
     final imgUrl = banner["image_url"] as String?;
     Color bg = _kOrange;

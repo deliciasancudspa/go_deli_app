@@ -582,6 +582,11 @@ class _MercadosScreenState extends State<MercadosScreen> {
   void _handleBannerTap(Map<String, dynamic> b) {
     final type  = b["link_type"]  as String?;
     final value = b["link_value"] as String?;
+    final linkUrl = b["link_url"] as String?;
+    if ((type == null || type == "none" || value == null || value.isEmpty) && linkUrl != null && linkUrl.isNotEmpty) {
+      launchUrl(Uri.parse(linkUrl), mode: LaunchMode.externalApplication);
+      return;
+    }
     if (type == null || type == "none" || value == null || value.isEmpty) return;
     if (type == "store")    context.push("/store/$value");
     if (type == "url")      launchUrl(Uri.parse(value), mode: LaunchMode.externalApplication);
