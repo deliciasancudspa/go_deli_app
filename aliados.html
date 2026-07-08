@@ -1608,7 +1608,15 @@ tr:hover td { background:#FAFAFA; }
           <div class="kpi"><div class="kpi-icon ki-or">💰</div><div class="kpi-val" id="fin-gross">-</div><div class="kpi-label">Ingresos totales</div></div>
           <div class="kpi"><div class="kpi-icon ki-pu">📉</div><div class="kpi-val" id="fin-comm">-</div><div class="kpi-label">Comisiones (GoDeli)</div></div>
           <div class="kpi"><div class="kpi-icon ki-gr">🛵</div><div class="kpi-val" id="fin-rider">-</div><div class="kpi-label">Tarifas Go Rider</div></div>
-          <div class="kpi kpi-hl"><div class="kpi-icon ki-bl">💵</div><div class="kpi-val" id="fin-net">-</div><div class="kpi-label">Total neto</div></div>
+          <div class="kpi kpi-hl" id="fin-net-kpi" onclick="toggleFinBreakdown()" style="cursor:pointer">
+            <div class="kpi-icon ki-bl">💵</div>
+            <div class="kpi-val" id="fin-net">-</div>
+            <div class="kpi-label">Total neto ▾</div>
+          </div>
+        </div>
+        <div id="fin-breakdown" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--muted)">💳 Desglose por método de pago</div>
+          <div id="fin-breakdown-content" style="display:grid;gap:6px;font-size:13px"></div>
         </div>
         <div id="fin-channels" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px"></div>
         <div class="card"><div class="card-header"><h3>📋 Todas las transacciones</h3><button class="btn btn-outline btn-sm" onclick="exportTableCSV('fin-table','finanzas')">⬇️ Exportar CSV</button></div>
@@ -3475,6 +3483,23 @@ async function loadFinanzasAliado(period, btn) {
   document.getElementById('fin-rider').textContent = fmtCLP(totalRider);
   document.getElementById('fin-net').textContent = fmtCLP(net);
 
+  // Desglose por método de pago (para toggle)
+  // Efectivo: solo cuenta si NO es delivery Go Rider (el rider cobra para Go Deli)
+  const byPayment = {cash:0, debit:0, credit:0, transfer:0, other:0};
+  orders.forEach(o=>{
+    const netO = _netGR(o);
+    const pm = o.payment_method||'other';
+    if (pm==='cash' && o.order_type==='delivery' && o.delivery_method==='go_rider') return; // Rider cobró
+    if (pm==='cash') byPayment.cash += netO;
+    else if (pm==='debit') byPayment.debit += netO;
+    else if (pm==='credit') byPayment.credit += netO;
+    else if (pm==='transfer') byPayment.transfer += netO;
+    else byPayment.other += netO;
+  });
+  window._finBreakdown = byPayment;
+  // Si el breakdown está abierto, actualizarlo
+  if (document.getElementById('fin-breakdown').style.display !== 'none') renderFinBreakdown();
+
   // Canales lado a lado
   const chs = [
     {key:'GO_DELI',icon:'🛵',name:'Go Deli',orders:gd,hasComm:true},
@@ -3520,6 +3545,44 @@ async function loadFinanzasAliado(period, btn) {
         <td style="font-size:11px;color:var(--muted)">${fmtDate(o.created_at)}</td>
       </tr>`;
     }).join('') + (orders.length>50?`<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:8px;font-size:11px">Mostrando 50 de ${orders.length} transacciones</td></tr>`:'');
+}
+
+// ── Toggle desglose por método de pago en Finanzas ─────────────────
+function toggleFinBreakdown() {
+  const el = document.getElementById('fin-breakdown');
+  if (!el) return;
+  if (el.style.display === 'none') {
+    renderFinBreakdown();
+    el.style.display = '';
+    const lbl = document.querySelector('#fin-net-kpi .kpi-label');
+    if (lbl) lbl.textContent = 'Total neto ▴';
+  } else {
+    el.style.display = 'none';
+    const lbl = document.querySelector('#fin-net-kpi .kpi-label');
+    if (lbl) lbl.textContent = 'Total neto ▾';
+  }
+}
+function renderFinBreakdown() {
+  const bd = window._finBreakdown || {cash:0, debit:0, credit:0, transfer:0, other:0};
+  const total = bd.cash + bd.debit + bd.credit + bd.transfer + bd.other;
+  const pct = v => total>0 ? Math.round(v/total*100) : 0;
+  const items = [
+    {key:'cash', label:'💵 Efectivo', note:'(no incluye delivery Go Rider)'},
+    {key:'debit', label:'🏧 Débito', note:''},
+    {key:'credit', label:'💳 Crédito', note:''},
+    {key:'transfer', label:'🏦 Transferencia', note:''},
+    {key:'other', label:'📱 Otros (Webpay, QR, etc.)', note:''}
+  ];
+  const el = document.getElementById('fin-breakdown-content');
+  if (!el) return;
+  el.innerHTML = items.map(i=>{
+    const v = bd[i.key]||0;
+    return `<div style="display:flex;justify-content:space-between;align-items:center">
+      <span>${i.label} ${i.note?`<span style="font-size:10px;color:var(--muted)">${i.note}</span>`:''}</span>
+      <span style="font-weight:700">${fmtCLP(v)} <span style="font-size:11px;color:var(--muted)">(${pct(v)}%)</span></span>
+    </div>`;
+  }).join('') + `<div style="border-top:1px solid var(--border);padding-top:6px;margin-top:4px;display:flex;justify-content:space-between;font-weight:800">` +
+    `<span>Total neto</span><span style="color:var(--success);font-size:15px">${fmtCLP(total)}</span></div>`;
 }
 
 // ======================================================================
