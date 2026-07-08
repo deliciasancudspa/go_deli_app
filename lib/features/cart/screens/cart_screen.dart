@@ -495,7 +495,7 @@ class _StoreRecsState extends State<_StoreRecs> {
           ]),
           const SizedBox(height: 8),
           SizedBox(
-            height: 180,
+            height: 200,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _recs.length,

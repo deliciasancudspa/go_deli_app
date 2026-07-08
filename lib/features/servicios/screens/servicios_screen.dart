@@ -75,6 +75,9 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
   final _bannerPageCtrl = PageController();
   Timer?                      _bannerTimer;
 
+  // Section banners (from home_sections, any banner_type)
+  List<Map<String, dynamic>> _sectionBanners = [];
+
   final _sb = Supabase.instance.client;
 
   @override
@@ -129,6 +132,43 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
       } catch (_) {}
     }
     if (mounted) setState(() => _banners = List<Map<String,dynamic>>.from(_cachedBanners ?? []));
+
+    // Load section banners from home_sections (any banner_type, not just web_servicios)
+    try {
+      final sectionsRaw = await _sb.from("home_sections")
+          .select("id, banner_id")
+          .or('screen.eq.servicios,screen.eq.all')
+          .eq("is_active", true)
+          .eq("section_type", "banner");
+      final sections = List<Map<String, dynamic>>.from(sectionsRaw as List);
+      final sectionBannerIds = sections
+          .where((s) => s["banner_id"] != null)
+          .map((s) => s["banner_id"] as String)
+          .toSet();
+      if (sectionBannerIds.isNotEmpty) {
+        final now2 = DateTime.now().toUtc();
+        final extraRaw = await _sb.from("banners")
+            .select()
+            .inFilter("id", sectionBannerIds.toList())
+            .eq("is_active", true);
+        final sectionBanners = (extraRaw as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .where((b) {
+              final startDate = b['start_date'] as String?;
+              final endDate   = b['end_date']   as String?;
+              if (startDate != null && startDate.isNotEmpty) {
+                try { if (now2.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
+              }
+              if (endDate != null && endDate.isNotEmpty) {
+                try { if (now2.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
+              }
+              return true;
+            }).toList();
+        if (mounted) setState(() => _sectionBanners = sectionBanners);
+      }
+    } catch (_) {
+      debugPrint('Servicios section banners load error');
+    }
 
     // Load categories filtradas por screens='servicios' (misma tabla que home/mercados)
     if (forceRefresh || _catStale) {
@@ -306,6 +346,75 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
     );
   }
 
+  Widget _buildSectionBannerCard(Map<String, dynamic> b) {
+    final imgUrl = b["image_url"] as String?;
+    final bg = parseHexColor(b["bg_color"] as String?, fallback: _kPurple);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: GestureDetector(
+        onTap: () => _handleBannerTap(b),
+        child: AspectRatio(
+          aspectRatio: 2,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: imgUrl != null ? Colors.white : bg,
+              image: imgUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(imgUrl),
+                      fit: BoxFit.cover,
+                      colorFilter: ColorFilter.mode(
+                          Colors.black.withOpacity(0.15), BlendMode.darken))
+                  : null,
+              boxShadow: [BoxShadow(
+                  color: bg.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4))],
+            ),
+            child: imgUrl == null
+                ? Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (b["title"] != null)
+                          Text(b["title"] as String,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: "Nunito")),
+                        if (b["subtitle"] != null) ...[
+                          const SizedBox(height: 4),
+                          Text(b["subtitle"] as String,
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.85),
+                                  fontSize: 13)),
+                        ],
+                      ],
+                    ),
+                  )
+                : (b["title"] != null
+                    ? Stack(children: [
+                        Positioned(
+                          bottom: 16, left: 16, right: 16,
+                          child: Text(b["title"] as String,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: "Nunito",
+                                  shadows: [Shadow(color: Colors.black54, blurRadius: 8)])),
+                        ),
+                      ])
+                    : const SizedBox.shrink()),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _handleBannerTap(Map<String, dynamic> b) {
     final type  = b["link_type"]  as String?;
     final value = b["link_value"] as String?;
@@ -436,6 +545,10 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
           // Promo banners (if any)
           if (!_loading && _banners.isNotEmpty)
             SliverToBoxAdapter(child: _buildBannersWidget()),
+
+          // Section banners from home_sections (admin-configured, any banner_type)
+          if (!_loading)
+            ..._sectionBanners.map((b) => SliverToBoxAdapter(child: _buildSectionBannerCard(b))),
 
           // Provider list / shimmer / empty
           if (_loading)

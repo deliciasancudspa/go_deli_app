@@ -7,6 +7,7 @@ import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:image_picker/image_picker.dart";
 import "package:geolocator/geolocator.dart";
+import "package:geocoding/geocoding.dart";
 import "package:url_launcher/url_launcher.dart";
 import "dart:typed_data";
 import "dart:math";
@@ -332,10 +333,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_deliveryLat == null || _deliveryLng == null || _storeData == null) return;
     final storeLat = (_storeData!["lat"] as num?)?.toDouble();
     final storeLng = (_storeData!["lng"] as num?)?.toDouble();
-    if (storeLat == null || storeLng == null) return;
+    if (storeLat == null || storeLng == null) {
+      // Fallback: geocodificar la dirección de la tienda si no tiene coordenadas
+      _geocodeStoreAddress();
+      return;
+    }
     setState(() {
       _distanceMeters = Geolocator.distanceBetween(storeLat, storeLng, _deliveryLat!, _deliveryLng!);
     });
+  }
+
+  bool _geocodingStore = false;
+  Future<void> _geocodeStoreAddress() async {
+    final address = _storeData?["address"] as String?;
+    if (address == null || address.isEmpty || _geocodingStore) return;
+    _geocodingStore = true;
+    try {
+      final locations = await locationFromAddress(address);
+      if (locations.isNotEmpty && mounted && _deliveryLat != null && _deliveryLng != null) {
+        final sLat = locations.first.latitude;
+        final sLng = locations.first.longitude;
+        setState(() {
+          _distanceMeters = Geolocator.distanceBetween(sLat, sLng, _deliveryLat!, _deliveryLng!);
+        });
+      }
+    } catch (_) {
+      debugPrint('_geocodeStoreAddress failed for: $address');
+    } finally {
+      if (mounted) setState(() => _geocodingStore = false);
+    }
   }
 
   double _calcRiderFee(double distMeters) {
@@ -1076,6 +1102,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 20),
               SizedBox(width: 10),
               Expanded(child: Text("Dirección fuera de cobertura (máx. 8 km desde la tienda)", style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 13))),
+            ]),
+          ),
+
+        if (_deliveryType == "delivery" && !hasOwnDelivery(_storeData) && _distanceMeters == null && !_geocodingStore)
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.info_outline, color: AppColors.warning, size: 20),
+              SizedBox(width: 10),
+              Expanded(child: Text("No se pudo calcular la distancia a la tienda. La tarifa de envío puede no ser exacta.", style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600, fontSize: 13))),
+            ]),
+          ),
+
+        if (_deliveryType == "delivery" && !hasOwnDelivery(_storeData) && _geocodingStore)
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            ),
+            child: const Row(children: [
+              SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 10),
+              Expanded(child: Text("Calculando distancia a la tienda...", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 13))),
             ]),
           ),
 

@@ -747,7 +747,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBanners() {
     if (_banners.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 16, 0, 20),
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
       child: Column(children: [
         AspectRatio(
           aspectRatio: 2,
