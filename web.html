@@ -2434,7 +2434,7 @@ async function renderCheckoutTotals() {
       if (clientPays === 0) {
         deliveryHTML = `<div class="summary-item" style="color:var(--success)"><span>🛵 Envío</span><span>Gratis</span></div>`;
       } else {
-        deliveryHTML = `<div class="summary-item"><span>🛵 Envío</span><span>${fmtCLP(clientPays)} <span style="font-size:11px;color:var(--muted)">(se calcula al ingresar dirección)</span></span></div>`;
+        deliveryHTML = `<div class="summary-item"><span>🛵 Envío</span><span>${fmtCLP(clientPays)}</span></div>`;
       }
     }
   } else {
