@@ -128,15 +128,29 @@
         _currentSession = (r.data && r.data.length) ? r.data[0] : null;
         _renderSession();
       });
-    // Ventas en efectivo del día (excluye canceladas y devueltas)
+    // Ventas en efectivo del día — incluye pagos split (mixed) consultando order_payments
     var today = new Date().toISOString().split('T')[0];
+    // Obtener IDs de órdenes válidas del día (no canceladas ni devueltas)
     window.sb.from('orders')
-      .select('total,payment_method,status').eq('store_id', window.storeData.id)
-      .gte('created_at', today).eq('payment_method','cash')
-      .then(function(r) {
-        var total = (r.data||[]).filter(function(o){ return o.status !== 'cancelled' && o.status !== 'returned'; }).reduce(function(s,o){return s+(o.total||0);},0);
-        var el = document.getElementById('caja-day-sales');
-        if (el) el.textContent = '$' + Math.round(total).toLocaleString('es-CL');
+      .select('id').eq('store_id', window.storeData.id)
+      .gte('created_at', today)
+      .not('status', 'in', '("cancelled","returned")')
+      .then(function(orderRes) {
+        var validOrderIds = (orderRes.data || []).map(function(o) { return o.id; });
+        if (!validOrderIds.length) {
+          var el = document.getElementById('caja-day-sales');
+          if (el) el.textContent = '$0';
+          return;
+        }
+        // Buscar todos los pagos en efectivo de esas órdenes
+        window.sb.from('order_payments')
+          .select('amount').eq('payment_method', 'cash')
+          .in('order_id', validOrderIds)
+          .then(function(payRes) {
+            var total = (payRes.data || []).reduce(function(s, p) { return s + (p.amount || 0); }, 0);
+            var el = document.getElementById('caja-day-sales');
+            if (el) el.textContent = '$' + Math.round(total).toLocaleString('es-CL');
+          });
       });
     _loadMovements();
   }
@@ -285,16 +299,27 @@
     var today = new Date().toISOString().split('T')[0];
     var summary = { cashSales: 0, ingresos: 0, retiros: 0, expected: 0 };
 
-    // Ventas en efectivo del día
+    // Ventas en efectivo del día — usa order_payments para incluir pagos split (mixed)
     window.sb.from('orders')
-      .select('total,status').eq('store_id', window.storeData.id)
-      .gte('created_at', today).eq('payment_method','cash')
-      .then(function(r) {
-        summary.cashSales = (r.data||[]).filter(function(o){ return o.status !== 'cancelled' && o.status !== 'returned'; }).reduce(function(s,o){return s+(o.total||0);},0);
-
-        // Movimientos del día
-        return window.sb.from('cash_movements').select('type,amount')
-          .eq('store_id', window.storeData.id).gte('created_at', today);
+      .select('id').eq('store_id', window.storeData.id)
+      .gte('created_at', today)
+      .not('status', 'in', '("cancelled","returned")')
+      .then(function(orderRes) {
+        var validOrderIds = (orderRes.data || []).map(function(o) { return o.id; });
+        if (!validOrderIds.length) {
+          // Sin órdenes válidas hoy, seguir con movimientos
+          return window.sb.from('cash_movements').select('type,amount')
+            .eq('store_id', window.storeData.id).gte('created_at', today);
+        }
+        return window.sb.from('order_payments')
+          .select('amount').eq('payment_method', 'cash')
+          .in('order_id', validOrderIds)
+          .then(function(payRes) {
+            summary.cashSales = (payRes.data || []).reduce(function(s, p) { return s + (p.amount || 0); }, 0);
+            // Movimientos del día
+            return window.sb.from('cash_movements').select('type,amount')
+              .eq('store_id', window.storeData.id).gte('created_at', today);
+          });
       }).then(function(r) {
         (r.data||[]).forEach(function(m) {
           if (m.type === 'ingreso' && m.payment_method === 'cash') summary.ingresos += (m.amount||0);
