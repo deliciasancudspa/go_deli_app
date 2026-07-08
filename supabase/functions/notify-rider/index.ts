@@ -133,6 +133,19 @@ serve(async (req) => {
                 sound: "default",
               },
             },
+            apns: {
+              payload: {
+                aps: {
+                  alert: { title, body },
+                  sound: "default",
+                  badge: 1,
+                },
+              },
+              headers: {
+                "apns-priority": "10",
+                "apns-push-type": "alert",
+              },
+            },
             data: { route: "notifications", order_id: order_id ?? "" },
           },
         }),

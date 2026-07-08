@@ -82,6 +82,19 @@ async function sendFcm(accessToken: string, token: string, title: string, body: 
             priority: "high",
             notification: { title, body, channel_id: "go_deli_orders", sound: "default" },
           },
+          apns: {
+            payload: {
+              aps: {
+                alert: { title, body },
+                sound: "default",
+                badge: 1,
+              },
+            },
+            headers: {
+              "apns-priority": "10",
+              "apns-push-type": "alert",
+            },
+          },
           data,
         },
       }),
@@ -234,6 +247,19 @@ serve(async (req) => {
             android: {
               priority: "high",
               notification: { title, body, channel_id: "go_deli_orders", sound: "default" },
+            },
+            apns: {
+              payload: {
+                aps: {
+                  alert: { title, body },
+                  sound: "default",
+                  badge: 1,
+                },
+              },
+              headers: {
+                "apns-priority": "10",
+                "apns-push-type": "alert",
+              },
             },
             data: { route: "orders" },
           },
