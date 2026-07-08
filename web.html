@@ -2409,7 +2409,13 @@ async function renderCheckoutTotals() {
 
   if (currentOrderType === 'delivery') {
     if (clientDeliveryLat && store?.lat && store?.lng) {
-      const dist = haversineMeters(store.lat, store.lng, clientDeliveryLat, clientDeliveryLng);
+      // Usar distancia por carretera (Directions API) con fallback a Haversine
+      const coordsKey = `${store.lat},${store.lng},${clientDeliveryLat},${clientDeliveryLng}`;
+      if (!cachedRoadResult || cachedRoadCoords !== coordsKey) {
+        cachedRoadResult = await fetchDirections(store.lat, store.lng, clientDeliveryLat, clientDeliveryLng);
+        cachedRoadCoords = coordsKey;
+      }
+      const dist = cachedRoadResult.distanceMeters;
       const fees = calcDeliveryFee(store, dist);
       deliveryClientFee = fees.clientFee;
       serviceFee = fees.serviceFee;
@@ -2421,10 +2427,11 @@ async function renderCheckoutTotals() {
       } else {
         document.getElementById('place-order-btn').disabled = false;
         document.getElementById('place-order-btn').style.opacity = '1';
+        const etaPart = cachedRoadResult.durationText ? ` (~${cachedRoadResult.durationText})` : '';
         if (fees.clientFee === 0) {
-          deliveryHTML = `<div class="summary-item" style="color:var(--success)"><span>🛵 Envío</span><span>Gratis</span></div>`;
+          deliveryHTML = `<div class="summary-item" style="color:var(--success)"><span>🛵 Envío${etaPart}</span><span>Gratis</span></div>`;
         } else {
-          deliveryHTML = `<div class="summary-item"><span>🛵 Envío</span><span>${fmtCLP(fees.clientFee)}</span></div>`;
+          deliveryHTML = `<div class="summary-item"><span>🛵 Envío${etaPart}</span><span>${fmtCLP(fees.clientFee)}</span></div>`;
         }
       }
     } else {
@@ -2459,6 +2466,8 @@ function genCode() { return Math.random().toString(36).substring(2, 8).toUpperCa
 
 // ── DELIVERY FEE DINÁMICO ─────────────────────────────────
 let clientDeliveryLat = null, clientDeliveryLng = null;
+let cachedRoadResult = null;    // { distanceMeters, durationText, isRoad }
+let cachedRoadCoords = null;     // "lat,lng,lat,lng" key para evitar re-fetch
 
 // Calcula distancia en metros entre dos coordenadas (Haversine)
 function haversineMeters(lat1, lng1, lat2, lng2) {
@@ -2467,6 +2476,34 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Obtiene distancia de conducción (carretera) usando Google Directions API.
+// Fallback a Haversine si la API falla. Retorna { distanceMeters, durationText, isRoad }.
+async function fetchDirections(lat1, lng1, lat2, lng2) {
+  const fallback = {
+    distanceMeters: Math.round(haversineMeters(lat1, lng1, lat2, lng2)),
+    durationText: null,
+    isRoad: false,
+  };
+  const apiKey = document.querySelector('script[src*="maps.googleapis.com"]')?.src?.match(/key=([^&]+)/)?.[1] || '';
+  if (!apiKey) { console.warn('No Maps API key found for Directions'); return fallback; }
+  try {
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${lat1},${lng1}&destination=${lat2},${lng2}&mode=driving&alternatives=false&language=es&key=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return fallback;
+    const data = await resp.json();
+    if (data.status !== 'OK') return fallback;
+    const leg = data.routes?.[0]?.legs?.[0];
+    return {
+      distanceMeters: leg?.distance?.value ?? fallback.distanceMeters,
+      durationText: leg?.duration?.text ?? null,
+      isRoad: true,
+    };
+  } catch (e) {
+    console.warn('Directions API failed, using straight-line:', e);
+    return fallback;
+  }
 }
 
 // Parámetros de tarifa de delivery (configurables desde el admin → config).
@@ -2592,7 +2629,13 @@ async function placeOrder() {
   let riderFee = 0, clientFee = 0, storeAbsorbs = 0, platformAbsorbs = 0, distanceMeters = 0, serviceFee = 0;
   if (isDelivery) {
     if (clientDeliveryLat && store?.lat && store?.lng) {
-      const dist = haversineMeters(store.lat, store.lng, clientDeliveryLat, clientDeliveryLng);
+      // Reutilizar caché o consultar distancia por carretera
+      const coordsKey = `${store.lat},${store.lng},${clientDeliveryLat},${clientDeliveryLng}`;
+      if (!cachedRoadResult || cachedRoadCoords !== coordsKey) {
+        cachedRoadResult = await fetchDirections(store.lat, store.lng, clientDeliveryLat, clientDeliveryLng);
+        cachedRoadCoords = coordsKey;
+      }
+      const dist = cachedRoadResult.distanceMeters;
       const fees = calcDeliveryFee(store, dist);
       if (!fees.withinRange) { showToast('La dirección está fuera del área de cobertura (máx. ' + deliveryConfig.max_distance_km + ' km)', 'error'); return; }
       riderFee       = fees.riderFee;
@@ -3182,6 +3225,8 @@ function confirmMapAddress() {
   display.style.borderStyle = 'solid';
   display.style.borderColor = 'var(--success, #22c55e)';
   closeAddressMap();
+  cachedRoadResult = null;
+  cachedRoadCoords = null;
   renderCheckoutTotals();
 }
 

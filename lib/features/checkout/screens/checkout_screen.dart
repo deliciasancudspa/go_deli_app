@@ -6,7 +6,6 @@ import "package:provider/provider.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:image_picker/image_picker.dart";
-import "package:geolocator/geolocator.dart";
 import "package:geocoding/geocoding.dart";
 import "package:url_launcher/url_launcher.dart";
 import "dart:typed_data";
@@ -14,6 +13,7 @@ import "dart:math";
 import "dart:convert";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/services/location_service.dart";
+import "../../../core/services/directions_service.dart";
 import "../../../core/utils/price_formatter.dart";
 import "../../../providers/cart_provider.dart";
 import "../../../providers/auth_provider.dart";
@@ -52,6 +52,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double? _deliveryLat;
   double? _deliveryLng;
   double? _distanceMeters;
+  String? _etaText;         // "12 min" desde Directions API
+  bool _distanceIsRoad = false; // true si se usó ruta por carretera
   // Parámetros de tarifa de delivery (cargados desde config; defaults abajo)
   double _baseFee  = _kDefBaseFee;
   double _per100m  = _kDefPer100m;
@@ -341,7 +343,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .any((m) => m["requires_prescription"] == true);
       }
       if (mounted) setState(() { _storeData = store; _needsPrescription = needsRx; });
-      _updateDistance();
+      await _updateDistance();
     } catch (e) {
       debugPrint('_loadStore error: $e');
     }
@@ -360,7 +362,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return null;
   }
 
-  void _updateDistance() {
+  Future<void> _updateDistance() async {
     if (_deliveryLat == null || _deliveryLng == null || _storeData == null) {
       debugPrint('_updateDistance: early return — lat=$_deliveryLat lng=$_deliveryLng store=${_storeData != null}');
       return;
@@ -374,10 +376,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _geocodeStoreAddress();
       return;
     }
-    final dist = Geolocator.distanceBetween(storeLat, storeLng, _deliveryLat!, _deliveryLng!);
-    debugPrint('_updateDistance: distancia calculada = $dist m');
+    // Usar Google Directions API (distancia por carretera) con fallback a Haversine
+    final result = await DirectionsService.getRoute(
+      storeLat, storeLng, _deliveryLat!, _deliveryLng!,
+    );
+    debugPrint('_updateDistance: road=${!result.isFallback} dist=${result.distanceMeters}m eta=${result.durationText}');
+    if (!mounted) return;
     setState(() {
-      _distanceMeters = dist;
+      _distanceMeters = result.distanceMeters;
+      _etaText = result.durationText;
+      _distanceIsRoad = !result.isFallback;
     });
   }
 
@@ -391,8 +399,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (locations.isNotEmpty && mounted && _deliveryLat != null && _deliveryLng != null) {
         final sLat = locations.first.latitude;
         final sLng = locations.first.longitude;
+        // Usar distancia por carretera desde la ubicación geocodificada de la tienda
+        final result = await DirectionsService.getRoute(
+          sLat, sLng, _deliveryLat!, _deliveryLng!,
+        );
+        if (!mounted) return;
         setState(() {
-          _distanceMeters = Geolocator.distanceBetween(sLat, sLng, _deliveryLat!, _deliveryLng!);
+          _distanceMeters = result.distanceMeters;
+          _etaText = result.durationText;
+          _distanceIsRoad = !result.isFallback;
         });
       }
     } catch (_) {
@@ -944,7 +959,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   _deliveryLat = result["lat"] as double?;
                   _deliveryLng = result["lng"] as double?;
                 });
-                _updateDistance();
+                await _updateDistance();
               }
             },
             child: Container(
@@ -1084,6 +1099,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 delivLabel ?? "🛵 Envío",
                 outOfRange ? "Fuera de cobertura" : delivFee == 0 ? "Gratis" : _fmt(delivFee),
                 color: outOfRange ? AppColors.error : delivFee == 0 ? AppColors.success : null,
+              ),
+            if (_deliveryType == "delivery" && _etaText != null && !outOfRange)
+              _summaryRow(
+                _distanceIsRoad ? "🕐 Tiempo estimado" : "🕐 Tiempo aprox.",
+                _etaText!,
+                color: _distanceIsRoad ? null : AppColors.warning,
               ),
             if (_deliveryType == "pickup")
               _summaryRow("🏪 Retiro", "Gratis", color: AppColors.success),
