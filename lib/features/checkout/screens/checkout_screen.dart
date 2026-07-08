@@ -1081,7 +1081,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               _summaryRow("🏪 Retiro", "Gratis", color: AppColors.success),
             // Tarifa de servicio: visible en delivery (por distancia) y pickup (fija)
             if ((_deliveryType == "delivery" && !outOfRange) || _deliveryType == "pickup")
-              _summaryRow("Tarifa de servicio Go Deli", serviceFee > 0 ? _fmt(serviceFee) : "Incluido",
+              _summaryRow("Tarifa de servicio Go Deli", serviceFee > 0 ? _fmt(serviceFee) : "Gratis",
                   color: serviceFee == 0 ? AppColors.success : null),
             const Divider(thickness: 2),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
