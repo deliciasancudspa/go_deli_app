@@ -576,7 +576,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           riderFee       = fees.rider;
           storeDelivFee  = fees.storeAbsorbs;
           platformDelivFee = fees.platform;
-          serviceFee     = _calcServiceFee(dist);
+        }
+        // Tarifa de servicio: tarifa de plataforma, no de delivery.
+        // Se calcula siempre que haya distancia, incluso con delivery propio.
+        if (_distanceMeters != null) {
+          serviceFee = _calcServiceFee(_distanceMeters!);
         }
       } else {
         // Pickup: sin delivery_fee, con tarifa de servicio fija (configurada por admin)
@@ -888,12 +892,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         delivLabel = "🚗 Delivery propio";
       } else if (_distanceMeters != null) {
         delivFee  = _calcAllFees(_distanceMeters!).client;
-        serviceFee = _calcServiceFee(_distanceMeters!);
         delivLabel = "🛵 Envío";
       } else {
         final clientFee = (_storeData?["delivery_fee_client"] as num?)?.toInt() ?? 0;
         delivFee  = min(clientFee, _kMaxClient.toInt());
         delivLabel = "🛵 Envío";
+      }
+      // Tarifa de servicio: tarifa de plataforma, no de delivery.
+      // Se calcula siempre que haya distancia, incluso con delivery propio.
+      if (_distanceMeters != null) {
+        serviceFee = _calcServiceFee(_distanceMeters!);
       }
     } else {
       // Pickup: sin delivery_fee, con tarifa de servicio fija
