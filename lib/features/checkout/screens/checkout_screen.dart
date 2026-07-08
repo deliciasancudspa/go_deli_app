@@ -511,9 +511,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         platformDelivFee = fees.platform;
         serviceFee     = _calcServiceFee(dist);
       }
-      // El total (lo que paga el cliente y cobra el rider) incluye la tarifa de
-      // servicio. El aliado NO la ve: su total = finalSub + delivFee.
-      final total = finalSub + delivFee + serviceFee + platformFee + fixedFee;
+      // Fórmula validada por el trigger validate_order_amounts:
+      //   total = subtotal + delivery_fee + service_fee
+      // platform_fee y fixed_fee son columnas separadas (cálculo interno, no
+      // se suman al total que paga el cliente).
+      final total = finalSub + delivFee + serviceFee;
       // retiro: cliente muestra pickup_code a la tienda
       // delivery: delivery_code lo da el cliente al rider; pickup_code lo genera el sistema al asignar rider
       final pickupCode = _deliveryType == "pickup" ? _generateCode() : null;
@@ -808,10 +810,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     int delivFee = 0;
     int serviceFee = 0;
     String? delivLabel;
-    // Tarifas de plataforma (comisión % + cargo fijo) — igual que en _placeOrder
-    final platformFee = (finalSub * ((_storeData?["commission_pct"] ?? 8) as num) / 100).round();
-    final fixedFee   = (_storeData?["fixed_fee"] ?? 2500) as num;
-
     if (_deliveryType == "delivery") {
       if (hasOwnDelivery(_storeData)) {
         delivLabel = "🚗 Delivery propio";
@@ -825,8 +823,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         delivLabel = "🛵 Envío";
       }
     }
-    // Total completo (igual que en _placeOrder): subtotal + envío + servicio + comisión + cargo fijo
-    final total = finalSub + delivFee + serviceFee + platformFee + fixedFee;
+    // Fórmula validada por el trigger validate_order_amounts:
+    //   total = subtotal + delivery_fee + service_fee
+    // (platform_fee y fixed_fee son internos, no modifican el total del cliente)
+    final total = finalSub + delivFee + serviceFee;
 
     return Scaffold(
       backgroundColor: AppColors.background,

@@ -1,3 +1,5 @@
+import "dart:convert";
+
 /// Formatea un número entero (CLP sin decimales) con separadores de miles.
 /// Ejemplo: fmtCLP(4500) → "$4.500"
 String fmtCLP(int? n) {
@@ -21,19 +23,29 @@ String cleanDeliveryTime(dynamic raw) {
   return "$s min";
 }
 
-/// Retorna true si la tienda usa exclusivamente repartidor propio
-/// (no tiene Go Rider habilitado). El campo delivery_methods es JSONB,
-/// Supabase lo devuelve como List<dynamic>.
+/// Retorna true si la tienda tiene delivery propio habilitado.
+/// El campo delivery_methods puede venir como List (PostgREST JSONB nativo)
+/// o como String JSON (guardado con JSON.stringify desde el panel admin).
 bool hasOwnDelivery(Map<String, dynamic>? store) {
   if (store == null) return false;
   final methods = store['delivery_methods'];
+
+  // Caso 1: PostgREST devuelve JSONB como List nativa
   if (methods is List) {
-    // Si el aliado tiene delivery propio habilitado, no se cobra tarifa de
-    // envío al cliente (la tienda usa sus propios repartidores).
     return methods.contains('own');
   }
-  // Fallback: delivery_priority como string
+
+  // Caso 2: el admin guarda delivery_methods con JSON.stringify → string JSON
+  if (methods is String && methods.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(methods);
+      if (decoded is List) return decoded.contains('own');
+    } catch (_) {}
+  }
+
+  // Fallback: delivery_priority como string ('own' | 'go_rider' | 'both')
   final priority = store['delivery_priority'];
   if (priority is String) return priority == 'own';
+
   return false;
 }

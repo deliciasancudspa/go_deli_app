@@ -407,7 +407,8 @@ class _StoreRecsState extends State<_StoreRecs> {
 
   Future<void> _load() async {
     try {
-      final raw = await _sb
+      // Intentar primero con productos populares (is_popular=true)
+      var raw = await _sb
           .from("menu_items")
           .select("id, name, price, emoji, image_url, is_available")
           .eq("store_id", widget.storeId)
@@ -415,9 +416,23 @@ class _StoreRecsState extends State<_StoreRecs> {
           .eq("is_popular", true)
           .order("sort_order")
           .limit(8);
+      var items = List<Map<String, dynamic>>.from(raw as List);
+
+      // Fallback: si no hay populares, mostrar todos los disponibles
+      if (items.isEmpty) {
+        raw = await _sb
+            .from("menu_items")
+            .select("id, name, price, emoji, image_url, is_available")
+            .eq("store_id", widget.storeId)
+            .eq("is_available", true)
+            .order("sort_order")
+            .limit(8);
+        items = List<Map<String, dynamic>>.from(raw as List);
+      }
+
       if (mounted) {
         setState(() {
-          _recs = List<Map<String, dynamic>>.from(raw as List);
+          _recs = items;
           _loading = false;
         });
       }
@@ -480,7 +495,7 @@ class _StoreRecsState extends State<_StoreRecs> {
           ]),
           const SizedBox(height: 8),
           SizedBox(
-            height: 110,
+            height: 155,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _recs.length,
