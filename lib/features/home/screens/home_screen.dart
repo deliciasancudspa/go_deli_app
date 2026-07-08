@@ -101,12 +101,10 @@ class _HomeScreenState extends State<HomeScreen> {
           .compareTo((b["featured_order"] as num?)?.toInt() ?? 0));
     _cachedFeatured = list.take(8).toList();
 
-    // Nearby
+    // Nearby (incluye tiendas con featured_order ya que no hay sección Destacados)
     var nearby = _selectedCat == null
         ? List<Map<String, dynamic>>.from(_allStores)
         : _allStores.where((s) => storeMatchesCategory(s, _selectedCat!["name"] as String?)).toList();
-    final featuredIds = _cachedFeatured.map((s) => s["id"] as String).toSet();
-    nearby = nearby.where((s) => !featuredIds.contains(s["id"] as String)).toList();
     if (nearby.length > 1 && _userLat != null && _userLng != null) {
       nearby.sort((a, b) {
         final aLat = (a["lat"] as num?)?.toDouble();

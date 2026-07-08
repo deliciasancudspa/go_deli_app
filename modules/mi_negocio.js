@@ -202,6 +202,11 @@
       latitude: parseFloat(document.getElementById('p-lat')?.value) || null,
       longitude: parseFloat(document.getElementById('p-lng')?.value) || null,
     };
+    // Mapear a los nombres de columna reales en la DB (lat/lng, no latitude/longitude)
+    updates.lat = updates.latitude;
+    updates.lng = updates.longitude;
+    delete updates.latitude;
+    delete updates.longitude;
     var res = await window.sb.from('stores').update(updates).eq('id', storeData.id);
     if (res.error) { showToast('Error: ' + res.error.message, 'error'); return; }
     Object.assign(storeData, updates);
