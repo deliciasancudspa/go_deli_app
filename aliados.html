@@ -3345,12 +3345,12 @@ async function loadVentas(period, btn) {
 // ── Helpers para liquidación Go Rider ──────────────────────────
 // Go Rider: aliado SIEMPRE ve Total - Tarifa Go Rider (sin comisión).
 // Si el pago no es efectivo, el monto no se suma a caja (lo cobró Go Deli).
-function _isNonCashGR(o) { return o.delivery_method==='go_rider' && o.payment_method!=='cash'; }
-function _goRiderFee(o) { return o.delivery_method==='go_rider' ? (o.go_rider_platform_fee||2500) : 0; }
+function _isNonCashGR(o) { return o.order_type==='delivery' && o.delivery_method==='go_rider' && o.payment_method!=='cash'; }
+function _goRiderFee(o) { return (o.order_type==='delivery' && o.delivery_method==='go_rider') ? (o.go_rider_platform_fee||2500) : 0; }
 function _netGR(o) {
-  // Go Rider: Total - tarifa (sin comisión)
-  if (o.delivery_method === 'go_rider') return (o.total||0) - _goRiderFee(o);
-  // No Go Rider: Total (sin comisión ni tarifa para retiro/local/delivery propio)
+  // Go Rider delivery: Total - tarifa (sin comisión)
+  if (o.order_type === 'delivery' && o.delivery_method === 'go_rider') return (o.total||0) - _goRiderFee(o);
+  // Retiro / local / delivery propio: Total (sin comisión ni tarifa)
   return (o.total||0) - (o.platform_fee||0);
 }
 function _grossGR(o) { return (o.total||0); } // Aliado siempre ve el total completo
@@ -3372,8 +3372,8 @@ async function loadReporteGoDeliAliado(period, btn) {
   const riderFee = orders.reduce((s,o)=>s+_goRiderFee(o),0);
   const deductions = comm + riderFee;
   const net = orders.reduce((s,o)=>s+_netGR(o),0);
-  const goRider = orders.filter(o=>o.delivery_method==='go_rider').length;
-  const own = orders.filter(o=>o.delivery_method==='own').length;
+  const goRider = orders.filter(o=>o.order_type==='delivery'&&o.delivery_method==='go_rider').length;
+  const own = orders.filter(o=>o.order_type==='delivery'&&o.delivery_method==='own').length;
 
   document.getElementById('gd-orders').textContent = orders.length;
   document.getElementById('gd-gross').textContent = fmtCLP(gross);
@@ -3485,7 +3485,7 @@ async function loadFinanzasAliado(period, btn) {
     const c = ch.hasComm ? ch.orders.reduce((s,o)=>s+(o.platform_fee||0),0) : 0;
     const r = ch.orders.reduce((s,o)=>s+_goRiderFee(o),0);
     const n = ch.orders.reduce((s,o)=>s+_netGR(o),0);
-    const riders = ch.orders.filter(o=>o.delivery_method==='go_rider').length;
+    const riders = ch.orders.filter(o=>o.order_type==='delivery'&&o.delivery_method==='go_rider').length;
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <span style="font-size:24px">${ch.icon}</span><span style="font-weight:800;font-size:15px">${ch.name}</span>

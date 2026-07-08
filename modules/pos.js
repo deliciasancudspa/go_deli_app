@@ -1089,7 +1089,7 @@
       client_id: _selectedClientId || window.storeData.owner_id,
       order_source: _orderSource,
       order_mode: _orderMode,
-      delivery_method: _deliveryMethod,
+      delivery_method: orderType === 'delivery' ? _deliveryMethod : null,
       order_type: orderType,
       subtotal: dbSubtotal,
       delivery_fee: deliveryFee,

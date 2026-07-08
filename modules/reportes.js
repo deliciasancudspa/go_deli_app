@@ -91,21 +91,21 @@
   }
 
   function _goRiderFee(o) {
-    // Tarifa Go Rider $2.500 solo cuando el delivery lo hace un Rider.
-    // No aplica si el aliado usa repartidor propio o si es retiro/en local.
+    // Tarifa Go Rider $2.500 solo para delivery con Go Rider.
+    // No aplica a retiro, en local, ni delivery propio.
+    if (o.order_type !== 'delivery') return 0;
     return (o.delivery_method === 'go_rider') ? (o.go_rider_platform_fee || 2500) : 0;
   }
 
   function _isNonCashGoRider(o) {
-    // Pedido Go Rider pagado con método distinto a efectivo:
-    // Go Deli recibe el pago, el aliado igual ve el total en su reporte.
-    return o.delivery_method === 'go_rider' && o.payment_method !== 'cash';
+    // Pedido delivery con Go Rider pagado con método distinto a efectivo.
+    return o.order_type === 'delivery' && o.delivery_method === 'go_rider' && o.payment_method !== 'cash';
   }
 
   function _net(o) {
-    // Go Rider: Total - tarifa Go Rider (sin comisión)
-    if (o.delivery_method === 'go_rider') return (o.total || 0) - _goRiderFee(o);
-    // No Go Rider: Total - service_fee - comisión
+    // Delivery con Go Rider: Total - tarifa Go Rider (sin comisión)
+    if (o.order_type === 'delivery' && o.delivery_method === 'go_rider') return (o.total || 0) - _goRiderFee(o);
+    // Retiro / local / delivery propio: Total - service_fee - comisión
     return (o.total || 0) - (o.service_fee || 0) - _commission(o);
   }
 
@@ -156,7 +156,7 @@
       var servFee    = chOrders.reduce(function(s,o){return s+(o.service_fee||0);},0);
       var commTotal  = chOrders.reduce(function(s,o){return s+_commission(o);},0);
       var riderTotal = chOrders.reduce(function(s,o){return s+_goRiderFee(o);},0);
-      var riderCount = chOrders.filter(function(o){return o.delivery_method === 'go_rider';}).length;
+      var riderCount = chOrders.filter(function(o){return o.order_type === 'delivery' && o.delivery_method === 'go_rider';}).length;
       var net        = chOrders.reduce(function(s,o){return s+_net(o);},0);
       var count      = chOrders.length;
 
