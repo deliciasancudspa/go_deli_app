@@ -162,13 +162,21 @@ end $$;
 -- Valor inicial (sin despacho):  NULL
 do $$
 begin
-  -- Solo recrear si el constraint existe
+  -- Eliminar ambas variantes del constraint (con y sin 's')
   if exists (
     select 1 from pg_constraint
     where conname = 'order_rider_search_status_check'
       and conrelid = 'public.orders'::regclass
   ) then
     alter table public.orders drop constraint order_rider_search_status_check;
+  end if;
+
+  if exists (
+    select 1 from pg_constraint
+    where conname = 'orders_rider_search_status_check'
+      and conrelid = 'public.orders'::regclass
+  ) then
+    alter table public.orders drop constraint orders_rider_search_status_check;
   end if;
 
   -- Crear el constraint con todos los valores válidos
