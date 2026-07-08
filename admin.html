@@ -1109,7 +1109,10 @@ function _netAdmin(o){
     if(o.payment_method==='cash')return (o.total||0)-(o.service_fee||0)-_goRiderFee(o); // Rider cobró efectivo → Go Deli paga al aliado
     return -_goRiderFee(o); // Aliado cobró directo (débito/crédito/transf) → debe tarifa
   }
-  return (o.total||0)-(o.service_fee||0)-(o.platform_fee||0)-(o.fixed_fee||0);
+  // Comisión solo para pedidos de Go Deli (app/web)
+  const src = o.order_source || 'GO_DELI';
+  if (src === 'GO_DELI') return (o.total||0)-(o.service_fee||0)-(o.platform_fee||0)-(o.fixed_fee||0);
+  return (o.total||0)-(o.service_fee||0); // POS y otros: sin comisión ni fee fijo
 }
 function _grossAdmin(o){
   if(o.order_type==='delivery' && o.delivery_method==='go_rider' && o.payment_method!=='cash')return 0; // Aliado ya cobró directo

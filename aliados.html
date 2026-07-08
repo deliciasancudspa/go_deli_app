@@ -3348,10 +3348,12 @@ async function loadVentas(period, btn) {
 function _isNonCashGR(o) { return o.order_type==='delivery' && o.delivery_method==='go_rider' && o.payment_method!=='cash'; }
 function _goRiderFee(o) { return (o.order_type==='delivery' && o.delivery_method==='go_rider') ? (o.go_rider_platform_fee||2500) : 0; }
 function _netGR(o) {
-  // Go Rider delivery: Total - tarifa (sin comisión)
+  // Delivery con Go Rider: Total - tarifa (sin comisión)
   if (o.order_type === 'delivery' && o.delivery_method === 'go_rider') return (o.total||0) - _goRiderFee(o);
-  // Retiro / local / delivery propio: Total (sin comisión ni tarifa)
-  return (o.total||0) - (o.platform_fee||0);
+  // Solo Go Deli (app/web) paga comisión. POS y otros canales no.
+  const src = o.order_source || 'GO_DELI';
+  if (src === 'GO_DELI') return (o.total||0) - (o.platform_fee||0);
+  return (o.total||0); // POS, WhatsApp, etc.: sin comisión
 }
 function _grossGR(o) { return (o.total||0); } // Aliado siempre ve el total completo
 
@@ -3506,7 +3508,7 @@ async function loadFinanzasAliado(period, btn) {
     orders.slice(0,50).map(o=>{
       const ch = (o.order_source||'GO_DELI')==='POS'?'💻 POS':'🛵 GoDeli';
       const rf = _goRiderFee(o);
-      const cm = (o.order_source||'GO_DELI')==='POS'?0:(o.platform_fee||0);
+      const cm = (o.order_source||'GO_DELI')==='GO_DELI'?(o.platform_fee||0):0;
       const n = _netGR(o);
       return `<tr>
         <td style="font-family:monospace;font-size:11px">#${(o.id||'').slice(0,8)}</td>

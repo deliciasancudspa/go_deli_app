@@ -84,9 +84,10 @@
 
   // ── HELPERS ─────────────────────────────────────────────────────────────
   function _commission(o) {
-    // Comisión 8% solo para pedidos de la app Go Deli. POS = 0%.
+    // Comisión solo para pedidos de la app Go Deli.
+    // POS, WhatsApp, Instagram, etc. no pagan comisión.
     var src = o.order_source || 'GO_DELI';
-    if (src === 'POS') return 0;
+    if (src !== 'GO_DELI') return 0;
     return o.platform_fee || 0;
   }
 
