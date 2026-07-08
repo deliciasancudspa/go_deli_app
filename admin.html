@@ -617,6 +617,7 @@ tr:hover td{background:#FAFAFA;}
             <div style="display:flex;gap:8px;">
               <button class="btn btn-outline btn-sm" id="tab-btn-home" onclick="switchScreenTab('home')" style="background:var(--primary);color:#fff;border-color:var(--primary)">Inicio</button>
               <button class="btn btn-outline btn-sm" id="tab-btn-mercados" onclick="switchScreenTab('mercados')">Mercados</button>
+              <button class="btn btn-outline btn-sm" id="tab-btn-servicios" onclick="switchScreenTab('servicios')">Servicios</button>
             </div>
             <button class="btn btn-primary" onclick="openSectionModal()">+ Agregar sección</button>
           </div>
@@ -3962,12 +3963,14 @@ let _pickingProductForStoreId = null; // id de la tienda cuyo producto se está 
 
 function switchScreenTab(tab) {
   currentScreenTab = tab;
-  document.getElementById('tab-btn-home').style.background = tab==='home' ? 'var(--primary)' : '';
-  document.getElementById('tab-btn-home').style.color = tab==='home' ? '#fff' : '';
-  document.getElementById('tab-btn-home').style.borderColor = tab==='home' ? 'var(--primary)' : '';
-  document.getElementById('tab-btn-mercados').style.background = tab==='mercados' ? 'var(--primary)' : '';
-  document.getElementById('tab-btn-mercados').style.color = tab==='mercados' ? '#fff' : '';
-  document.getElementById('tab-btn-mercados').style.borderColor = tab==='mercados' ? 'var(--primary)' : '';
+  ['home','mercados','servicios'].forEach(t => {
+    const btn = document.getElementById('tab-btn-'+t);
+    if (!btn) return;
+    const active = tab === t;
+    btn.style.background = active ? 'var(--primary)' : '';
+    btn.style.color = active ? '#fff' : '';
+    btn.style.borderColor = active ? 'var(--primary)' : '';
+  });
   loadSections(tab);
 }
 
