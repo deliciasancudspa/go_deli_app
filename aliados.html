@@ -3663,15 +3663,18 @@ async function saveDeliveryConfig() {
       showToast('La suma debe ser exactamente $2.500', 'error'); return;
     }
   }
+  const totalFee = storeAbsorbs + clientPays;
   const { error } = await sb.from('stores').update({
     delivery_fee_mode:   currentFeeMode,
     delivery_fee_store:  storeAbsorbs,
     delivery_fee_client: clientPays,
+    delivery_fee:        totalFee,
   }).eq('id', storeData.id);
   if (error) { showToast('Error: '+error.message,'error'); return; }
   storeData.delivery_fee_mode   = currentFeeMode;
   storeData.delivery_fee_store  = storeAbsorbs;
   storeData.delivery_fee_client = clientPays;
+  storeData.delivery_fee        = totalFee;
   showToast('Configuración de delivery guardada ✓');
   updateFeePreview();
 }

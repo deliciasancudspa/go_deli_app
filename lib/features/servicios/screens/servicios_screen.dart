@@ -181,7 +181,7 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
           .select()
           .eq("is_active", true)
           .eq("status", "approved");
-      if (_communeId != null) query = query.eq("commune_id", _communeId!);
+      if (_communeId != null) query = query.or("commune_id.eq.${_communeId!},commune_id.is.null");
       if (_catKey != "Todo") query = query.eq("category", _catKey);
       final raw = await query;
       final list = List<Map<String, dynamic>>.from(raw as List);

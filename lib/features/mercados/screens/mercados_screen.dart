@@ -191,8 +191,11 @@ class _MercadosScreenState extends State<MercadosScreen> {
     }
 
     try {
-      // 1 – stores
-      var storesQuery = _sb.from("stores").select().eq("is_active", true).eq("status", "approved");
+      // 1 – stores: solo mercados y farmacias
+      var storesQuery = _sb.from("stores").select()
+          .eq("is_active", true)
+          .eq("status", "approved")
+          .inFilter("store_type", ["mercado", "farmacia"]);
       if (_communeId != null) storesQuery = storesQuery.eq("commune_id", _communeId!);
       final storesRaw = await storesQuery;
 
