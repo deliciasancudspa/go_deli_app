@@ -82,13 +82,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── 5-min in-memory cache ─────────────────────────────────────────────────
   static List<Map<String, dynamic>>? _cachedCategories;
-  static List<Map<String, dynamic>>? _cachedBanners;
   static DateTime? _catCachedAt;
-  static DateTime? _bannerCachedAt;
   static const _ttl = Duration(minutes: 5);
 
   bool get _catStale    => _catCachedAt    == null || DateTime.now().difference(_catCachedAt!)    > _ttl;
-  bool get _bannerStale => _bannerCachedAt == null || DateTime.now().difference(_bannerCachedAt!) > _ttl;
 
   // ── Getters ───────────────────────────────────────────────────────────────
   List<Map<String, dynamic>> get _featuredStores => _cachedFeatured;
@@ -294,37 +291,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _catCachedAt = DateTime.now();
       }
 
-      // Banners (cached 5 min, date/commune filter client-side)
-      if (forceRefreshCache || _bannerStale) {
-        final now = DateTime.now().toUtc();
-        final raw = await _sb.from("banners")
-            .select()
-            .eq("is_active", true)
-            .eq("banner_type", "web_home")
-            .order("sort_order")
-            .limit(20); // Fetch de más para filtrar fechas/comunas
-        _cachedBanners = (raw as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .where((b) {
-              // Date range filter
-              final startDate = b['start_date'] as String?;
-              final endDate   = b['end_date']   as String?;
-              if (startDate != null && startDate.isNotEmpty) {
-                try { if (now.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
-              }
-              if (endDate != null && endDate.isNotEmpty) {
-                try { if (now.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
-              }
-              // Commune filter: global (null) or matches user commune
-              if (_userCommuneId != null) {
-                final bCommune = b['commune_id'] as String?;
-                if (bCommune != null && bCommune != _userCommuneId) return false;
-              }
-              return true;
-            }).toList();
-        _bannerCachedAt = DateTime.now();
-      }
-
       // Stores: filtrar por comuna (si no hay comuna, mostrar todas)
       List<dynamic> storesRaw;
       if (_userCommuneId != null) {
@@ -381,38 +347,40 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
-      // Banners asignados a secciones: excluirlos del carrusel principal
+      // Todos los banners de esta pantalla vienen de home_sections (Pantallas
+      // del admin). Ya no se filtran por banner_type — solo importa el screen
+      // configurado en la sección.
       final sectionBannerIds = sections
           .where((s) => s.sectionType == 'banner' && s.bannerId != null)
           .map((s) => s.bannerId!)
           .toSet();
-      final carouselBanners = (List<Map<String, dynamic>>.from(_cachedBanners ?? []))
-          .where((b) => !sectionBannerIds.contains(b['id'] as String?))
-          .toList();
-
-      // Cargar banners de secciones que no estén en _cachedBanners (pueden
-      // tener cualquier banner_type, no solo "web_home").
       Map<String, Map<String, dynamic>> sectionBannersMap = {};
-      final missingBannerIds = sectionBannerIds
-          .where((id) => !(_cachedBanners ?? []).any((b) => b['id'] == id))
-          .toList();
-      if (missingBannerIds.isNotEmpty) {
+      if (sectionBannerIds.isNotEmpty) {
         try {
-          final extraBanners = await _sb.from("banners")
+          final now = DateTime.now().toUtc();
+          final allBanners = await _sb.from("banners")
               .select()
-              .inFilter("id", missingBannerIds)
+              .inFilter("id", sectionBannerIds.toList())
               .eq("is_active", true);
-          for (final b in (extraBanners as List).cast<Map<String, dynamic>>()) {
+          for (final b in (allBanners as List).cast<Map<String, dynamic>>()) {
+            // Date range filter
+            final startDate = b['start_date'] as String?;
+            final endDate   = b['end_date']   as String?;
+            if (startDate != null && startDate.isNotEmpty) {
+              try { if (now.isBefore(DateTime.parse(startDate))) continue; } catch (_) {}
+            }
+            if (endDate != null && endDate.isNotEmpty) {
+              try { if (now.isAfter(DateTime.parse(endDate))) continue; } catch (_) {}
+            }
             sectionBannersMap[b['id'] as String] = b;
           }
         } catch (_) {}
       }
-      // Incluir también los que sí están en caché
-      for (final b in (_cachedBanners ?? [])) {
-        if (sectionBannerIds.contains(b['id'] as String?)) {
-          sectionBannersMap[b['id'] as String] = b;
-        }
-      }
+
+      // El carrusel usa los mismos banners de las secciones, ordenados
+      final carouselBanners = sectionBannersMap.values.toList()
+        ..sort((a, b) => ((a['sort_order'] as num?)?.toInt() ?? 0)
+            .compareTo((b['sort_order'] as num?)?.toInt() ?? 0));
 
       if (mounted) setState(() {
         _categories    = List<Map<String, dynamic>>.from(_cachedCategories ?? []);
@@ -624,6 +592,9 @@ class _HomeScreenState extends State<HomeScreen> {
         // ── Banners ──────────────────────────────────────────────────────────
         SliverToBoxAdapter(child: _loadingHome ? _bannerShimmer() : _buildBanners()),
 
+        // Espacio entre banners y categorías
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
         // ── Categorías ───────────────────────────────────────────────────────
         const SliverToBoxAdapter(child: Padding(
           padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
@@ -747,7 +718,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBanners() {
     if (_banners.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 20),
       child: Column(children: [
         AspectRatio(
           aspectRatio: 2,
@@ -1003,7 +974,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? Text("Envío gratis",
                         style: TextStyle(fontSize: 11, color: _kPurple, fontWeight: FontWeight.w700))
                     : hasOwnDelivery(store)
-                        ? Text("Delivery propio",
+                        ? Text(fee > 0 ? "Delivery propio · \$${fee.toStringAsFixed(0)}" : "Delivery propio",
                             style: TextStyle(fontSize: 11, color: _kPurple, fontWeight: FontWeight.w700))
                         : Text("\$${fee.toStringAsFixed(0)}",
                             style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
@@ -1202,7 +1173,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   Builder(builder: (_) {
                     final cf = (s["delivery_fee_client"] as num?)?.toInt() ?? 0;
                     final own = hasOwnDelivery(s);
-                    return Text(own ? "  Delivery propio" : (cf == 0 ? "  Gratis" : "  \$$cf"),
+                    final label = own
+                        ? (cf > 0 ? "  Delivery propio · \$$cf" : "  Delivery propio")
+                        : (cf == 0 ? "  Gratis" : "  \$$cf");
+                    return Text(label,
                         style: TextStyle(fontSize: 12, color: (cf == 0 || own) ? _kPurple : AppColors.textLight, fontWeight: (cf == 0 || own) ? FontWeight.w700 : FontWeight.normal));
                   }),
                 ]),
@@ -1281,16 +1255,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBannerSection(_HomeSection sec) {
     // Mostrar solo el banner específico de esta sección, no todos los banners
     if (sec.bannerId == null) return const SizedBox.shrink();
-    // Buscar primero en _sectionBanners (cargados específicamente para secciones,
-    // sin filtrar por banner_type), luego en _cachedBanners como fallback.
-    Map<String, dynamic> banner = _sectionBanners[sec.bannerId!] ?? {};
-    if (banner.isEmpty) {
-      banner = (_cachedBanners ?? <Map<String, dynamic>>[]).firstWhere(
-        (b) => b['id'] == sec.bannerId,
-        orElse: () => <String, dynamic>{},
-      );
-    }
-    if (banner.isEmpty) return const SizedBox.shrink();
+    // Todos los banners vienen de home_sections → _sectionBanners
+    final banner = _sectionBanners[sec.bannerId!];
+    if (banner == null) return const SizedBox.shrink();
     final imgUrl = banner["image_url"] as String?;
     Color bg = _kOrange;
     try {

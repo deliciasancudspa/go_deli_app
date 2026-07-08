@@ -33,12 +33,6 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
   static const _catTtl    = Duration(minutes: 30);
   static final Map<String, _CacheEntry> _cache = {};
 
-  // Banner cache
-  static List<Map<String, dynamic>>? _cachedBanners;
-  static DateTime?                   _bannerCachedAt;
-  bool get _bannerStale => _bannerCachedAt == null ||
-      DateTime.now().difference(_bannerCachedAt!) > _bannerTtl;
-
   // Category cache — ahora usa tabla categories con filtro screens='servicios'
   static List<Map<String, dynamic>>? _cachedServiceCats;
   static DateTime?                   _catCachedAt;
@@ -105,35 +99,9 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
   }
 
   Future<void> _loadData({bool forceRefresh = false}) async {
-    // Load banners (5-min cache, date-filtered client-side)
-    if (forceRefresh || _bannerStale) {
-      try {
-        final now = DateTime.now().toUtc();
-        final raw = await _sb.from("banners")
-            .select()
-            .eq("is_active", true)
-            .eq("banner_type", "web_servicios")
-            .order("sort_order")
-            .limit(10);
-        _cachedBanners = (raw as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .where((b) {
-              final startDate = b['start_date'] as String?;
-              final endDate   = b['end_date']   as String?;
-              if (startDate != null && startDate.isNotEmpty) {
-                try { if (now.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
-              }
-              if (endDate != null && endDate.isNotEmpty) {
-                try { if (now.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
-              }
-              return true;
-            }).toList();
-        _bannerCachedAt = DateTime.now();
-      } catch (_) {}
-    }
-    if (mounted) setState(() => _banners = List<Map<String,dynamic>>.from(_cachedBanners ?? []));
-
-    // Load section banners from home_sections (any banner_type, not just web_servicios)
+    // Todos los banners de esta pantalla vienen de home_sections (Pantallas
+    // del admin). Ya no se filtran por banner_type — solo importa el screen
+    // configurado en la sección.
     try {
       final sectionsRaw = await _sb.from("home_sections")
           .select("id, banner_id")
@@ -146,28 +114,33 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
           .map((s) => s["banner_id"] as String)
           .toSet();
       if (sectionBannerIds.isNotEmpty) {
-        final now2 = DateTime.now().toUtc();
-        final extraRaw = await _sb.from("banners")
+        final now = DateTime.now().toUtc();
+        final allBanners = await _sb.from("banners")
             .select()
             .inFilter("id", sectionBannerIds.toList())
             .eq("is_active", true);
-        final sectionBanners = (extraRaw as List<dynamic>)
+        final bannersList = (allBanners as List<dynamic>)
             .cast<Map<String, dynamic>>()
             .where((b) {
               final startDate = b['start_date'] as String?;
               final endDate   = b['end_date']   as String?;
               if (startDate != null && startDate.isNotEmpty) {
-                try { if (now2.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
+                try { if (now.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
               }
               if (endDate != null && endDate.isNotEmpty) {
-                try { if (now2.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
+                try { if (now.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
               }
               return true;
-            }).toList();
-        if (mounted) setState(() => _sectionBanners = sectionBanners);
+            }).toList()
+          ..sort((a, b) => ((a['sort_order'] as num?)?.toInt() ?? 0)
+              .compareTo((b['sort_order'] as num?)?.toInt() ?? 0));
+        if (mounted) setState(() {
+          _banners = bannersList;
+          _sectionBanners = bannersList;
+        });
       }
     } catch (_) {
-      debugPrint('Servicios section banners load error');
+      debugPrint('Servicios banners load error');
     }
 
     // Load categories filtradas por screens='servicios' (misma tabla que home/mercados)
@@ -545,10 +518,6 @@ class _ServiciosScreenState extends State<ServiciosScreen> {
           // Promo banners (if any)
           if (!_loading && _banners.isNotEmpty)
             SliverToBoxAdapter(child: _buildBannersWidget()),
-
-          // Section banners from home_sections (admin-configured, any banner_type)
-          if (!_loading)
-            ..._sectionBanners.map((b) => SliverToBoxAdapter(child: _buildSectionBannerCard(b))),
 
           // Provider list / shimmer / empty
           if (_loading)

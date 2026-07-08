@@ -52,13 +52,6 @@ class _MercadosScreenState extends State<MercadosScreen> {
   static final Map<String, _CacheEntry> _cache = {};
   static const _ttl = Duration(minutes: 3);
 
-  // Banner cache
-  static List<Map<String, dynamic>>? _cachedBanners;
-  static DateTime?                   _bannerCachedAt;
-  static const _bannerTtl = Duration(minutes: 5);
-  bool get _bannerStale => _bannerCachedAt == null ||
-      DateTime.now().difference(_bannerCachedAt!) > _bannerTtl;
-
   // Category cache (30-min)
   static List<Map<String, dynamic>>? _cachedMainCats;
   static DateTime?                   _catCachedAt;
@@ -114,35 +107,9 @@ class _MercadosScreenState extends State<MercadosScreen> {
   Future<void> _loadData({bool forceRefresh = false}) async {
     if (mounted) setState(() { _loading = true; _activeSubCat = null; });
 
-    // Load banners (5-min cache, date-filtered client-side)
-    if (forceRefresh || _bannerStale) {
-      try {
-        final now = DateTime.now().toUtc();
-        final raw = await _sb.from("banners")
-            .select()
-            .eq("is_active", true)
-            .eq("banner_type", "web_mercados")
-            .order("sort_order")
-            .limit(10);
-        _cachedBanners = (raw as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .where((b) {
-              final startDate = b['start_date'] as String?;
-              final endDate   = b['end_date']   as String?;
-              if (startDate != null && startDate.isNotEmpty) {
-                try { if (now.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
-              }
-              if (endDate != null && endDate.isNotEmpty) {
-                try { if (now.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
-              }
-              return true;
-            }).toList();
-        _bannerCachedAt = DateTime.now();
-      } catch (_) {}
-    }
-    if (mounted) setState(() => _banners = List<Map<String,dynamic>>.from(_cachedBanners ?? []));
-
-    // Load section banners from home_sections (any banner_type, not just web_mercados)
+    // Todos los banners de esta pantalla vienen de home_sections (Pantallas
+    // del admin). Ya no se filtran por banner_type — solo importa el screen
+    // configurado en la sección.
     try {
       final sectionsRaw = await _sb.from("home_sections")
           .select("id, banner_id")
@@ -155,28 +122,33 @@ class _MercadosScreenState extends State<MercadosScreen> {
           .map((s) => s["banner_id"] as String)
           .toSet();
       if (sectionBannerIds.isNotEmpty) {
-        final now2 = DateTime.now().toUtc();
-        final extraRaw = await _sb.from("banners")
+        final now = DateTime.now().toUtc();
+        final allBanners = await _sb.from("banners")
             .select()
             .inFilter("id", sectionBannerIds.toList())
             .eq("is_active", true);
-        final sectionBanners = (extraRaw as List<dynamic>)
+        final bannersList = (allBanners as List<dynamic>)
             .cast<Map<String, dynamic>>()
             .where((b) {
               final startDate = b['start_date'] as String?;
               final endDate   = b['end_date']   as String?;
               if (startDate != null && startDate.isNotEmpty) {
-                try { if (now2.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
+                try { if (now.isBefore(DateTime.parse(startDate))) return false; } catch (_) {}
               }
               if (endDate != null && endDate.isNotEmpty) {
-                try { if (now2.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
+                try { if (now.isAfter(DateTime.parse(endDate))) return false; } catch (_) {}
               }
               return true;
-            }).toList();
-        if (mounted) setState(() => _sectionBanners = sectionBanners);
+            }).toList()
+          ..sort((a, b) => ((a['sort_order'] as num?)?.toInt() ?? 0)
+              .compareTo((b['sort_order'] as num?)?.toInt() ?? 0));
+        if (mounted) setState(() {
+          _banners = bannersList;
+          _sectionBanners = bannersList;
+        });
       }
     } catch (_) {
-      debugPrint('Mercados section banners load error');
+      debugPrint('Mercados banners load error');
     }
 
     // Load main categories from DB (30-min cache)
@@ -715,8 +687,6 @@ class _MercadosScreenState extends State<MercadosScreen> {
     }
     return [
       if (_banners.isNotEmpty) SliverToBoxAdapter(child: _buildBannersWidget()),
-      // Section banners from home_sections (admin-configured, any banner_type)
-      ..._sectionBanners.map((b) => SliverToBoxAdapter(child: _buildSectionBannerCard(b))),
       if (_loadingProds)
         const SliverToBoxAdapter(
           child: LinearProgressIndicator(
@@ -805,7 +775,7 @@ class _MercadosScreenState extends State<MercadosScreen> {
                       style: TextStyle(color: AppColors.textLight, fontSize: 11)),
                   hasOwnDelivery(store)
                       ? Flexible(
-                          child: Text("Delivery propio",
+                          child: Text(fee > 0 ? "Delivery propio · ${_fmt(fee)}" : "Delivery propio",
                               maxLines: 1, overflow: TextOverflow.ellipsis,
                               style: TextStyle(fontSize: 11,
                                   color: _kPurple, fontWeight: FontWeight.w700)))

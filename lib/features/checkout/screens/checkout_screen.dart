@@ -306,40 +306,64 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _loadStore() async {
-    final cart = context.read<CartProvider>();
-    final store = await _sb.from("stores")
-        .select("*, lat, lng, delivery_fee_mode, delivery_fee_store, delivery_fee_client")
-        .eq("id", widget.storeId)
-        .single();
-    // La receta se exige por PRODUCTO (requires_prescription), sin depender
-    // del nombre de categoría de la tienda — las farmacias suelen tener
-    // categorías múltiples ("Medicamentos,Vitaminas y Suplementos,…").
-    final storeItems = cart.getItemsForStore(widget.storeId);
-    bool needsRx = false;
-    if (storeItems.isNotEmpty) {
-      // los ids del carrito pueden ser compuestos (id__variante)
-      final ids = storeItems.map((i) => i.id.split("__").first).toSet().toList();
-      final menuItems = await _sb.from("menu_items")
-        .select("id, requires_prescription")
-        .inFilter("id", ids);
-      needsRx = List<Map<String, dynamic>>.from(menuItems)
-        .any((m) => m["requires_prescription"] == true);
+    try {
+      final cart = context.read<CartProvider>();
+      final store = await _sb.from("stores")
+          .select("*, lat, lng, delivery_fee_mode, delivery_fee_store, delivery_fee_client")
+          .eq("id", widget.storeId)
+          .single();
+      // La receta se exige por PRODUCTO (requires_prescription), sin depender
+      // del nombre de categoría de la tienda — las farmacias suelen tener
+      // categorías múltiples ("Medicamentos,Vitaminas y Suplementos,…").
+      final storeItems = cart.getItemsForStore(widget.storeId);
+      bool needsRx = false;
+      if (storeItems.isNotEmpty) {
+        // los ids del carrito pueden ser compuestos (id__variante)
+        final ids = storeItems.map((i) => i.id.split("__").first).toSet().toList();
+        final menuItems = await _sb.from("menu_items")
+          .select("id, requires_prescription")
+          .inFilter("id", ids);
+        needsRx = List<Map<String, dynamic>>.from(menuItems)
+          .any((m) => m["requires_prescription"] == true);
+      }
+      if (mounted) setState(() { _storeData = store; _needsPrescription = needsRx; });
+      _updateDistance();
+    } catch (e) {
+      debugPrint('_loadStore error: $e');
     }
-    if (mounted) setState(() { _storeData = store; _needsPrescription = needsRx; });
-    _updateDistance();
+  }
+
+  /// Parsea lat o lng desde la BD manejando int, double y String.
+  double? _parseCoord(dynamic val) {
+    if (val == null) return null;
+    if (val is double) return val;
+    if (val is int) return val.toDouble();
+    if (val is num) return val.toDouble();
+    if (val is String) {
+      final d = double.tryParse(val);
+      if (d != null) return d;
+    }
+    return null;
   }
 
   void _updateDistance() {
-    if (_deliveryLat == null || _deliveryLng == null || _storeData == null) return;
-    final storeLat = (_storeData!["lat"] as num?)?.toDouble();
-    final storeLng = (_storeData!["lng"] as num?)?.toDouble();
+    if (_deliveryLat == null || _deliveryLng == null || _storeData == null) {
+      debugPrint('_updateDistance: early return — lat=$_deliveryLat lng=$_deliveryLng store=${_storeData != null}');
+      return;
+    }
+    final storeLat = _parseCoord(_storeData!["lat"]);
+    final storeLng = _parseCoord(_storeData!["lng"]);
+    debugPrint('_updateDistance: storeLat=$storeLat storeLng=$storeLng userLat=$_deliveryLat userLng=$_deliveryLng');
     if (storeLat == null || storeLng == null) {
       // Fallback: geocodificar la dirección de la tienda si no tiene coordenadas
+      debugPrint('_updateDistance: store sin coordenadas, intentando geocoding...');
       _geocodeStoreAddress();
       return;
     }
+    final dist = Geolocator.distanceBetween(storeLat, storeLng, _deliveryLat!, _deliveryLng!);
+    debugPrint('_updateDistance: distancia calculada = $dist m');
     setState(() {
-      _distanceMeters = Geolocator.distanceBetween(storeLat, storeLng, _deliveryLat!, _deliveryLng!);
+      _distanceMeters = dist;
     });
   }
 
@@ -528,14 +552,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final fixedFee   = (_storeData?["fixed_fee"] ?? 2500) as num;
       int delivFee = 0, riderFee = 0, storeDelivFee = 0, platformDelivFee = 0, serviceFee = 0;
       final ownDelivery = hasOwnDelivery(_storeData);
-      if (_deliveryType == "delivery" && !ownDelivery) {
-        final dist = _distanceMeters ?? 0.0;
-        final fees = _calcAllFees(dist);
-        delivFee       = fees.client;
-        riderFee       = fees.rider;
-        storeDelivFee  = fees.storeAbsorbs;
-        platformDelivFee = fees.platform;
-        serviceFee     = _calcServiceFee(dist);
+      if (_deliveryType == "delivery") {
+        if (ownDelivery) {
+          delivFee = ((_storeData?["delivery_fee_client"] as num?)?.toInt() ?? 0);
+        } else {
+          final dist = _distanceMeters ?? 0.0;
+          final fees = _calcAllFees(dist);
+          delivFee       = fees.client;
+          riderFee       = fees.rider;
+          storeDelivFee  = fees.storeAbsorbs;
+          platformDelivFee = fees.platform;
+          serviceFee     = _calcServiceFee(dist);
+        }
       }
       // Fórmula validada por el trigger validate_order_amounts:
       //   total = subtotal + delivery_fee + service_fee
@@ -838,6 +866,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     String? delivLabel;
     if (_deliveryType == "delivery") {
       if (hasOwnDelivery(_storeData)) {
+        final clientFee = (_storeData?["delivery_fee_client"] as num?)?.toInt() ?? 0;
+        delivFee  = clientFee;
         delivLabel = "🚗 Delivery propio";
       } else if (_distanceMeters != null) {
         delivFee  = _calcAllFees(_distanceMeters!).client;

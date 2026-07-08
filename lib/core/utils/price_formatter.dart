@@ -43,7 +43,13 @@ bool hasOwnDelivery(Map<String, dynamic>? store) {
     } catch (_) {}
   }
 
+  // Si delivery_methods existe (en cualquier formato) pero no contiene 'own',
+  // NO debe caer al fallback de delivery_priority. Este fallback solo aplica
+  // cuando delivery_methods es null/ausente.
+  if (methods != null) return false;
+
   // Fallback: delivery_priority como string ('own' | 'go_rider' | 'both')
+  // Solo se usa si no hay delivery_methods configurado.
   final priority = store['delivery_priority'];
   if (priority is String) return priority == 'own';
 
