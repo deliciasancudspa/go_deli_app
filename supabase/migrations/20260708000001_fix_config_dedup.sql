@@ -3,18 +3,15 @@
 -- ============================================================================
 -- Problema: saveConfig() usaba upsert sin onConflict, creando nuevas filas
 -- cada vez. Esto rompía maybeSingle() en Flutter y web.
+-- La tabla config es key-value: columnas key (text) y value (text/jsonb).
+-- No tiene columna id ni created_at.
 -- ============================================================================
 
--- 1. Eliminar duplicados: conservar solo la fila más reciente (mayor created_at o id)
-delete from public.config
-where id in (
-  select id from (
-    select id,
-           row_number() over (partition by key order by created_at desc nulls last, id desc) as rn
-    from public.config
-  ) ranked
-  where rn > 1
-);
+-- 1. Eliminar duplicados: conservar solo UNA fila por cada key (la primera)
+delete from public.config a
+using public.config b
+where a.key = b.key
+  and a.ctid < b.ctid;
 
 -- 2. Agregar UNIQUE constraint en key para prevenir futuros duplicados
 --    (solo si no existe ya)
