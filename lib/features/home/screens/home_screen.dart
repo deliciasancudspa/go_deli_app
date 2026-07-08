@@ -377,14 +377,11 @@ class _HomeScreenState extends State<HomeScreen> {
         } catch (_) {}
       }
 
-      // El carrusel usa los mismos banners de las secciones, ordenados
-      final carouselBanners = sectionBannersMap.values.toList()
-        ..sort((a, b) => ((a['sort_order'] as num?)?.toInt() ?? 0)
-            .compareTo((b['sort_order'] as num?)?.toInt() ?? 0));
-
+      // Las secciones de tipo banner se renderizan en su posición vía
+      // _buildBannerSection(). El carrusel superior NO debe duplicarlas.
       if (mounted) setState(() {
         _categories    = List<Map<String, dynamic>>.from(_cachedCategories ?? []);
-        _banners       = carouselBanners;
+        _banners       = []; // sin carrusel — los banners van en sus secciones
         _allStores     = allStoresList;
         _homeSections  = sections;
         _featuredItems = featItems;
