@@ -895,6 +895,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         delivFee  = min(clientFee, _kMaxClient.toInt());
         delivLabel = "🛵 Envío";
       }
+    } else {
+      // Pickup: sin delivery_fee, con tarifa de servicio fija
+      delivLabel = "🏪 Retiro";
+      serviceFee = _pickupServiceFee;
     }
     // Fórmula validada por el trigger validate_order_amounts:
     //   total = subtotal + delivery_fee + service_fee
@@ -1073,7 +1077,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 outOfRange ? "Fuera de cobertura" : delivFee == 0 ? "Gratis" : _fmt(delivFee),
                 color: outOfRange ? AppColors.error : delivFee == 0 ? AppColors.success : null,
               ),
-            if (_deliveryType == "delivery" && !outOfRange)
+            if (_deliveryType == "pickup")
+              _summaryRow("🏪 Retiro", "Gratis", color: AppColors.success),
+            // Tarifa de servicio: visible en delivery (por distancia) y pickup (fija)
+            if ((_deliveryType == "delivery" && !outOfRange) || _deliveryType == "pickup")
               _summaryRow("Tarifa de servicio Go Deli", serviceFee > 0 ? _fmt(serviceFee) : "Incluido",
                   color: serviceFee == 0 ? AppColors.success : null),
             const Divider(thickness: 2),

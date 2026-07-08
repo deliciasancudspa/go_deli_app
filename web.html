@@ -2443,7 +2443,7 @@ async function renderCheckoutTotals() {
     serviceFee = platformConfig.pickup_service_fee || 0;
   }
 
-  const serviceHTML = serviceFee > 0 ? `<div class="summary-item"><span>Tarifa de servicio</span><span>${fmtCLP(serviceFee)}</span></div>` : '';
+  const serviceHTML = `<div class="summary-item"><span>Tarifa de servicio</span><span>${serviceFee > 0 ? fmtCLP(serviceFee) : '<span style="color:var(--success)">Incluido</span>'}</span></div>`;
   const total = finalSub + deliveryClientFee + serviceFee;
   document.getElementById('checkout-totals').innerHTML = `
     <div class="summary-item"><span>Subtotal</span><span>${fmtCLP(subtotal)}</span></div>
