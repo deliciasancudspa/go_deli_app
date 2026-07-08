@@ -1100,20 +1100,20 @@ function fmtDate(d){if(!d)return'-';return new Date(d).toLocaleString('es-CL',{d
 function fmtDateOnly(d){if(!d)return'-';return new Date(d).toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});}
 
 // ── Helpers liquidación Go Rider (perspectiva admin = liquidación) ──
-// - Efectivo: aliado ya cobró → debe la tarifa Go Rider (net = -$2.500)
-// - No efectivo: Go Deli cobró → transfiere Total - tarifa al aliado
+// - Efectivo: Rider cobra → dinero va a Go Deli → Go Deli pagará Total - tarifa al aliado
+// - No efectivo (débito/crédito/transf): Aliado cobra directo → debe la tarifa Go Rider
 function _isNonCashGR(o){return o.delivery_method==='go_rider'&&o.payment_method!=='cash';}
 function _goRiderFee(o){return o.delivery_method==='go_rider'?(o.go_rider_platform_fee||2500):0;}
 function _netAdmin(o){
   if(o.delivery_method==='go_rider'){
-    if(o.payment_method==='cash')return -_goRiderFee(o); // Aliado ya tiene el efectivo → debe tarifa
-    return (o.total||0)-(o.service_fee||0)-_goRiderFee(o); // Go Deli cobró → pagará Total - tarifa
+    if(o.payment_method==='cash')return (o.total||0)-(o.service_fee||0)-_goRiderFee(o); // Rider cobró efectivo → Go Deli paga al aliado
+    return -_goRiderFee(o); // Aliado cobró directo (débito/crédito/transf) → debe tarifa
   }
   return (o.total||0)-(o.service_fee||0)-(o.platform_fee||0)-(o.fixed_fee||0);
 }
 function _grossAdmin(o){
-  if(o.delivery_method==='go_rider' && o.payment_method==='cash')return 0; // Aliado ya lo cobró
-  return (o.total||0)-(o.service_fee||0); // Go Deli lo cobró o es no-GoRider
+  if(o.delivery_method==='go_rider' && o.payment_method!=='cash')return 0; // Aliado ya cobró directo
+  return (o.total||0)-(o.service_fee||0); // Rider cobró para Go Deli, o no es Go Rider
 }
 
 function showToast(msg,type='success'){
