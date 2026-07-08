@@ -94,8 +94,9 @@ begin
         v_base_fee     := coalesce((v_config->>'base_fee')::int, 2000);
         v_fee_per_100m := coalesce((v_config->>'fee_per_100m')::int, 35);
 
-        -- rider_fee = base_fee + (distancia_m / 100) * fee_per_100m
-        new.rider_fee := v_base_fee + round((v_distance / 100.0) * v_fee_per_100m);
+        -- rider_fee = base_fee + ceil(distancia_m / 100) * fee_per_100m
+        -- (ceil para consistencia con cliente Flutter y web.html)
+        new.rider_fee := v_base_fee + ceil(v_distance / 100.0) * v_fee_per_100m;
       end if;
     end if;
   end if;

@@ -2398,7 +2398,7 @@ function onPrescriptionPicked(input) {
   prev.style.display = 'block';
 }
 
-function renderCheckoutTotals() {
+async function renderCheckoutTotals() {
   const subtotal = cart.reduce((s,c) => s+c.price*c.qty, 0);
   const store    = allStores.find(s => s.id === cartStoreId);
   const discount = Math.round(subtotal * couponDiscount);
@@ -2438,7 +2438,9 @@ function renderCheckoutTotals() {
       }
     }
   } else {
+    // Pickup: sin delivery_fee, con tarifa de servicio fija (configurada por admin)
     deliveryHTML = `<div class="summary-item" style="color:var(--success)"><span>🛵 Envío</span><span>Gratis (retiro)</span></div>`;
+    serviceFee = platformConfig.pickup_service_fee || 0;
   }
 
   const serviceHTML = serviceFee > 0 ? `<div class="summary-item"><span>Tarifa de servicio</span><span>${fmtCLP(serviceFee)}</span></div>` : '';
@@ -2471,6 +2473,19 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
 // Defaults: base 1500 desde 0 km, 35 por cada 0.1 km, máximo 8 km.
 const DEFAULT_SERVICE_FEES = { upto3:0, upto4:480, upto5:880, upto6:990, upto7:1250, upto8:1490 };
 let deliveryConfig = { base_fee: 1500, fee_per_100m: 35, max_distance_km: 8, service_fees: { ...DEFAULT_SERVICE_FEES } };
+let platformConfig = { pickup_service_fee: 0 }; // tasa fija retiro (configurable por admin)
+
+async function loadPlatformConfig() {
+  try {
+    const r = await sb.from('config').select('value').eq('key', 'platform_config').maybeSingle();
+    if (r.data?.value) {
+      const pc = JSON.parse(r.data.value);
+      platformConfig = {
+        pickup_service_fee: Number(pc.pickup_service_fee) || 0,
+      };
+    }
+  } catch(e) { console.error('loadPlatformConfig:', e); }
+}
 
 async function loadDeliveryConfig() {
   try {
@@ -2592,6 +2607,9 @@ async function placeOrder() {
       storeAbsorbs = store?.delivery_fee_store  ?? 2500;
       riderFee     = deliveryConfig.base_fee; // base sin distancia calculada
     }
+  } else {
+    // Pickup: tarifa de servicio fija (configurada por admin)
+    serviceFee = platformConfig.pickup_service_fee || 0;
   }
 
   const btn = document.getElementById('place-order-btn');
@@ -4536,6 +4554,7 @@ let _deepLinkActive = false;
   _deepLinkActive = true;
   window.history.replaceState({}, '', window.location.pathname);
   await loadDeliveryConfig();
+  await loadPlatformConfig();
   const { data: { session } } = await sb.auth.getSession();
   if (session) { await loadUserProfile(session.user.id); updateAuthUI(); }
   let storeId = deepStoreId;
@@ -4565,6 +4584,7 @@ let _deepLinkActive = false;
   loadCart(); // Restaurar carrito guardado en localStorage (sobrevive a redirecciones de pago)
   if (cart.length > 0) updateCartUI();
   await loadDeliveryConfig();
+  await loadPlatformConfig();
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     await loadUserProfile(session.user.id);

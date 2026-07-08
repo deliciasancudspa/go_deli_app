@@ -201,6 +201,19 @@ begin
     return 'forbidden';
   end if;
 
+  -- Validar que la distancia del delivery no exceda el máximo configurado
+  if exists (
+    select 1 from orders o, lateral (
+      select coalesce((value::jsonb->>'max_distance_km')::float, 8.0) as max_km
+      from config where key = 'delivery_fees'
+    ) c
+    where o.id = p_order_id
+      and o.delivery_distance is not null
+      and o.delivery_distance > (c.max_km * 1000)
+  ) then
+    return 'out_of_range';
+  end if;
+
   update orders set
     rider_search_status     = 'searching',
     rider_search_started_at = now(),

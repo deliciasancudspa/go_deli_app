@@ -12,6 +12,17 @@
 
   console.log('🧪 [POS] pos.js v20260707b CARGADO — flujo con modal de pago post-confirmación');
 
+  // ── Haversine (km) ───────────────────────────────────────────────────────
+  function haversineKm(lat1, lng1, lat2, lng2) {
+    var R = 6371;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLng = (lng2 - lng1) * Math.PI / 180;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+            Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
   // ── Estado privado ──────────────────────────────────────────────────────
   var _cart = [];
   var _products = [];
@@ -1054,6 +1065,17 @@
       if (!custLat || !custLng) {
         window.showToast('Selecciona una dirección válida del listado de Google', 'error'); return;
       }
+      // Validar distancia máxima 2km para delivery con Go Rider desde POS
+      if (_deliveryMethod === 'go_rider' && window.storeData && window.storeData.lat && window.storeData.lng) {
+        var storeLat = parseFloat(window.storeData.lat);
+        var storeLng = parseFloat(window.storeData.lng);
+        var distKm = haversineKm(storeLat, storeLng, custLat, custLng);
+        if (distKm > 2) {
+          window.showToast('⚠️ La dirección está a ' + distKm.toFixed(1) + ' km. El delivery propio desde POS tiene un máximo de 2 km.', 'error');
+          if (btn) { btn.disabled = false; btn.textContent = '🚀 Crear pedido'; }
+          return;
+        }
+      }
     }
 
     // Recoger descuento y notas
@@ -1075,6 +1097,22 @@
 
     var subtotal = _cart.reduce(function(s, i) { return s + (i.price * i.qty); }, 0);
     var deliveryFee = (_orderMode === 'DELIVERY') ? ((window.storeData && window.storeData.delivery_fee_max) || 2500) : 0;
+
+    // Calcular rider_fee para Go Rider (fórmula: base + ceil(dist/100) * per_100m)
+    var riderFee = 0;
+    if (_orderMode === 'DELIVERY' && _deliveryMethod === 'go_rider' && custLat && custLng && window.storeData && window.storeData.lat && window.storeData.lng) {
+      var distM = haversineKm(parseFloat(window.storeData.lat), parseFloat(window.storeData.lng), custLat, custLng) * 1000;
+      var baseFee = 1500, per100m = 35;
+      try {
+        var cfgRes = await window.sb.from('config').select('value').eq('key', 'delivery_fees').maybeSingle();
+        if (cfgRes.data && cfgRes.data.value) {
+          var df = JSON.parse(cfgRes.data.value);
+          baseFee = Number(df.base_fee) || 1500;
+          per100m = Number(df.fee_per_100m) || 35;
+        }
+      } catch(e) {}
+      riderFee = Math.round(baseFee + Math.ceil(distM / 100) * per100m);
+    }
 
     // Calcular descuento
     var discountAmount = 0;
@@ -1108,6 +1146,7 @@
       discount: discountAmount,
       platform_commission: commission,
       go_rider_platform_fee: (_orderMode === 'DELIVERY' && _deliveryMethod === 'go_rider') ? 2500 : 0,
+      rider_fee: riderFee > 0 ? riderFee : null,
       payment_method: 'pending', // se actualiza al confirmar pago
       status: orderStatus,
       customer_name: _customerType === 'new'

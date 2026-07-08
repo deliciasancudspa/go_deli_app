@@ -635,6 +635,7 @@ tr:hover td{background:#FAFAFA;}
               <div style="padding:16px;">
                 <div class="form-group"><label>Comisión global (%)</label><input type="number" id="cfg-commission" value="7"></div>
                 <div class="form-group"><label>Fee fijo por pedido (CLP)</label><input type="number" id="cfg-fee" value="3000"></div>
+                <div class="form-group"><label>Tarifa de servicio retiro — tasa fija (CLP)</label><input type="number" id="cfg-pickup-svc" value="0" min="0"></div>
                 <div class="form-group"><label>Teléfono de soporte</label><input type="tel" id="cfg-phone" placeholder="+56 9 XXXX XXXX"></div>
                 <div class="form-group"><label>Email de soporte</label><input type="email" id="cfg-email" placeholder="soporte@godeli.cl"></div>
                 <div class="form-group"><label>Tiempo búsqueda rider antes de alertar admin (min)</label><input type="number" id="cfg-rider-timeout" value="3"></div>
@@ -3573,6 +3574,17 @@ async function saveConfig(){
     };
     await upsertConfig('ad_prices', prices);
 
+    // Platform config: commission, fixed fee, support, rider timeout, pickup service fee
+    const platformConfig = {
+      commission_pct: parseInt(document.getElementById('cfg-commission')?.value) || 7,
+      fixed_fee: parseInt(document.getElementById('cfg-fee')?.value) || 3000,
+      pickup_service_fee: parseInt(document.getElementById('cfg-pickup-svc')?.value) || 0,
+      support_phone: document.getElementById('cfg-phone')?.value?.trim() || '',
+      support_email: document.getElementById('cfg-email')?.value?.trim() || '',
+      rider_timeout_min: parseInt(document.getElementById('cfg-rider-timeout')?.value) || 3,
+    };
+    await upsertConfig('platform_config', platformConfig);
+
     // Delivery + service fees: SIEMPRE guardar en config global (lo que leen web y app)
     const deliveryFees = {
       base_fee: parseFloat(document.getElementById('cfg-deliv-base')?.value)||1500,
@@ -3648,6 +3660,20 @@ async function loadConfig(){
   let dfRow=null; try { const r=await sb.from('config').select('value').eq('key','delivery_fees').maybeSingle(); dfRow=r.data; } catch(_){}
   if(dfRow?.value){
     try { fillDeliveryForm(JSON.parse(dfRow.value)); } catch(_){}
+  }
+
+  // 1b. Cargar platform_config (commission, fixed_fee, support, rider_timeout)
+  let pcRow=null; try { const r=await sb.from('config').select('value').eq('key','platform_config').maybeSingle(); pcRow=r.data; } catch(_){}
+  if(pcRow?.value){
+    try {
+      const pc = JSON.parse(pcRow.value);
+      if(document.getElementById('cfg-commission')) document.getElementById('cfg-commission').value = pc.commission_pct ?? 7;
+      if(document.getElementById('cfg-fee')) document.getElementById('cfg-fee').value = pc.fixed_fee ?? 3000;
+      if(document.getElementById('cfg-pickup-svc')) document.getElementById('cfg-pickup-svc').value = pc.pickup_service_fee ?? 0;
+      if(document.getElementById('cfg-phone')) document.getElementById('cfg-phone').value = pc.support_phone || '';
+      if(document.getElementById('cfg-email')) document.getElementById('cfg-email').value = pc.support_email || '';
+      if(document.getElementById('cfg-rider-timeout')) document.getElementById('cfg-rider-timeout').value = pc.rider_timeout_min ?? 3;
+    } catch(_){}
   }
 
   // 2. Si hay comuna, aplicar overrides de commune_config encima

@@ -71,7 +71,7 @@ class _SearchScreenState extends State<SearchScreen> {
       final futures = await Future.wait([
         storesQuery,
         _sb.from("menu_items")
-            .select("id,name,price,emoji,image_url,store_id,stores(id,name,emoji,is_open,status,delivery_fee,delivery_time,rating)")
+            .select("id,name,price,emoji,image_url,store_id,stores(id,name,emoji,is_open,status,delivery_fee_client,delivery_time,rating)")
             .ilike("name", "%$q%")
             .eq("is_available", true)
             .limit(30),
@@ -85,7 +85,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
       if (_filter == "open")  stores = stores.where((s) => s["is_open"] == true).toList();
       if (_filter == "rated") stores.sort((a, b) => ((b["rating"] ?? 0) as num).compareTo((a["rating"] ?? 0) as num));
-      if (_filter == "cheap") stores.sort((a, b) => ((a["delivery_fee"] ?? 0) as num).compareTo((b["delivery_fee"] ?? 0) as num));
+      if (_filter == "cheap") stores.sort((a, b) => ((a["delivery_fee_client"] ?? 0) as num).compareTo((b["delivery_fee_client"] ?? 0) as num));
       if (_filter == "fast")  stores.sort((a, b) {
         final pa = int.tryParse(((a["delivery_time"] ?? "999") as String).split("-").first) ?? 999;
         final pb = int.tryParse(((b["delivery_time"] ?? "999") as String).split("-").first) ?? 999;

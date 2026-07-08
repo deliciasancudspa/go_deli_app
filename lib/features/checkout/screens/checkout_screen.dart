@@ -60,6 +60,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Map<String, int> _serviceTiers = {
     "upto3": 0, "upto4": 480, "upto5": 880, "upto6": 990, "upto7": 1250, "upto8": 1490,
   };
+  int _pickupServiceFee = 0; // tasa fija para retiro (configurable por admin)
   Map<String, dynamic>? _storeData;
   bool _needsPrescription = false;
   Uint8List? _prescriptionBytes;
@@ -70,7 +71,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _imagePicker = ImagePicker();
 
   @override
-  void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); _checkPendingWebpay(); _checkPendingMercadoPago(); _checkWebReturnParams(); }
+  void initState() { super.initState(); _loadStore(); _loadPhone(); _loadDeliveryConfig(); _loadPlatformConfig(); _checkPendingWebpay(); _checkPendingMercadoPago(); _checkWebReturnParams(); }
 
   @override
   void dispose() {
@@ -293,6 +294,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
       });
     } catch (e) { debugPrint('_loadDeliveryConfig error: $e'); }
+  }
+
+  Future<void> _loadPlatformConfig() async {
+    try {
+      final row = await _sb.from("config").select("value").eq("key", "platform_config").maybeSingle();
+      final raw = row?["value"];
+      if (raw == null) return;
+      final cfg = raw is String ? jsonDecode(raw) : raw;
+      if (!mounted) return;
+      setState(() {
+        _pickupServiceFee = (cfg["pickup_service_fee"] as num?)?.toInt() ?? 0;
+      });
+    } catch (e) { debugPrint('_loadPlatformConfig error: $e'); }
   }
 
   Future<void> _loadPhone() async {
@@ -564,6 +578,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           platformDelivFee = fees.platform;
           serviceFee     = _calcServiceFee(dist);
         }
+      } else {
+        // Pickup: sin delivery_fee, con tarifa de servicio fija (configurada por admin)
+        serviceFee = _pickupServiceFee;
       }
       // Fórmula validada por el trigger validate_order_amounts:
       //   total = subtotal + delivery_fee + service_fee
