@@ -444,6 +444,7 @@ tr:hover td{background:#FAFAFA;}
             <div class="filter-tab" onclick="filterBanners('web_home',this)">🏠 Home</div>
             <div class="filter-tab" onclick="filterBanners('web_mercados',this)">🛒 Mercados</div>
             <div class="filter-tab" onclick="filterBanners('web_servicios',this)">🔧 Servicios</div>
+            <div class="filter-tab" onclick="filterBanners('custom',this)">🎨 Personalizar</div>
           </div>
           <div class="card">
             <div class="card-header"><h3>📢 Banners publicitarios</h3><button class="btn btn-outline btn-sm" onclick="loadBanners()">↻ Actualizar</button></div>
@@ -831,6 +832,7 @@ tr:hover td{background:#FAFAFA;}
           <option value="web_home">🏠 Home (app)</option>
           <option value="web_mercados">🛒 Mercados (app)</option>
           <option value="web_servicios">🔧 Servicios (app)</option>
+          <option value="custom">🎨 Personalizar (vía Pantallas)</option>
         </select>
       </div>
       <div class="form-group" style="display:flex;align-items:flex-end;gap:12px;padding-bottom:0;">
@@ -843,7 +845,7 @@ tr:hover td{background:#FAFAFA;}
       <div class="form-group"><label>Fecha inicio</label><input type="date" id="banner-start"></div>
       <div class="form-group"><label>Fecha fin</label><input type="date" id="banner-end"></div>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">También puedes vincular este banner a una sección desde <strong>Pantallas → Secciones</strong>.</p>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">Selecciona <strong>Personalizar</strong> para administrar este banner desde <strong>Pantallas → Secciones</strong> sin que se duplique en la app.</p>
     <button class="btn btn-primary" style="width:100%;" onclick="saveBanner()">Guardar banner</button>
   </div>
 </div>
@@ -2171,11 +2173,11 @@ async function loadBanners(){
   if(currentCommuneId) q=q.or(`commune_id.is.null,commune_id.eq.${currentCommuneId}`);
   // Modo Nacional: mostrar todos los banners sin filtrar por comuna
   const {data}=await q;
-  const banners=bannerFilter==='all'?data||[]:(data||[]).filter(b=>b.banner_type===bannerFilter);
+  const banners=bannerFilter==='all'?data||[]:bannerFilter==='custom'?(data||[]).filter(b=>!b.banner_type):(data||[]).filter(b=>b.banner_type===bannerFilter);
   document.getElementById('banners-table').innerHTML=banners.length===0?'<div class="empty"><div class="ei">📢</div><p>Sin banners. Crea el primero.</p></div>':
     `<table><thead><tr><th>Pantalla</th><th>Título</th><th>Color/Imagen</th><th>Fechas</th><th>Orden</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>`+
     banners.map(b=>`<tr>
-      <td>${b.banner_type?`<span class="badge b-blue">${b.banner_type.replace('web_','')}</span>`:'<span class="badge b-gray">Sin asignar</span>'}</td>
+      <td>${b.banner_type?`<span class="badge b-blue">${b.banner_type.replace('web_','')}</span>`:`<span class="badge" style="background:var(--primary);color:#fff;">🎨 Personalizar</span>`}</td>
       <td><strong>${esc(b.title||'-')}</strong><br><small style="color:var(--muted)">${b.subtitle||''}</small></td>
       <td>${b.image_url?`<img src="${b.image_url}" style="height:36px;border-radius:6px;">`:
         `<div style="width:48px;height:28px;background:${b.bg_color||'#FF6B00'};border-radius:6px;"></div>`}</td>
@@ -2184,6 +2186,7 @@ async function loadBanners(){
       <td><span class="badge ${b.is_active?'b-green':'b-gray'}">${b.is_active?'Activo':'Inactivo'}</span></td>
       <td style="display:flex;gap:5px;">
         <button class="btn btn-outline btn-sm" onclick="editBanner('${b.id}')">✏️ Editar</button>
+	        <button class="btn btn-sm" style="background:var(--primary);color:#fff;" onclick="manageBannerInPantallas('${b.id}')" title="Gestionar desde Pantallas">🎨</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBanner('${b.id}')">🗑️</button>
       </td>
     </tr>`).join('')+'</tbody></table>';
@@ -2249,7 +2252,7 @@ async function editBanner(id){
   document.getElementById('banner-start').value=b.start_date?b.start_date.split('T')[0]:'';
   document.getElementById('banner-end').value=b.end_date?b.end_date.split('T')[0]:'';
   document.getElementById('banner-active').checked=b.is_active!==false;
-  document.getElementById('banner-screen').value=b.banner_type||'web_home';
+  document.getElementById('banner-screen').value=b.banner_type||'custom';
   onBannerLinkTypeChange(b.link_type||'none');
   openModal('modal-banner');
 }
@@ -2268,7 +2271,7 @@ async function saveBanner(){
     start_date:document.getElementById('banner-start').value||null,
     end_date:document.getElementById('banner-end').value||null,
     is_active: document.getElementById('banner-active')?.checked ?? true,
-    banner_type: document.getElementById('banner-screen')?.value || 'web_home',
+    banner_type: (document.getElementById('banner-screen')?.value === 'custom' ? null : (document.getElementById('banner-screen')?.value || 'web_home')),
   };
   // Si es nuevo: asignar orden al final
   if(!id){
@@ -2283,6 +2286,16 @@ async function saveBanner(){
   showToast(id?'Banner actualizado':'Banner creado');
   closeModal('modal-banner');
   loadBanners();
+}
+
+function manageBannerInPantallas(bannerId){
+  showSection('pantallas', document.querySelector('.nav-item[onclick*="pantallas"]'));
+  showToast('🎨 Crea o edita una sección en Pantallas con este banner. Usa "Personalizar" para evitar duplicados.');
+  window._pendingBannerId = bannerId;
+  setTimeout(() => {
+    const secTable = document.getElementById('pantallas-table');
+    if (secTable) secTable.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 300);
 }
 
 async function deleteBanner(id){
@@ -3547,8 +3560,17 @@ async function saveConfig(){
   const numv = (id, def) => { const n = parseFloat(document.getElementById(id)?.value); return isNaN(n) ? def : n; };
 
   try {
-    // Ads prices siempre son globales
-    await sb.from('config').upsert({key:'ad_prices', value:JSON.stringify(prices)});
+    // Guardar config global usando SELECT + UPDATE/INSERT (más seguro que upsert
+    // sin onConflict, que crea duplicados si la tabla no tiene UNIQUE en key).
+    const upsertConfig = async (key, value) => {
+      const {data:existing} = await sb.from('config').select('key').eq('key', key).maybeSingle();
+      if (existing) {
+        await sb.from('config').update({value: JSON.stringify(value)}).eq('key', key);
+      } else {
+        await sb.from('config').insert({key, value: JSON.stringify(value)});
+      }
+    };
+    await upsertConfig('ad_prices', prices);
 
     // Delivery + service fees: SIEMPRE guardar en config global (lo que leen web y app)
     const deliveryFees = {
@@ -3564,7 +3586,7 @@ async function saveConfig(){
         upto8: numv('cfg-svc-8', 1490),
       },
     };
-    await sb.from('config').upsert({key:'delivery_fees', value:JSON.stringify(deliveryFees)});
+    await upsertConfig('delivery_fees', deliveryFees);
 
     // Si hay comuna seleccionada, también guardar en commune_config como override
     // (mismo formato que config.delivery_fees para consistencia)
@@ -4121,11 +4143,12 @@ async function saveSection() {
       );
     }
   }
-  // Sincronizar banner vinculado: la sección controla pantalla, orden y activación
+  // Sincronizar banner vinculado: la sección controla orden y activación.
+  // Ya NO se sobreescribe banner_type — la pantalla se determina por
+  // home_sections.screen, no por banners.banner_type. Esto permite usar
+  // la opción "Personalizar" sin que se pierda al guardar la sección.
   if (type === 'banner' && bannerId) {
-    const btypeMap = { home:'web_home', mercados:'web_mercados', servicios:'web_servicios', all:'web_home' };
     await sb.from('banners').update({
-      banner_type: btypeMap[screen] || 'web_home',
       sort_order: sortOrder,
       is_active: sectionData.is_active
     }).eq('id', bannerId);
