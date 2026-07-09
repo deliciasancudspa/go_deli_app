@@ -2420,18 +2420,17 @@ async function renderCheckoutTotals() {
       deliveryClientFee = fees.clientFee;
       serviceFee = fees.serviceFee;
       if (!fees.withinRange) {
-        deliveryHTML = `<div class="summary-item" style="color:var(--error)"><span>⚠️ Envío</span><span>Fuera de cobertura (máx. ${deliveryConfig.max_distance_km} km)</span></div>`;
+        deliveryHTML = `<div class="summary-item" style="color:var(--error)"><span>⚠️ Envío</span><span>Dirección excede la cobertura de delivery de la tienda seleccionada</span></div>`;
         serviceFee = 0;
         document.getElementById('place-order-btn').disabled = true;
         document.getElementById('place-order-btn').style.opacity = '0.5';
       } else {
         document.getElementById('place-order-btn').disabled = false;
         document.getElementById('place-order-btn').style.opacity = '1';
-        const etaPart = cachedRoadResult.durationText ? ` (~${cachedRoadResult.durationText})` : '';
         if (fees.clientFee === 0) {
-          deliveryHTML = `<div class="summary-item" style="color:var(--success)"><span>🛵 Envío${etaPart}</span><span>Gratis</span></div>`;
+          deliveryHTML = `<div class="summary-item" style="color:var(--success)"><span>🛵 Envío</span><span>Gratis</span></div>`;
         } else {
-          deliveryHTML = `<div class="summary-item"><span>🛵 Envío${etaPart}</span><span>${fmtCLP(fees.clientFee)}</span></div>`;
+          deliveryHTML = `<div class="summary-item"><span>🛵 Envío</span><span>${fmtCLP(fees.clientFee)}</span></div>`;
         }
       }
     } else {
@@ -2637,7 +2636,7 @@ async function placeOrder() {
       }
       const dist = cachedRoadResult.distanceMeters;
       const fees = calcDeliveryFee(store, dist);
-      if (!fees.withinRange) { showToast('La dirección está fuera del área de cobertura (máx. ' + deliveryConfig.max_distance_km + ' km)', 'error'); return; }
+      if (!fees.withinRange) { showToast('Dirección excede la cobertura de delivery de la tienda seleccionada', 'error'); return; }
       riderFee       = fees.riderFee;
       clientFee      = fees.clientFee;
       serviceFee     = fees.serviceFee;

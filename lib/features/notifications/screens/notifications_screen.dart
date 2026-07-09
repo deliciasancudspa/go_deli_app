@@ -41,7 +41,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (user == null) { setState(() => _loading = false); return; }
       final u = await _sb.from("users").select("id").eq("auth_id", user.id).single();
       final orders = await _sb.from("orders")
-        .select("id, status, created_at, updated_at, total, order_type, stores(name, emoji)")
+        .select("id, status, created_at, updated_at, total, order_type, stores(name, emoji, logo_url)")
         .eq("client_id", u["id"])
         .order("updated_at", ascending: false)
         .limit(40);
@@ -63,6 +63,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (diff.inDays == 1) return "Ayer";
     if (diff.inDays < 7) return "Hace ${diff.inDays} días";
     return "${date.day}/${date.month}/${date.year}";
+  }
+
+  Widget _storeAvatar(Map<String, dynamic>? store) {
+    final logoUrl = store?["logo_url"] as String?;
+    final emoji = store?["emoji"] as String? ?? "🍽️";
+    return CircleAvatar(
+      radius: 12,
+      backgroundColor: AppColors.border,
+      backgroundImage: logoUrl != null ? NetworkImage(logoUrl) : null,
+      child: logoUrl == null ? Text(emoji, style: const TextStyle(fontSize: 12)) : null,
+    );
   }
 
   String _fmt(num? p) {
@@ -148,7 +159,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             ]),
                             const SizedBox(height: 3),
                             Row(children: [
-                              Text(store?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 14)),
+                              _storeAvatar(store),
                               const SizedBox(width: 6),
                               Expanded(child: Text(store?["name"] ?? "",
                                 style: const TextStyle(color: AppColors.textMedium, fontSize: 13),

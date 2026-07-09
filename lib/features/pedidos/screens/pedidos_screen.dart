@@ -97,7 +97,7 @@ class _PedidosScreenState extends State<PedidosScreen>
       // puede no existir aún (orden recién aceptada) y causar que maybeSingle
       // retorne null.
       final res = await _sb.from("orders")
-          .select("*, stores(id,name,emoji,is_active,is_open), order_items(menu_item_id,item_name,item_price,quantity)")
+          .select("*, stores(id,name,emoji,logo_url,is_active,is_open), order_items(menu_item_id,item_name,item_price,quantity)")
           .eq("client_id", _userId!)
           .inFilter("status", _kActiveStatuses)
           .order("created_at", ascending: false)
@@ -114,7 +114,7 @@ class _PedidosScreenState extends State<PedidosScreen>
     final offset = reset ? 0 : _page * _pageSize;
     try {
       final raw = await _sb.from("orders")
-          .select("*, stores(id,name,emoji), order_items(menu_item_id,item_name,item_price,quantity)")
+          .select("*, stores(id,name,emoji,logo_url), order_items(menu_item_id,item_name,item_price,quantity)")
           .eq("client_id", _userId!)
           .inFilter("status", _kHistoryStatuses)
           .order("created_at", ascending: false)
@@ -169,6 +169,17 @@ class _PedidosScreenState extends State<PedidosScreen>
       "\$${p.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
 
   String _orderNum(String id) => "#${id.substring(0, 6).toUpperCase()}";
+
+  Widget _storeAvatar(Map<String, dynamic>? store, {double radius = 18}) {
+    final logoUrl = store?["logo_url"] as String?;
+    final emoji = store?["emoji"] as String? ?? "🍽️";
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: AppColors.border,
+      backgroundImage: logoUrl != null ? NetworkImage(logoUrl) : null,
+      child: logoUrl == null ? Text(emoji, style: TextStyle(fontSize: radius * 0.8)) : null,
+    );
+  }
 
   List<Map<String, dynamic>> get _filtered {
     switch (_filterIdx) {
@@ -339,8 +350,12 @@ class _PedidosScreenState extends State<PedidosScreen>
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
           child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text("${store["emoji"] ?? "🍽️"}  ${store["name"] ?? ""}",
-                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
+            Row(children: [
+              _storeAvatar(store, radius: 14),
+              const SizedBox(width: 8),
+              Text(store["name"] ?? "",
+                  style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
+            ]),
             Text(_fmt(total),
                 style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
           ]),
@@ -542,13 +557,7 @@ class _PedidosScreenState extends State<PedidosScreen>
           Padding(
             padding: const EdgeInsets.fromLTRB(14,14,14,8),
             child: Row(children: [
-              Container(width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: _kPurple.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(child: Text(store["emoji"] ?? "🍽️",
-                    style: const TextStyle(fontSize: 22)))),
+              _storeAvatar(store, radius: 22),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(store["name"] ?? "",

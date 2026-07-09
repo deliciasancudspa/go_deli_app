@@ -16,9 +16,10 @@ class CartScreen extends StatefulWidget {
 class _CartScreenState extends State<CartScreen> {
   bool _vaciarTodosLoading = false;
   Map<String, int> _stockCache = {}; // baseItemId -> stock
+  Map<String, String?> _storeLogos = {}; // storeId -> logo_url
 
   @override
-  void initState() { super.initState(); _loadStock(); }
+  void initState() { super.initState(); _loadStock(); _loadStoreLogos(); }
 
   Future<void> _loadStock() async {
     try {
@@ -40,6 +41,23 @@ class _CartScreenState extends State<CartScreen> {
         if (s != null) map[row["id"] as String] = s;
       }
       if (mounted) setState(() => _stockCache = map);
+    } catch (_) {}
+  }
+
+  Future<void> _loadStoreLogos() async {
+    try {
+      final cart = context.read<CartProvider>();
+      final ids = cart.storeIds.toList();
+      if (ids.isEmpty) return;
+      final data = await Supabase.instance.client
+          .from("stores")
+          .select("id, logo_url, emoji")
+          .inFilter("id", ids);
+      final map = <String, String?>{};
+      for (final row in List<Map<String, dynamic>>.from(data)) {
+        map[row["id"] as String] = row["logo_url"] as String?;
+      }
+      if (mounted) setState(() => _storeLogos = map);
     } catch (_) {}
   }
 
@@ -186,7 +204,7 @@ class _CartScreenState extends State<CartScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
               child: Row(children: [
-                Text(emoji, style: const TextStyle(fontSize: 24)),
+                _storeLogo(storeId, emoji),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -372,6 +390,16 @@ class _CartScreenState extends State<CartScreen> {
         );
       }
     }
+  }
+
+  Widget _storeLogo(String storeId, String emoji) {
+    final logoUrl = _storeLogos[storeId];
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: AppColors.border,
+      backgroundImage: logoUrl != null ? NetworkImage(logoUrl) : null,
+      child: logoUrl == null ? Text(emoji, style: const TextStyle(fontSize: 20)) : null,
+    );
   }
 
   String _fmt(int p) =>

@@ -11,6 +11,8 @@ class TrackingScreen extends StatefulWidget {
 
 class _TrackingScreenState extends State<TrackingScreen> {
   Map<String, dynamic>? _order;
+  bool _hasError = false;
+  bool _loading = true;
   final _sb = Supabase.instance.client;
   RealtimeChannel? _channel;
 
@@ -56,8 +58,13 @@ class _TrackingScreenState extends State<TrackingScreen> {
   }
 
   Future<void> _load() async {
-    final o = await _sb.from("orders").select("*, stores(id,name,emoji), deliverers(id,user_id,current_lat,current_lng,users(name,phone))").eq("id", widget.orderId).single();
-    if (mounted) setState(() => _order = o);
+    try {
+      final o = await _sb.from("orders").select("*, stores(id,name,emoji), deliverers(id,user_id,current_lat,current_lng,users(name,phone))").eq("id", widget.orderId).maybeSingle();
+      if (mounted) setState(() { _order = o; _hasError = o == null; _loading = false; });
+    } catch (e) {
+      debugPrint("[Tracking] _load error: $e");
+      if (mounted) setState(() { _hasError = true; _loading = false; });
+    }
   }
 
   void _subscribe() {
@@ -74,7 +81,21 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_order == null) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
+    if (_hasError || _order == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Seguimiento"), backgroundColor: Colors.transparent, flexibleSpace: const GradientFlexibleSpace(), leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())),
+        body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Text("❌", style: TextStyle(fontSize: 48)),
+          const SizedBox(height: 16),
+          const Text("No se pudo cargar el pedido", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          const SizedBox(height: 8),
+          const Text("El pedido no existe o no tienes acceso", style: TextStyle(color: AppColors.textLight)),
+          const SizedBox(height: 24),
+          ElevatedButton(onPressed: () { setState(() { _loading = true; _hasError = false; }); _load(); }, child: const Text("Reintentar")),
+        ])),
+      );
+    }
 
     final isPickup = _order!["order_type"] == "pickup";
     final msgs  = isPickup ? _msgsPickup  : _msgsDelivery;
@@ -94,7 +115,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
         title: const Text("Seguimiento del pedido"),
         backgroundColor: Colors.transparent,
         flexibleSpace: const GradientFlexibleSpace(),
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
       ),
       body: Column(children: [
         // Header estado actual

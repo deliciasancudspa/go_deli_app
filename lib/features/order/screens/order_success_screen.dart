@@ -115,7 +115,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
 
             // Botones
             ElevatedButton.icon(
-              onPressed: () => context.go("/tracking/${widget.orderId}"),
+              onPressed: () => context.push("/tracking/${widget.orderId}"),
               icon: const Icon(Icons.location_on_outlined),
               label: const Text("Seguir mi pedido"),
             ),

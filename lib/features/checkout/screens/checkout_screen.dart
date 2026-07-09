@@ -52,8 +52,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double? _deliveryLat;
   double? _deliveryLng;
   double? _distanceMeters;
-  String? _etaText;         // "12 min" desde Directions API
-  bool _distanceIsRoad = false; // true si se usó ruta por carretera
   // Parámetros de tarifa de delivery (cargados desde config; defaults abajo)
   double _baseFee  = _kDefBaseFee;
   double _per100m  = _kDefPer100m;
@@ -380,12 +378,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final result = await DirectionsService.getRoute(
       storeLat, storeLng, _deliveryLat!, _deliveryLng!,
     );
-    debugPrint('_updateDistance: road=${!result.isFallback} dist=${result.distanceMeters}m eta=${result.durationText}');
+    debugPrint('_updateDistance: road=${!result.isFallback} dist=${result.distanceMeters}m');
     if (!mounted) return;
     setState(() {
       _distanceMeters = result.distanceMeters;
-      _etaText = result.durationText;
-      _distanceIsRoad = !result.isFallback;
     });
   }
 
@@ -406,8 +402,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (!mounted) return;
         setState(() {
           _distanceMeters = result.distanceMeters;
-          _etaText = result.durationText;
-          _distanceIsRoad = !result.isFallback;
         });
       }
     } catch (_) {
@@ -1100,12 +1094,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 outOfRange ? "Fuera de cobertura" : delivFee == 0 ? "Gratis" : _fmt(delivFee),
                 color: outOfRange ? AppColors.error : delivFee == 0 ? AppColors.success : null,
               ),
-            if (_deliveryType == "delivery" && _etaText != null && !outOfRange)
-              _summaryRow(
-                _distanceIsRoad ? "🕐 Tiempo estimado" : "🕐 Tiempo aprox.",
-                _etaText!,
-                color: _distanceIsRoad ? null : AppColors.warning,
-              ),
             if (_deliveryType == "pickup")
               _summaryRow("🏪 Retiro", "Gratis", color: AppColors.success),
             // Tarifa de servicio: visible en delivery (por distancia) y pickup (fija)
@@ -1184,7 +1172,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: const Row(children: [
               Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 20),
               SizedBox(width: 10),
-              Expanded(child: Text("Dirección fuera de cobertura (máx. 8 km desde la tienda)", style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 13))),
+              Expanded(child: Text("Dirección excede la cobertura de delivery de la tienda seleccionada", style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 13))),
             ]),
           ),
 
