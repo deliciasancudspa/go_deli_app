@@ -261,7 +261,7 @@ serve(async (req) => {
                 "apns-push-type": "alert",
               },
             },
-            data: { route: "orders" },
+            data: { route: "orders", status: rec.status as string ?? "", order_id: rec.id as string ?? "" },
           },
         }),
       },

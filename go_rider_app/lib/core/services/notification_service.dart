@@ -11,6 +11,7 @@ class NotificationService {
 
   static const _channelId   = "go_rider_channel";
   static const _channelName = "Go Rider Notificaciones";
+  static const _channelDesc = "Pedidos, mensajes y alertas para repartidores";
   static int _idCounter = 0;
 
   static Future<void> init() async {
@@ -25,7 +26,7 @@ class NotificationService {
     await androidPlugin?.createNotificationChannel(const AndroidNotificationChannel(
       _channelId,
       _channelName,
-      description: "Pedidos, mensajes y alertas para repartidores",
+      description: _channelDesc,
       importance: Importance.high,
       playSound: true,
       enableVibration: true,
@@ -36,9 +37,11 @@ class NotificationService {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       final n = message.notification;
       if (n != null) {
+        final safeTitle = (n.title?.isNotEmpty ?? false) ? n.title! : "Go Rider";
+        final safeBody  = (n.body?.isNotEmpty ?? false) ? n.body! : "Tienes una nueva notificación";
         // Pass full FCM data as JSON payload so _onTap can navigate directly
         final payload = jsonEncode(message.data);
-        await show(title: n.title ?? "Go Rider", body: n.body ?? "", payload: payload);
+        await show(title: safeTitle, body: safeBody, payload: payload);
       }
     });
   }
@@ -129,16 +132,17 @@ class NotificationService {
       id,
       title,
       body,
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
           _channelName,
+          channelDescription: _channelDesc,
           importance: Importance.high,
           priority: Priority.high,
           playSound: true,
           enableVibration: true,
           icon: "@drawable/ic_notification",
-          color: Color(0xFFFF6B35),
+          color: const Color(0xFFFF6B35),
         ),
       ),
       payload: payload,

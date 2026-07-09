@@ -30,8 +30,10 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.notify-client]
-# Llamada internamente (trigger DB o admin)
-verify_jwt = true
+# Llamada internamente (trigger DB o admin). verify_jwt = false porque
+# el trigger de BD y los webhooks no tienen JWT de usuario; la autenticación
+# se maneja con x-webhook-secret (NOTIFY_WEBHOOK_SECRET) dentro de la función.
+verify_jwt = false
 
 [functions.mercadopago-create]
 # Llamada desde la app Flutter (cliente autenticado con JWT)

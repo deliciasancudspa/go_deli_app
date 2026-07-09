@@ -22,10 +22,12 @@ class NotificationService {
   final _controller = StreamController<void>.broadcast();
   Stream<void> get onNewNotification => _controller.stream;
 
-  static const _channelId     = "go_deli_orders";
-  static const _channelName   = "Pedidos Go Deli";
-  static const _chatChannelId   = "go_deli_chat";
-  static const _chatChannelName = "Chat Go Deli";
+  static const _channelId          = "go_deli_orders";
+  static const _channelName        = "Pedidos Go Deli";
+  static const _channelDesc        = "Actualizaciones en tiempo real de tus pedidos";
+  static const _chatChannelId      = "go_deli_chat";
+  static const _chatChannelName    = "Chat Go Deli";
+  static const _chatChannelDesc    = "Mensajes del chat con el repartidor";
 
   static const _statusMessages = {
     "accepted":   ["✅ Pedido confirmado",        "El restaurante aceptó tu pedido"],
@@ -46,13 +48,13 @@ class NotificationService {
     await android?.requestNotificationsPermission();
     await android?.createNotificationChannel(const AndroidNotificationChannel(
       _channelId, _channelName,
-      description: "Actualizaciones en tiempo real de tus pedidos",
+      description: _channelDesc,
       importance: Importance.high,
       playSound: true,
     ));
     await android?.createNotificationChannel(const AndroidNotificationChannel(
       _chatChannelId, _chatChannelName,
-      description: "Mensajes del chat con el repartidor",
+      description: _chatChannelDesc,
       importance: Importance.high,
       playSound: true,
     ));
@@ -75,25 +77,41 @@ class NotificationService {
     // Request FCM permission
     await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true);
 
-    // Show FCM messages in foreground only when they have a real body.
-    // Data-only pushes (empty notification) are already handled by the
-    // Realtime listener, so we skip them here to avoid duplicate/blank toasts.
+    // FCM messages in foreground:
+    // - If the message has a proper notification field → show it
+    // - If data-only, try to derive status from data.payload or skip (Realtime handles it)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       final n = message.notification;
+      final data = message.data;
+
+      // Prefer the notification field when it has text
       if (n != null && (n.body?.isNotEmpty ?? false)) {
-        await show(n.title ?? "Go Deli", n.body!);
+        await show(n.title ?? "Go Deli", n.body!, orderId: data["order_id"]);
         _controller.add(null);
+        return;
+      }
+
+      // Data-only push: extract status from data to build the notification
+      final status = data["status"] as String?;
+      if (status != null && status.isNotEmpty) {
+        final msg = _statusMessages[status];
+        if (msg != null) {
+          await show(msg[0], msg[1], orderId: data["order_id"]);
+          _controller.add(null);
+        }
       }
     });
   }
 
-  // Dedupe: el listener Realtime y el push FCM generan el mismo aviso para
-  // un cambio de estado; solo se muestra una vez.
+  // Dedupe: evita que el listener Realtime y el push FCM generen el mismo
+  // aviso dos veces para un mismo cambio de estado en una misma orden.
   String? _lastShownKey;
   DateTime? _lastShownAt;
 
-  Future<void> show(String title, String body) async {
-    final key = "$title|$body";
+  Future<void> show(String title, String body, {String? orderId}) async {
+    // Include orderId in dedupe key so different orders with the same status
+    // both show notifications (e.g., two orders both going to "preparing")
+    final key = orderId != null ? "$orderId|$title|$body" : "$title|$body";
     if (_lastShownKey == key &&
         _lastShownAt != null &&
         DateTime.now().difference(_lastShownAt!) < const Duration(seconds: 10)) {
@@ -101,24 +119,32 @@ class NotificationService {
     }
     _lastShownKey = key;
     _lastShownAt = DateTime.now();
+
+    // Sanity: never show a notification with empty title AND body
+    final safeTitle = title.isNotEmpty ? title : "Go Deli";
+    final safeBody  = body.isNotEmpty ? body : "Toca para ver los detalles";
+
     await _plugin.show(
       DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
-      title,
-      body,
-      const NotificationDetails(
+      safeTitle,
+      safeBody,
+      NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId, _channelName,
+          channelDescription: _channelDesc,
           importance: Importance.high,
           priority: Priority.high,
           icon: "@drawable/ic_notification",
-          color: Color(0xFFFF6B35),
+          color: const Color(0xFFFF6B35),
+          styleInformation: BigTextStyleInformation(safeBody),
         ),
-        iOS: DarwinNotificationDetails(
+        iOS: const DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
         ),
       ),
+      payload: orderId != null ? "/tracking/$orderId" : null,
     );
   }
 
@@ -135,15 +161,17 @@ class NotificationService {
       DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF,
       title,
       body,
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
           _chatChannelId, _chatChannelName,
+          channelDescription: _chatChannelDesc,
           importance: Importance.high,
           priority: Priority.high,
           icon: "@drawable/ic_notification",
-          color: Color(0xFFFF6B35),
+          color: const Color(0xFFFF6B35),
+          styleInformation: BigTextStyleInformation(body),
         ),
-        iOS: DarwinNotificationDetails(
+        iOS: const DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
@@ -202,7 +230,10 @@ class NotificationService {
           if (_lastOrderStatus[orderId] == status) return;
           _lastOrderStatus[orderId] = status;
           final msg = _statusMessages[status];
-          if (msg != null) { show(msg[0], msg[1]); _controller.add(null); }
+          if (msg != null) {
+            show(msg[0], msg[1], orderId: orderId);
+            _controller.add(null);
+          }
         },
       ).subscribe();
   }
