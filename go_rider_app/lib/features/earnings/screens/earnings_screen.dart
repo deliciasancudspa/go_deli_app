@@ -52,11 +52,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
     return now.subtract(const Duration(days: 30));
   }
 
-  // Use rider_fee if available, otherwise fall back to 15% of total
+  // rider_fee es calculado al crear la orden (checkout) y garantizado por el
+  // trigger calculate_order_fees(). Solo puede ser null/0 en delivery propio.
   double _orderEarning(Map<String, dynamic> o) {
-    final rf = (o["rider_fee"] as num?)?.toDouble();
-    if (rf != null && rf > 0) return rf;
-    return ((o["total"] as num) * 0.15);
+    return (o["rider_fee"] as num?)?.toDouble() ?? 0;
   }
 
   String _fmt(double n) => "\$${n.toStringAsFixed(0).replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (m) => "${m[1]}.")}";
@@ -64,9 +63,20 @@ class _EarningsScreenState extends State<EarningsScreen> {
   @override
   Widget build(BuildContext context) {
     final totalEarned  = _orders.fold(0.0, (s, o) => s + _orderEarning(o));
-    final cashReceived = _orders.where((o) => o["payment_method"] == "cash")
+
+    // Ganancias de pedidos en efectivo: el rider ya las tiene en su bolsillo
+    final cashEarnings = _orders.where((o) => o["payment_method"] == "cash")
+        .fold(0.0, (s, o) => s + _orderEarning(o));
+
+    // A depositar: solo lo de pedidos con tarjeta (la plataforma debe transferir)
+    final toDeposit    = totalEarned - cashEarnings;
+
+    // Total de efectivo que el rider cobró a clientes
+    final cashHandled  = _orders.where((o) => o["payment_method"] == "cash")
         .fold(0.0, (s, o) => s + ((o["total"] as num).toDouble()));
-    final toDeposit    = totalEarned - cashReceived;
+
+    // Lo que el rider debe rendir a la plataforma del efectivo cobrado
+    final toRemit      = cashHandled - cashEarnings;
 
     return PopScope(
       canPop: false,
@@ -111,9 +121,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   const SizedBox(height: 16),
 
                   Row(children: [
-                    Expanded(child: _statCard("Efectivo recibido", _fmt(cashReceived), AppColors.warning, "Descontado de tu pago")),
+                    Expanded(child: _statCard("A depositar", _fmt(toDeposit), AppColors.info, "Transferencia pendiente (tarjeta)")),
                     const SizedBox(width: 12),
-                    Expanded(child: _statCard("A depositar", _fmt(toDeposit.abs()), AppColors.success, "Transferencia pendiente")),
+                    Expanded(child: _statCard("A rendir", _fmt(toRemit), AppColors.warning, "Efectivo cobrado a devolver")),
                   ]),
                   const SizedBox(height: 24),
 

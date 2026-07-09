@@ -246,6 +246,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final status = _order!["status"] as String;
     final items = (_order!["order_items"] as List?) ?? [];
     final total = (_order!["total"] as num?)?.toDouble() ?? 0;
+    final riderFee = (_order!["rider_fee"] as num?)?.toDouble() ?? 0;
     final payMethod = _order!["payment_method"] as String?;
     final pickupCode = _order!["pickup_code"] as String?;
     // Mientras esté en cola no se navega: se muestra aviso en vez del mapa de ruta.
@@ -363,9 +364,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             )),
             const Divider(),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text("Total", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              const Text("Total del pedido", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               Text("\$${total.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.accent)),
             ]),
+            if (riderFee > 0) ...[
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Row(children: [
+                  Icon(Icons.monetization_on_outlined, size: 16, color: AppColors.success),
+                  SizedBox(width: 4),
+                  Text("Tu ganancia", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                ]),
+                Text("\$${riderFee.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.success)),
+              ]),
+            ],
             if (payMethod == "cash") ...[
               const SizedBox(height: 8),
               Container(

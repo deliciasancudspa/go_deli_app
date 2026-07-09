@@ -94,6 +94,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     } catch (_) {}
   }
 
+  double _riderFeeForOrder(Map<String, dynamic> o) {
+    // rider_fee es calculado al crear la orden (checkout) y garantizado por el
+    // trigger calculate_order_fees(). Solo puede ser null/0 en delivery propio,
+    // donde el rider de GoRider no participa.
+    return (o["rider_fee"] as num?)?.toDouble() ?? 0;
+  }
+
   Future<void> _loadStats() async {
     final rider = context.read<RiderProvider>();
     if (rider.riderId.isEmpty) return;
@@ -102,9 +109,35 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       final orders = await _sb.from("orders").select("total, rider_fee, payment_method, status").eq("deliverer_id", rider.riderId).gte("created_at", today);
       final list = List<Map<String, dynamic>>.from(orders);
       final delivered = list.where((o) => o["status"] == "delivered").toList();
-      final totalEarned = delivered.fold(0.0, (s, o) => s + ((o["rider_fee"] as num?)?.toDouble() ?? ((o["total"] as num) * 0.15)));
-      final cashReceived = delivered.where((o) => o["payment_method"] == "cash").fold(0.0, (s, o) => s + (o["total"] as num));
-      if (mounted) setState(() { _stats = {"orders": delivered.length, "earned": totalEarned, "cash": cashReceived, "toDeposit": (totalEarned - cashReceived).abs()}; });
+
+      // Total ganado = suma de rider_fee de todos los pedidos entregados
+      final totalEarned = delivered.fold(0.0, (s, o) => s + _riderFeeForOrder(o));
+
+      // Ganancias por pedidos en efectivo (el rider ya tiene este dinero en su bolsillo)
+      final cashEarnings = delivered
+          .where((o) => o["payment_method"] == "cash")
+          .fold(0.0, (s, o) => s + _riderFeeForOrder(o));
+
+      // A depositar = solo ganancias de pedidos con tarjeta (la plataforma debe transferirlas)
+      final toDeposit = totalEarned - cashEarnings;
+
+      // Total de efectivo que el rider cobró a clientes (incluye lo que debe rendir a la plataforma)
+      final cashHandled = delivered
+          .where((o) => o["payment_method"] == "cash")
+          .fold(0.0, (s, o) => s + ((o["total"] as num?)?.toDouble() ?? 0));
+
+      // Lo que el rider debe rendir a la plataforma del efectivo cobrado
+      final toRemit = cashHandled - cashEarnings;
+
+      if (mounted) setState(() {
+        _stats = {
+          "orders": delivered.length,
+          "earned": totalEarned,
+          "toDeposit": toDeposit,
+          "toRemit": toRemit,
+          "cashEarnings": cashEarnings,
+        };
+      });
     } catch (_) {}
   }
 
@@ -276,9 +309,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _kpi("Efectivo", _fmt((_stats["cash"] ?? 0).toDouble()), Icons.payments_outlined, AppColors.warning)),
-              const SizedBox(width: 12),
               Expanded(child: _kpi("A depositar", _fmt((_stats["toDeposit"] ?? 0).toDouble()), Icons.account_balance_outlined, AppColors.info)),
+              const SizedBox(width: 12),
+              Expanded(child: _kpi("A rendir", _fmt((_stats["toRemit"] ?? 0).toDouble()), Icons.swap_horiz, AppColors.warning)),
             ]),
             const SizedBox(height: 24),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
