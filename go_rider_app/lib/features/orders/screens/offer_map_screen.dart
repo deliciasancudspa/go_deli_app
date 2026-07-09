@@ -34,7 +34,7 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
       // todavía (deliverer_id NULL). En ese caso _order queda null y la pantalla
       // muestra los datos que vienen en la notificación.
       final o = await _sb.from("orders")
-          .select("delivery_lat,delivery_lng,delivery_address,delivery_reference,rider_fee,total,delivery_distance,payment_method,stores(name,emoji,lat,lng,address)")
+          .select("delivery_lat,delivery_lng,delivery_address,delivery_reference,rider_fee,total,delivery_distance,payment_method,stores(name,emoji,logo_url,lat,lng,address)")
           .eq("id", widget.orderId)
           .maybeSingle();
       if (mounted) setState(() { _order = o; _loading = false; });
@@ -79,6 +79,7 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
     final store = _order?["stores"] as Map?;
     final storeName = store?["name"] as String? ?? widget.offerData["store_name"] as String? ?? "Tienda";
     final storeEmoji = store?["emoji"] as String? ?? widget.offerData["store_emoji"] as String? ?? "🏪";
+    final storeLogo  = store?["logo_url"] as String?;
     final delivAddr = _order?["delivery_address"] as String? ?? widget.offerData["delivery_address"] as String? ?? "";
     final delivRef  = _order?["delivery_reference"] as String? ?? widget.offerData["delivery_reference"] as String?;
     final payMethod = _order?["payment_method"] as String?;
@@ -149,7 +150,7 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
 
                     // Tienda
                     Row(children: [
-                      Text(storeEmoji, style: const TextStyle(fontSize: 22)),
+                      _storeAvatar(storeLogo, storeEmoji, size: 36),
                       const SizedBox(width: 10),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         const Text("Recoger en", style: TextStyle(fontSize: 11, color: AppColors.textLight, fontWeight: FontWeight.w700)),
@@ -228,6 +229,19 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
               ),
             ]),
     );
+  }
+
+  static Widget _storeAvatar(String? logoUrl, String? emoji, {double size = 40}) {
+    final fallback = Text(emoji ?? "🍽️", style: TextStyle(fontSize: size * 0.55));
+    if (logoUrl != null && logoUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(logoUrl, width: size, height: size, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback,
+        ),
+      );
+    }
+    return SizedBox(width: size, height: size, child: Center(child: fallback));
   }
 
   Widget _metric(String label, String value, Color color) => Container(

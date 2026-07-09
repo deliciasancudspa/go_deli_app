@@ -71,7 +71,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       final riderId = context.read<RiderProvider>().riderId;
       final o = await _sb.from("orders")
-        .select("*, stores(name,emoji,address,phone,lat,lng), users!client_id(name,phone), order_items(item_name,quantity,item_price)")
+        .select("*, stores(name,emoji,logo_url,address,phone,lat,lng), users!client_id(name,phone), order_items(item_name,quantity,item_price)")
         .eq("id", widget.orderId)
         .single();
       // ¿El rider tiene otro pedido en curso por delante? (para la cola)
@@ -338,7 +338,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ]),
           ),
 
-        _infoCard("Restaurante", _order!["stores"]?["emoji"] ?? "🍽️", _order!["stores"]?["name"] ?? "", _order!["stores"]?["address"] ?? "", _order!["stores"]?["phone"], _order!["stores"]?["address"]),
+        _infoCard("Restaurante", _order!["stores"]?["emoji"] ?? "🍽️", _order!["stores"]?["name"] ?? "", _order!["stores"]?["address"] ?? "", _order!["stores"]?["phone"], _order!["stores"]?["address"],
+          logoUrl: _order!["stores"]?["logo_url"] as String?),
         const SizedBox(height: 12),
         _infoCard("Cliente", "👤", _order!["users"]?["name"] ?? "Cliente", _order!["delivery_address"] ?? "", _order!["users"]?["phone"], _order!["delivery_address"],
           lat: (_order!["delivery_lat"] as num?)?.toDouble(),
@@ -579,7 +580,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _infoCard(String title, String emoji, String name, String subtitle, String? phone, String? address, {double? lat, double? lng, String? reference}) =>
+  Widget _infoCard(String title, String emoji, String name, String subtitle, String? phone, String? address, {double? lat, double? lng, String? reference, String? logoUrl}) =>
     Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
@@ -587,7 +588,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textLight)),
       const SizedBox(height: 8),
       Row(children: [
-        Text(emoji, style: const TextStyle(fontSize: 24)),
+        _storeAvatar(logoUrl, emoji, size: 40),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
@@ -633,6 +634,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     ]),
   );
 }
+
+  Widget _storeAvatar(String? logoUrl, String? emoji, {double size = 40}) {
+    final fallback = Text(emoji ?? "🍽️", style: TextStyle(fontSize: size * 0.55));
+    if (logoUrl != null && logoUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(logoUrl, width: size, height: size, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback,
+        ),
+      );
+    }
+    return SizedBox(width: size, height: size, child: Center(child: fallback));
+  }
 
 // Bottom sheet for return note — manages TextEditingController via StatefulWidget lifecycle
 class _ReturnDialogSheet extends StatefulWidget {

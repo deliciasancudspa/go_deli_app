@@ -157,7 +157,7 @@ class RiderProvider extends ChangeNotifier {
   Future<void> loadActiveOrders() async {
     if (_rider == null) return;
     try {
-      final orders = await _sb.from("orders").select("*, stores(name,emoji,address,phone), users!client_id(name,phone), order_items(item_name,quantity)").eq("deliverer_id", _rider!["id"]).inFilter("status", ["assigned", "picked_up", "on_the_way"]).order("created_at", ascending: false);
+      final orders = await _sb.from("orders").select("*, stores(name,emoji,logo_url,address,phone), users!client_id(name,phone), order_items(item_name,quantity)").eq("deliverer_id", _rider!["id"]).inFilter("status", ["assigned", "picked_up", "on_the_way"]).order("created_at", ascending: false);
       _activeOrders = List<Map<String, dynamic>>.from(orders);
       notifyListeners();
     } catch (_) {}
@@ -166,7 +166,7 @@ class RiderProvider extends ChangeNotifier {
   Future<void> loadOrderHistory() async {
     if (_rider == null) return;
     try {
-      final orders = await _sb.from("orders").select("*, stores(name,emoji)").eq("deliverer_id", _rider!["id"]).order("created_at", ascending: false).limit(50);
+      final orders = await _sb.from("orders").select("*, stores(name,emoji,logo_url)").eq("deliverer_id", _rider!["id"]).order("created_at", ascending: false).limit(50);
       _orderHistory = List<Map<String, dynamic>>.from(orders);
       notifyListeners();
     } catch (_) {}

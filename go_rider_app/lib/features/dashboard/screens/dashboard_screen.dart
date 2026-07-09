@@ -337,6 +337,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
+  static Widget _storeAvatar(String? logoUrl, String? emoji, {double size = 40}) {
+    final fallback = Text(emoji ?? "🍽️", style: TextStyle(fontSize: size * 0.55));
+    if (logoUrl != null && logoUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(logoUrl, width: size, height: size, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback,
+        ),
+      );
+    }
+    return SizedBox(width: size, height: size, child: Center(child: fallback));
+  }
+
   Widget _kpi(String label, String value, IconData icon, Color color) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
@@ -359,7 +372,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.4), width: 2)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Text(o["stores"]?["emoji"] ?? "🍽️", style: const TextStyle(fontSize: 24)),
+            _storeAvatar(o["stores"]?["logo_url"] as String?, o["stores"]?["emoji"] as String?, size: 40),
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(o["stores"]?["name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),

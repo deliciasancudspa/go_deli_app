@@ -59,7 +59,7 @@ class _RiderChatScreenState extends State<RiderChatScreen> {
         }
       }
       final order = await _sb.from("orders")
-        .select("id, status, client_id, deliverer_id, stores(name,emoji), users!client_id(name,phone)")
+        .select("id, status, client_id, deliverer_id, stores(name,emoji,logo_url), users!client_id(name,phone)")
         .eq("id", widget.orderId)
         .single();
       if (mounted) setState(() { _order = order; _loading = false; });

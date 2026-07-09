@@ -12,44 +12,93 @@ class EarningsScreen extends StatefulWidget {
 }
 
 class _EarningsScreenState extends State<EarningsScreen> {
-  String _period = "week";
+  late DateTime _semanaStart; // Lunes 00:00 de la semana mostrada
   List<Map<String, dynamic>> _orders = [];
-  List<Map<String, dynamic>> _payments = [];
+  bool _semanaPagada = false; // admin marcó esta semana como pagada
   bool _loading = true;
   final _sb = Supabase.instance.client;
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _semanaStart = _getLunes(DateTime.now());
+    _load();
+  }
+
+  // ── Lógica de semana (lunes→domingo, igual que admin.html getLunes) ──
+  DateTime _getLunes(DateTime date) {
+    final d = date.weekday; // Monday=1 … Sunday=7
+    final diff = date.day - d + 1;
+    return DateTime(date.year, date.month, diff);
+  }
+
+  DateTime get _semanaEnd {
+    final end = DateTime(_semanaStart.year, _semanaStart.month, _semanaStart.day + 6);
+    return DateTime(end.year, end.month, end.day, 23, 59, 59, 999);
+  }
+
+  String _semanaLabel() {
+    String fmt(DateTime d) =>
+        "${d.day.toString().padLeft(2, "0")}/${d.month.toString().padLeft(2, "0")}/${d.year}";
+    return "${fmt(_semanaStart)} – ${fmt(_semanaEnd)}";
+  }
+
+  bool get _isCurrentWeek => _getLunes(DateTime.now()) == _semanaStart;
 
   Future<void> _load() async {
     final rider = context.read<RiderProvider>();
-    if (rider.riderId.isEmpty) { setState(() => _loading = false); return; }
+    if (rider.riderId.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     setState(() => _loading = true);
     try {
-      final from = _getFromDate();
+      // Pedidos entregados de la semana
       final orders = await _sb.from("orders")
-          .select("id, total, payment_method, status, created_at, rider_fee, delivery_distance, stores(name, emoji)")
+          .select("id, total, payment_method, status, created_at, rider_fee, delivery_distance, stores(name, emoji, logo_url)")
           .eq("deliverer_id", rider.riderId)
           .eq("status", "delivered")
-          .gte("created_at", from.toIso8601String());
-      final payments = await _sb.from("rider_payments")
-          .select("*")
-          .eq("deliverer_id", rider.riderId)
-          .order("paid_at", ascending: false)
-          .limit(10);
-      if (mounted) setState(() {
-        _orders   = List<Map<String, dynamic>>.from(orders);
-        _payments = List<Map<String, dynamic>>.from(payments);
-        _loading  = false;
-      });
-    } catch (_) { if (mounted) setState(() => _loading = false); }
+          .gte("created_at", _semanaStart.toIso8601String())
+          .lte("created_at", _semanaEnd.toIso8601String());
+
+      // ¿Admin ya pagó esta semana? (mismo criterio que admin.html lines 2924-2930)
+      bool paid = false;
+      try {
+        final payments = await _sb.from("rider_payments")
+            .select("id")
+            .eq("deliverer_id", rider.riderId)
+            .gte("created_at", _semanaStart.toIso8601String())
+            .lte("created_at", _semanaEnd.toIso8601String())
+            .limit(1);
+        paid = (payments as List).isNotEmpty;
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _orders = List<Map<String, dynamic>>.from(orders);
+          _semanaPagada = paid;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
-  DateTime _getFromDate() {
-    final now = DateTime.now();
-    if (_period == "day")   return DateTime(now.year, now.month, now.day);
-    if (_period == "week")  return now.subtract(const Duration(days: 7));
-    return now.subtract(const Duration(days: 30));
+  void _semanaAnterior() {
+    setState(() {
+      _semanaStart = DateTime(_semanaStart.year, _semanaStart.month, _semanaStart.day - 7);
+    });
+    _load();
+  }
+
+  void _semanaSiguiente() {
+    // No permitir ir a semanas futuras
+    if (_isCurrentWeek) return;
+    setState(() {
+      _semanaStart = DateTime(_semanaStart.year, _semanaStart.month, _semanaStart.day + 7);
+    });
+    _load();
   }
 
   // rider_fee es calculado al crear la orden (checkout) y garantizado por el
@@ -62,181 +111,335 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalEarned  = _orders.fold(0.0, (s, o) => s + _orderEarning(o));
+    final totalEarned = _orders.fold(0.0, (s, o) => s + _orderEarning(o));
 
     // Ganancias de pedidos en efectivo: el rider ya las tiene en su bolsillo
-    final cashEarnings = _orders.where((o) => o["payment_method"] == "cash")
+    final cashEarnings = _orders
+        .where((o) => o["payment_method"] == "cash")
         .fold(0.0, (s, o) => s + _orderEarning(o));
 
-    // A depositar: solo lo de pedidos con tarjeta (la plataforma debe transferir)
-    final toDeposit    = totalEarned - cashEarnings;
+    // Ganancias de pedidos con tarjeta (plataforma debe transferir)
+    final cardEarnings = totalEarned - cashEarnings;
 
     // Total de efectivo que el rider cobró a clientes
-    final cashHandled  = _orders.where((o) => o["payment_method"] == "cash")
-        .fold(0.0, (s, o) => s + ((o["total"] as num).toDouble()));
+    final cashHandled = _orders
+        .where((o) => o["payment_method"] == "cash")
+        .fold(0.0, (s, o) => s + ((o["total"] as num?)?.toDouble() ?? 0));
 
     // Lo que el rider debe rendir a la plataforma del efectivo cobrado
-    final toRemit      = cashHandled - cashEarnings;
+    final cashToRemit = cashHandled - cashEarnings;
+
+    // Balance neto: positivo = plataforma le debe al rider, negativo = rider debe a plataforma
+    final netBalance = cardEarnings - cashToRemit;
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, _) { if (!didPop) context.go("/dashboard"); },
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go("/dashboard");
+      },
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
           title: const Text("Mis ganancias"),
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/dashboard")),
+          leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.go("/dashboard")),
         ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.accent))
             : RefreshIndicator(
                 onRefresh: _load,
                 color: AppColors.accent,
-                child: ListView(padding: const EdgeInsets.all(16), children: [
-                  // Period selector
-                  Container(
-                    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-                    child: Row(children: [
-                      _periodBtn("Hoy", "day"), _periodBtn("Semana", "week"), _periodBtn("Mes", "month"),
-                    ]),
-                  ),
-                  const SizedBox(height: 16),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // ── Navegación semanal ──
+                    _weekNav(),
+                    const SizedBox(height: 16),
 
-                  // Total earned KPI
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF2d1b69)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Column(children: [
-                      const Text("Total ganado", style: TextStyle(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 8),
-                      Text(_fmt(totalEarned), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 4),
-                      Text("${_orders.length} pedidos completados",
-                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
-                    ]),
-                  ),
-                  const SizedBox(height: 16),
-
-                  Row(children: [
-                    Expanded(child: _statCard("A depositar", _fmt(toDeposit), AppColors.info, "Transferencia pendiente (tarjeta)")),
-                    const SizedBox(width: 12),
-                    Expanded(child: _statCard("A rendir", _fmt(toRemit), AppColors.warning, "Efectivo cobrado a devolver")),
-                  ]),
-                  const SizedBox(height: 24),
-
-                  // Per-order history
-                  if (_orders.isNotEmpty) ...[
-                    const Text("Pedidos entregados", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 12),
-                    ..._orders.map((o) => _orderRow(o)),
-                    const SizedBox(height: 8),
-                  ],
-
-                  // Payments received
-                  const Text("Pagos recibidos", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 12),
-                  if (_payments.isEmpty)
+                    // ── Total ganado KPI ──
                     Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
-                      child: const Column(children: [
-                        Text("💰", style: TextStyle(fontSize: 40)),
-                        SizedBox(height: 12),
-                        Text("Sin pagos registrados aun", style: TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w600)),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                            colors: [AppColors.primary, Color(0xFF2d1b69)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Column(children: [
+                        const Text("Total ganado",
+                            style: TextStyle(
+                                color: Colors.white60,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 8),
+                        Text(_fmt(totalEarned),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 36,
+                                fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 4),
+                        Text("${_orders.length} pedidos completados",
+                            style: TextStyle(
+                                color: Colors.white.withOpacity(0.6),
+                                fontSize: 13)),
+                        // Badge de semana pagada/rendida
+                        if (_semanaPagada) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: (netBalance >= 0
+                                      ? AppColors.success
+                                      : AppColors.warning)
+                                  .withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              netBalance >= 0 ? "✅ Pagada" : "📋 Rendida",
+                              style: TextStyle(
+                                color: netBalance >= 0
+                                    ? AppColors.success
+                                    : AppColors.warning,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ]),
-                    )
-                  else
-                    ..._payments.map((p) => Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-                      child: Row(children: [
-                        Container(width: 40, height: 40, decoration: BoxDecoration(color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.check_circle, color: AppColors.success, size: 22)),
-                        const SizedBox(width: 12),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const Text("Pago recibido", style: TextStyle(fontWeight: FontWeight.w700)),
-                          if (p["reference"] != null) Text("Ref: ${p["reference"]}", style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
-                        ])),
-                        Text(_fmt((p["amount"] as num?)?.toDouble() ?? 0), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.success)),
-                      ]),
-                    )),
-                ]),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Balance neto: A recibir o A rendir ──
+                    _balanceCard(netBalance),
+                    const SizedBox(height: 24),
+
+                    // ── Pedidos entregados ──
+                    if (_orders.isNotEmpty) ...[
+                      const Text("Pedidos entregados",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 12),
+                      ..._orders.map((o) => _orderRow(o)),
+                    ] else ...[
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.border)),
+                        child: const Column(children: [
+                          Text("🛵", style: TextStyle(fontSize: 40)),
+                          SizedBox(height: 12),
+                          Text("Sin entregas esta semana",
+                              style: TextStyle(
+                                  color: AppColors.textLight,
+                                  fontWeight: FontWeight.w600)),
+                        ]),
+                      ),
+                    ],
+                  ],
+                ),
               ),
       ),
     );
   }
 
+  // ── Navegación de semana: ← | fecha | → ──
+  Widget _weekNav() {
+    return Container(
+      decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border)),
+      child: Row(children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left, color: AppColors.accent),
+          onPressed: _semanaAnterior,
+          tooltip: "Semana anterior",
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              // Volver a la semana actual
+              final current = _getLunes(DateTime.now());
+              if (_semanaStart != current) {
+                setState(() => _semanaStart = current);
+                _load();
+              }
+            },
+            child: Text(
+              _isCurrentWeek ? "Esta semana" : _semanaLabel(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: AppColors.textDark),
+            ),
+          ),
+        ),
+        IconButton(
+          icon: Icon(Icons.chevron_right,
+              color: _isCurrentWeek
+                  ? AppColors.border
+                  : AppColors.accent),
+          onPressed: _isCurrentWeek ? null : _semanaSiguiente,
+          tooltip: "Semana siguiente",
+        ),
+      ]),
+    );
+  }
+
+  // ── Tarjeta de balance: "A recibir" (verde, positivo) o "A rendir" (naranja, negativo) ──
+  Widget _balanceCard(double netBalance) {
+    final bool positive = netBalance >= 0;
+    final String label = positive ? "A recibir" : "A rendir";
+    final Color color = positive ? AppColors.success : AppColors.warning;
+    final IconData icon =
+        positive ? Icons.account_balance_wallet_outlined : Icons.swap_horiz;
+    final String subtitle = positive
+        ? "Transferencia pendiente de la plataforma"
+        : "Efectivo a devolver a la plataforma";
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withOpacity(0.35), width: 1.5),
+      ),
+      child: Row(children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(14)),
+          child: Icon(icon, color: color, size: 26),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: color,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(_fmt(netBalance.abs()),
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      color: color)),
+              const SizedBox(height: 2),
+              Text(subtitle,
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textLight)),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+
+  // ── Fila de pedido individual ──
   Widget _orderRow(Map<String, dynamic> o) {
-    final store       = (o["stores"] as Map<String, dynamic>?) ?? {};
-    final storeEmoji  = store["emoji"] as String? ?? "🍽️";
-    final storeName   = store["name"] as String? ?? "Pedido";
-    final earning     = _orderEarning(o);
-    final distMeters  = (o["delivery_distance"] as num?)?.toInt();
-    final distLabel   = distMeters != null ? "${(distMeters / 1000).toStringAsFixed(1)} km" : null;
-    final payMethod   = o["payment_method"] as String?;
-    final createdAt   = DateTime.tryParse(o["created_at"] as String? ?? "");
-    final timeLabel   = createdAt != null
+    final store = (o["stores"] as Map<String, dynamic>?) ?? {};
+    final storeLogo = store["logo_url"] as String?;
+    final storeEmoji = store["emoji"] as String? ?? "🍽️";
+    final storeName = store["name"] as String? ?? "Pedido";
+    final earning = _orderEarning(o);
+    final distMeters = (o["delivery_distance"] as num?)?.toInt();
+    final distLabel = distMeters != null
+        ? "${(distMeters / 1000).toStringAsFixed(1)} km"
+        : null;
+    final payMethod = o["payment_method"] as String?;
+    final createdAt = DateTime.tryParse(o["created_at"] as String? ?? "");
+    final timeLabel = createdAt != null
         ? "${createdAt.hour.toString().padLeft(2, "0")}:${createdAt.minute.toString().padLeft(2, "0")}"
         : "";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+      decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border)),
       child: Row(children: [
-        Text(storeEmoji, style: const TextStyle(fontSize: 26)),
+        _storeAvatar(storeLogo, storeEmoji, size: 40),
         const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(storeName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-          const SizedBox(height: 3),
-          Row(children: [
-            if (distLabel != null) ...[
-              const Icon(Icons.route_outlined, size: 13, color: AppColors.textLight),
-              const SizedBox(width: 3),
-              Text(distLabel, style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
-              const SizedBox(width: 10),
-            ],
-            if (payMethod == "cash")
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.12), borderRadius: BorderRadius.circular(5)),
-                child: const Text("Efectivo", style: TextStyle(color: AppColors.warning, fontSize: 10, fontWeight: FontWeight.w700)),
-              ),
-            if (timeLabel.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              Text(timeLabel, style: const TextStyle(color: AppColors.textLight, fontSize: 11)),
-            ],
-          ]),
-        ])),
-        Text(_fmt(earning), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.success)),
+        Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              Text(storeName,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14)),
+              const SizedBox(height: 3),
+              Row(children: [
+                if (distLabel != null) ...[
+                  const Icon(Icons.route_outlined,
+                      size: 13, color: AppColors.textLight),
+                  const SizedBox(width: 3),
+                  Text(distLabel,
+                      style: const TextStyle(
+                          color: AppColors.textLight, fontSize: 12)),
+                  const SizedBox(width: 10),
+                ],
+                if (payMethod == "cash")
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                        color: AppColors.warning.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(5)),
+                    child: const Text("Efectivo",
+                        style: TextStyle(
+                            color: AppColors.warning,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                if (timeLabel.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Text(timeLabel,
+                      style: const TextStyle(
+                          color: AppColors.textLight, fontSize: 11)),
+                ],
+              ]),
+            ])),
+        Text(_fmt(earning),
+            style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+                color: AppColors.success)),
       ]),
     );
   }
 
-  Widget _periodBtn(String label, String value) => Expanded(
-    child: GestureDetector(
-      onTap: () { setState(() => _period = value); _load(); },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(color: _period == value ? AppColors.accent : Colors.transparent, borderRadius: BorderRadius.circular(12)),
-        child: Text(label, textAlign: TextAlign.center,
-            style: TextStyle(fontWeight: FontWeight.w800, color: _period == value ? Colors.white : AppColors.textMedium, fontSize: 14)),
-      ),
-    ),
-  );
-
-  Widget _statCard(String label, String value, Color color, String sub) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textLight, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 6),
-      Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color)),
-      const SizedBox(height: 4),
-      Text(sub, style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
-    ]),
-  );
+  // ── Avatar de tienda: logo_url con fallback a emoji ──
+  static Widget _storeAvatar(String? logoUrl, String? emoji,
+      {double size = 40}) {
+    final fallback = Text(emoji ?? "🍽️",
+        style: TextStyle(fontSize: size * 0.55));
+    if (logoUrl != null && logoUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(
+          logoUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback,
+        ),
+      );
+    }
+    return SizedBox(width: size, height: size, child: Center(child: fallback));
+  }
 }
