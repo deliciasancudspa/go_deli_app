@@ -3003,99 +3003,87 @@ async function loadPagosRidersSemana(){
       return;
     }
 
-    // ── Renderizar tarjetas por rider ──
-    const cards=riderList.map(r=>{
+    // ── Renderizar tabla limpia ──
+    const rows=riderList.map((r,i)=>{
       const totalEntregas=r.delivered+r.cancelled+r.returned;
       const netBalance=r.cardEarnings-r.cashToRemit;
       const paid=r.isPaid;
-      const btnId='liq-rider-btn-'+r.id;
+      const rowBg=i%2===0?'#fff':'#fafbfc';
 
       // Estado
       let statusBadge='';
       if(paid){
-        const amt=r.paidAmount;
-        statusBadge=amt>=0
-          ? '<span style="background:#D1FAE5;color:#065F46;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">✅ Depositada</span>'
-          : '<span style="background:#FEF3C7;color:#92400E;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">📋 Rendida</span>';
+        statusBadge=r.paidAmount>=0
+          ? '<span class="badge badge-success">Depositada</span>'
+          : '<span class="badge badge-warning">Rendida</span>';
+      } else if(totalEntregas>0){
+        statusBadge='<span class="badge badge-muted">Pendiente</span>';
       } else {
-        statusBadge='<span style="background:#F3F4F6;color:#6B7280;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">⏳ Pendiente</span>';
+        statusBadge='<span class="badge" style="background:#e5e7eb;color:#9ca3af;">Sin actividad</span>';
       }
 
-      // Net label
-      const netLabel=netBalance>=0
-        ? `<span style="color:#059669;font-weight:700;">Por depositar ${fmtCLP(netBalance)}</span>`
-        : `<span style="color:#D97706;font-weight:700;">Por rendir ${fmtCLP(Math.abs(netBalance))}</span>`;
+      // Balance
+      const balanceCell=totalEntregas===0
+        ? '<span style="color:#9ca3af;">—</span>'
+        : netBalance>=0
+          ? `<span style="color:#059669;font-weight:700;">Por depositar<br><small>${fmtCLP(netBalance)}</small></span>`
+          : `<span style="color:#D97706;font-weight:700;">Por rendir<br><small>${fmtCLP(Math.abs(netBalance))}</small></span>`;
 
-      // Botón acción
+      // Botón
       let actionBtn='';
       if(paid){
-        actionBtn=`<button class="btn btn-outline btn-sm" onclick="verLiquidacionRider('${r.id}')" title="Ver comprobante">📋 Ver liquidación</button>`;
+        actionBtn=`<button class="btn btn-outline btn-sm" onclick="verLiquidacionRider('${r.id}')" style="font-size:11px;">📋</button>`;
       } else if(totalEntregas>0){
-        actionBtn=`<button id="${btnId}" class="btn btn-sm btn-primary" onclick="abrirLiquidarRider('${r.id}')">💸 Liquidar</button>`;
+        actionBtn=`<button class="btn btn-primary btn-sm" onclick="abrirLiquidarRider('${r.id}')" style="font-size:11px;white-space:nowrap;">💸 Liquidar</button>`;
       } else {
-        actionBtn=`<button class="btn btn-sm" disabled style="opacity:0.4;">Sin actividad</button>`;
+        actionBtn=`<span style="color:#d1d5db;">—</span>`;
       }
 
-      return `<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:18px;margin-bottom:14px;">
-        <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:10px;">
-          <div style="flex:1;min-width:200px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <strong style="font-size:15px;">${esc(r.name)}</strong>
-              ${statusBadge}
+      return `<tr style="background:${rowBg};" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='${rowBg}'">
+        <td>
+          <div style="font-weight:700;font-size:13px;">${esc(r.name)}</div>
+          <div style="font-size:11px;color:#6B7280;">📱 ${esc(r.phone)}</div>
+        </td>
+        <td style="font-size:11px;">${esc(r.vehicle)}</td>
+        <td style="text-align:center;">${statusBadge}</td>
+        <td style="text-align:center;font-weight:600;">${r.delivered||'—'}</td>
+        <td style="text-align:center;">${r.cancelled||'—'}</td>
+        <td style="text-align:center;">${r.returned||'—'}</td>
+        <td style="text-align:center;font-weight:700;color:#7C3AED;">${totalEntregas||'—'}</td>
+        <td style="text-align:right;font-weight:700;color:#059669;font-size:13px;">${r.totalEarned>0?fmtCLP(r.totalEarned):'—'}</td>
+        <td style="font-size:12px;">${balanceCell}</td>
+        <td style="text-align:center;white-space:nowrap;">
+          ${actionBtn}
+          <button class="btn btn-outline btn-sm" onclick="toggleRiderData('rider-data-${r.id}')" style="font-size:11px;margin-left:3px;" title="Datos">📋</button>
+        </td>
+      </tr>
+      <tr id="rider-data-${r.id}" style="display:none;background:#FFFBEB;">
+        <td colspan="10" style="padding:12px 16px;font-size:12px;border-bottom:2px solid #FCD34D;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div>
+              <strong>🏦 Datos bancarios</strong><br>
+              ${esc(r.bank_name)} · ${esc(r.account_type)}<br>
+              Cuenta: ${esc(r.account_number)}<br>
+              Titular: ${esc(r.account_holder)} · RUT: ${esc(r.rut)}
             </div>
-            <div style="font-size:12px;color:#6B7280;margin-top:3px;">📱 ${esc(r.phone)} · 📧 ${esc(r.email)}</div>
-            <div style="font-size:12px;color:#6B7280;">🛵 ${esc(r.vehicle)}</div>
+            <div>
+              <strong>📝 Registro</strong><br>
+              Vehículo: ${esc(r.vehicle)}<br>
+              Registrado: ${r.registered?fmtDateOnly(r.registered):'-'}<br>
+              Email: ${esc(r.email||'-')}
+            </div>
+            <div>
+              ${paid?`
+                <strong>📎 Liquidación</strong><br>
+                Monto: ${fmtCLP(r.paidAmount)}<br>
+                Ref: ${esc(r.paidRef||'-')}<br>
+                Nota: ${esc(r.paidNote||'-')}<br>
+                Fecha: ${r.paidAt?fmtDateTime(r.paidAt):'-'}
+              `:'<span style="color:#9ca3af;">Sin liquidación esta semana</span>'}
+            </div>
           </div>
-          <div style="text-align:right;">
-            ${actionBtn}
-          </div>
-        </div>
-
-        <!-- Métricas -->
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid #f3f4f6;">
-          <div style="flex:1;min-width:70px;text-align:center;background:#f9fafb;border-radius:10px;padding:10px 8px;">
-            <div style="font-size:20px;font-weight:900;color:#111827;">${r.delivered}</div>
-            <div style="font-size:10px;color:#6B7280;font-weight:600;">✅ Entregas</div>
-          </div>
-          <div style="flex:1;min-width:70px;text-align:center;background:#f9fafb;border-radius:10px;padding:10px 8px;">
-            <div style="font-size:20px;font-weight:900;color:#DC2626;">${r.cancelled}</div>
-            <div style="font-size:10px;color:#6B7280;font-weight:600;">❌ Canceladas</div>
-          </div>
-          <div style="flex:1;min-width:70px;text-align:center;background:#f9fafb;border-radius:10px;padding:10px 8px;">
-            <div style="font-size:20px;font-weight:900;color:#D97706;">${r.returned}</div>
-            <div style="font-size:10px;color:#6B7280;font-weight:600;">↩️ Devueltas</div>
-          </div>
-          <div style="flex:1;min-width:70px;text-align:center;background:#f9fafb;border-radius:10px;padding:10px 8px;">
-            <div style="font-size:20px;font-weight:900;color:#7C3AED;">${totalEntregas}</div>
-            <div style="font-size:10px;color:#6B7280;font-weight:600;">📦 Total</div>
-          </div>
-          <div style="flex:1.5;min-width:120px;text-align:center;background:#f9fafb;border-radius:10px;padding:10px 8px;">
-            <div style="font-size:20px;font-weight:900;color:#059669;">${fmtCLP(r.totalEarned)}</div>
-            <div style="font-size:10px;color:#6B7280;font-weight:600;">💰 Ganado</div>
-          </div>
-        </div>
-
-        <!-- Balance neto -->
-        <div style="margin-top:10px;padding:10px 14px;background:#f9fafb;border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-          <div>${netLabel}</div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <button class="btn btn-outline btn-sm" onclick="toggleRiderData('rider-data-${r.id}')" style="font-size:11px;">📋 Datos</button>
-            <button class="btn btn-outline btn-sm" onclick="generarCartolaPDFRider('${r.id}')" style="font-size:11px;">📄 Cartola</button>
-          </div>
-        </div>
-
-        <!-- Datos expandibles -->
-        <div id="rider-data-${r.id}" style="display:none;margin-top:10px;padding:14px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:10px;font-size:12px;">
-          <strong>🏦 Datos bancarios</strong><br>
-          Banco: ${esc(r.bank_name)} · ${esc(r.account_type)}<br>
-          N° Cuenta: ${esc(r.account_number)}<br>
-          Titular: ${esc(r.account_holder)} · RUT: ${esc(r.rut)}<br>
-          <br><strong>📝 Registro</strong><br>
-          Vehículo: ${esc(r.vehicle)}<br>
-          Registrado: ${r.registered?fmtDateOnly(r.registered):'-'}<br>
-          ${r.isPaid?`<br><strong>📎 Liquidación</strong><br>Monto: ${fmtCLP(r.paidAmount)}<br>Ref: ${esc(r.paidRef||'-')}<br>Nota: ${esc(r.paidNote||'-')}<br>Fecha: ${r.paidAt?fmtDateTime(r.paidAt):'-'}`:''}
-        </div>
-      </div>`;
+        </td>
+      </tr>`;
     }).join('');
 
     const totalEarned=riderList.reduce((s,x)=>s+x.totalEarned,0);
@@ -3104,16 +3092,41 @@ async function loadPagosRidersSemana(){
     const totalReturned=riderList.reduce((s,x)=>s+x.returned,0);
 
     el.innerHTML=`
-      <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div style="display:flex;gap:12px;font-size:13px;">
+      <style>
+        #pagos-riders-table table { width:100%; border-collapse:collapse; font-size:13px; }
+        #pagos-riders-table th { background:#f8fafc; color:#475569; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; padding:10px 8px; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
+        #pagos-riders-table td { padding:10px 8px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+        #pagos-riders-table .badge { display:inline-block;padding:3px 9px;border-radius:10px;font-size:10px;font-weight:700;white-space:nowrap; }
+        #pagos-riders-table .badge-success { background:#D1FAE5;color:#065F46; }
+        #pagos-riders-table .badge-warning { background:#FEF3C7;color:#92400E; }
+        #pagos-riders-table .badge-muted { background:#F3F4F6;color:#6B7280; }
+      </style>
+      <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 14px;background:#f8fafc;border-radius:10px;font-size:12px;color:#475569;">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
           <span>✅ <strong>${totalDelivered}</strong> entregadas</span>
           <span>❌ <strong>${totalCancelled}</strong> canceladas</span>
           <span>↩️ <strong>${totalReturned}</strong> devueltas</span>
+          <span>👥 <strong>${riderList.length}</strong> repartidores</span>
         </div>
-        <div style="font-size:15px;font-weight:800;color:#059669;">Total ganado: ${fmtCLP(totalEarned)}</div>
+        <div style="font-size:14px;font-weight:800;color:#059669;">Total ganado: ${fmtCLP(totalEarned)}</div>
       </div>
-      ${cards}
-      ${riderList.length===0?'<div class="empty"><p>Sin repartidores con actividad esta semana</p></div>':''}
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr>
+            <th>Repartidor</th>
+            <th>Vehículo</th>
+            <th>Estado</th>
+            <th>✅</th>
+            <th>❌</th>
+            <th>↩️</th>
+            <th>Total</th>
+            <th>Ganado</th>
+            <th>Balance</th>
+            <th style="width:100px;">Acción</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
     `;
 
   }catch(err){
