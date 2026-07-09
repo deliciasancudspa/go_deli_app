@@ -38,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final rider = context.watch<RiderProvider>();
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(children: [
+      body: SizedBox.expand(child: Stack(children: [
         // Mismos detalles decorativos que la pantalla de carga
         Positioned(top: -80, right: -80, child: Container(
           width: 300, height: 300,
@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
           GestureDetector(onTap: () => context.go("/register"), child: const Text("Registrate", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800))),
         ]),
       ]))),
-      ]),
+      ])),
     );
   }
 }

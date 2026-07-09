@@ -14,6 +14,7 @@ class EarningsScreen extends StatefulWidget {
 class _EarningsScreenState extends State<EarningsScreen> {
   late DateTime _semanaStart; // Lunes 00:00 de la semana mostrada
   List<Map<String, dynamic>> _orders = [];
+  String? _semanaStatus; // null=pendiente, "depositada", "rendida"
   bool _loading = true;
   final _sb = Supabase.instance.client;
 
@@ -60,9 +61,26 @@ class _EarningsScreenState extends State<EarningsScreen> {
           .gte("created_at", _semanaStart.toIso8601String())
           .lte("created_at", _semanaEnd.toIso8601String());
 
+      // ¿Admin ya pagó/liquidó esta semana?
+      String? status;
+      try {
+        final payments = await _sb.from("rider_payments")
+            .select("amount")
+            .eq("deliverer_id", rider.riderId)
+            .gte("created_at", _semanaStart.toIso8601String())
+            .lte("created_at", _semanaEnd.toIso8601String())
+            .limit(1);
+        final list = payments as List;
+        if (list.isNotEmpty) {
+          final amount = (list[0]["amount"] as num?)?.toDouble() ?? 0;
+          status = amount >= 0 ? "depositada" : "rendida";
+        }
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _orders = List<Map<String, dynamic>>.from(orders);
+          _semanaStatus = status;
           _loading = false;
         });
       }
@@ -262,9 +280,20 @@ class _EarningsScreenState extends State<EarningsScreen> {
     final Color color = positive ? AppColors.success : AppColors.warning;
     final IconData icon =
         positive ? Icons.account_balance_wallet_outlined : Icons.swap_horiz;
-    final String subtitle = positive
-        ? "Transferencia pendiente de la plataforma"
-        : "Efectivo a devolver a la plataforma";
+
+    // Subtítulo según estado de la semana
+    String subtitle;
+    if (_semanaStatus == "depositada") {
+      subtitle = "✅ Semana depositada";
+    } else if (_semanaStatus == "rendida") {
+      subtitle = "📋 Semana rendida";
+    } else if (_isCurrentWeek) {
+      subtitle = positive
+          ? "Transferencia pendiente de la plataforma"
+          : "Efectivo a devolver a la plataforma";
+    } else {
+      subtitle = "⏳ Pendiente de liquidación";
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
