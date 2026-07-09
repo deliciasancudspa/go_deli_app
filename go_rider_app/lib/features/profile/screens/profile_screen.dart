@@ -1,3 +1,4 @@
+import "dart:convert";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
@@ -10,8 +11,42 @@ import "../../../providers/rider_provider.dart";
 // Admin WhatsApp — configurable en go_rider_app/lib/config/app_config.dart
 import "../../../config/app_config.dart";
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String? _supportPhone; // cargado desde config admin
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSupportPhone();
+  }
+
+  Future<void> _loadSupportPhone() async {
+    try {
+      final data = await Supabase.instance.client
+          .from("config")
+          .select("value")
+          .eq("key", "platform_config")
+          .maybeSingle();
+      if (data != null) {
+        final raw = data["value"];
+        final map = raw is Map<String, dynamic>
+            ? raw
+            : raw is String
+                ? (jsonDecode(raw) as Map<String, dynamic>?)
+                : null;
+        final phone = (map?["support_phone"] as String?)?.trim();
+        if (phone != null && phone.isNotEmpty && mounted) {
+          setState(() => _supportPhone = phone.replaceAll(RegExp(r'[^0-9]'), ''));
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +114,8 @@ class ProfileScreen extends StatelessWidget {
             label: "WhatsApp",
             icon: Icons.chat_outlined,
             onTap: () async {
-              final uri = Uri.parse("https://wa.me/${AppConfig.adminWhatsApp}");
+              final phone = _supportPhone ?? AppConfig.adminWhatsApp;
+              final uri = Uri.parse("https://wa.me/$phone");
               if (await canLaunchUrl(uri)) {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
               }

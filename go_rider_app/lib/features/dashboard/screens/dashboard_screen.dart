@@ -309,7 +309,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _kpi("A depositar", _fmt((_stats["toDeposit"] ?? 0).toDouble()), Icons.account_balance_outlined, AppColors.info)),
+              Expanded(child: _kpi("A recibir", _fmt((_stats["toDeposit"] ?? 0).toDouble()), Icons.account_balance_outlined, AppColors.info)),
               const SizedBox(width: 12),
               Expanded(child: _kpi("A rendir", _fmt((_stats["toRemit"] ?? 0).toDouble()), Icons.swap_horiz, AppColors.warning)),
             ]),

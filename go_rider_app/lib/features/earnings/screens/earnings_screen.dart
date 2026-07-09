@@ -14,7 +14,6 @@ class EarningsScreen extends StatefulWidget {
 class _EarningsScreenState extends State<EarningsScreen> {
   late DateTime _semanaStart; // Lunes 00:00 de la semana mostrada
   List<Map<String, dynamic>> _orders = [];
-  bool _semanaPagada = false; // admin marcó esta semana como pagada
   bool _loading = true;
   final _sb = Supabase.instance.client;
 
@@ -61,22 +60,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
           .gte("created_at", _semanaStart.toIso8601String())
           .lte("created_at", _semanaEnd.toIso8601String());
 
-      // ¿Admin ya pagó esta semana? (mismo criterio que admin.html lines 2924-2930)
-      bool paid = false;
-      try {
-        final payments = await _sb.from("rider_payments")
-            .select("id")
-            .eq("deliverer_id", rider.riderId)
-            .gte("created_at", _semanaStart.toIso8601String())
-            .lte("created_at", _semanaEnd.toIso8601String())
-            .limit(1);
-        paid = (payments as List).isNotEmpty;
-      } catch (_) {}
-
       if (mounted) {
         setState(() {
           _orders = List<Map<String, dynamic>>.from(orders);
-          _semanaPagada = paid;
           _loading = false;
         });
       }
@@ -185,31 +171,6 @@ class _EarningsScreenState extends State<EarningsScreen> {
                             style: TextStyle(
                                 color: Colors.white.withOpacity(0.6),
                                 fontSize: 13)),
-                        // Badge de semana pagada/rendida
-                        if (_semanaPagada) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: (netBalance >= 0
-                                      ? AppColors.success
-                                      : AppColors.warning)
-                                  .withOpacity(0.25),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              netBalance >= 0 ? "✅ Pagada" : "📋 Rendida",
-                              style: TextStyle(
-                                color: netBalance >= 0
-                                    ? AppColors.success
-                                    : AppColors.warning,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
                       ]),
                     ),
                     const SizedBox(height: 16),

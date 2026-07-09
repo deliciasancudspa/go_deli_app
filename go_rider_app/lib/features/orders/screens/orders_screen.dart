@@ -30,8 +30,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   Widget build(BuildContext context) {
     final rider = context.watch<RiderProvider>();
-    final STATUS = {"pending":"Pendiente","accepted":"Aceptado","preparing":"Preparando","ready":"Listo","assigned":"Asignado","picked_up":"Recogido","on_the_way":"En camino","delivered":"Entregado","cancelled":"Cancelado"};
-    final COLORS = {"assigned":AppColors.warning,"picked_up":AppColors.info,"on_the_way":AppColors.accent,"delivered":AppColors.success,"cancelled":AppColors.error};
+    final STATUS = {"pending":"Pendiente","accepted":"Aceptado","preparing":"Preparando","ready":"Listo","assigned":"Asignado","picked_up":"Recogido","on_the_way":"En camino","delivered":"Entregado","cancelled":"Cancelado","returned":"Devuelto"};
+    final COLORS = {"assigned":AppColors.warning,"picked_up":AppColors.info,"on_the_way":AppColors.accent,"delivered":AppColors.success,"cancelled":AppColors.error,"returned":AppColors.warning};
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -63,6 +63,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(o["stores"]?["name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                         Text("Total: \$${((o["total"] as num?)??0).toStringAsFixed(0)}", style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
+                        () {
+                          final createdAt = DateTime.tryParse(o["created_at"] as String? ?? "");
+                          if (createdAt == null) return const SizedBox.shrink();
+                          final time = "${createdAt.hour.toString().padLeft(2, "0")}:${createdAt.minute.toString().padLeft(2, "0")}";
+                          final date = "${createdAt.day.toString().padLeft(2, "0")}/${createdAt.month.toString().padLeft(2, "0")}/${createdAt.year}";
+                          return Text("$time · $date", style: const TextStyle(color: AppColors.textLight, fontSize: 11));
+                        }(),
                       ])),
                       Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(STATUS[o["status"]]??o["status"], style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800))),
                     ]),

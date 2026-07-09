@@ -106,6 +106,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _error = "Ingresa tu RUT para la firma digital");
       return;
     }
+    if (!_isValidRut(signerRut)) {
+      setState(() => _error = "El RUT del firmante no es válido");
+      return;
+    }
     final sigBase64 = await _captureSignature();
 
     final rider = context.read<RiderProvider>();
@@ -151,7 +155,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  /// Valida RUT chileno (algoritmo módulo 11)
+  bool _isValidRut(String rut) {
+    final cleaned = rut.replaceAll(RegExp(r'[.\-\s]'), '').toUpperCase();
+    if (cleaned.length < 2) return false;
+    final dv = cleaned[cleaned.length - 1];
+    final numStr = cleaned.substring(0, cleaned.length - 1);
+    final num = int.tryParse(numStr);
+    if (num == null) return false;
+    int sum = 0;
+    int multiplier = 2;
+    for (int i = numStr.length - 1; i >= 0; i--) {
+      sum += int.parse(numStr[i]) * multiplier;
+      multiplier = multiplier == 7 ? 2 : multiplier + 1;
+    }
+    final expected = 11 - (sum % 11);
+    final expectedDv = expected == 11 ? '0' : (expected == 10 ? 'K' : expected.toString());
+    return dv == expectedDv;
+  }
+
   void _next() {
+    // Validar RUT en paso 1 (datos personales)
+    if (_step == 0 && _rutCtrl.text.trim().isNotEmpty) {
+      if (!_isValidRut(_rutCtrl.text.trim())) {
+        setState(() => _error = "El RUT ingresado no es válido");
+        return;
+      }
+    }
     _pageCtrl.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     setState(() { _step++; _error = null; });
   }
