@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Go Rider — Feature Graphic</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh; background: #333;
+  }
+  .graphic {
+    width: 1024px; height: 500px;
+    background: linear-gradient(135deg, #1A1A2E 0%, #2D2D44 40%, #FF6B35 100%);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 60px;
+    position: relative; overflow: hidden;
+  }
+  /* Círculos decorativos */
+  .graphic::before {
+    content: ''; position: absolute;
+    width: 400px; height: 400px;
+    background: rgba(255,107,53,0.15);
+    border-radius: 50%; top: -150px; right: -100px;
+  }
+  .graphic::after {
+    content: ''; position: absolute;
+    width: 250px; height: 250px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 50%; bottom: -80px; left: 200px;
+  }
+  .left { position: relative; z-index: 2; color: #fff; max-width: 420px; }
+  .left .emoji { font-size: 64px; margin-bottom: 12px; }
+  .left h1 { font-size: 42px; font-weight: 900; line-height: 1.1; margin-bottom: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .left h1 span { color: #FF6B35; }
+  .left p { font-size: 18px; color: rgba(255,255,255,0.8); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.5; }
+  .tags { display: flex; gap: 10px; margin-top: 18px; }
+  .tag {
+    background: rgba(255,255,255,0.12); color: #fff;
+    padding: 6px 14px; border-radius: 20px;
+    font-size: 13px; font-weight: 700;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .tag.highlight { background: #FF6B35; color: #fff; }
+  .right { position: relative; z-index: 2; text-align: center; }
+  .right .logo-circle {
+    width: 200px; height: 200px; border-radius: 50%;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    overflow: hidden;
+  }
+  .right .logo-circle img { width: 130px; height: 130px; object-fit: contain; }
+  .right .rider-badge {
+    display: inline-block; margin-top: 16px;
+    background: rgba(255,255,255,0.12); color: #fff;
+    padding: 8px 20px; border-radius: 24px;
+    font-size: 16px; font-weight: 800;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: 0.5px;
+  }
+  .footer-text {
+    position: absolute; bottom: 16px; right: 60px; z-index: 2;
+    color: rgba(255,255,255,0.5); font-size: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+</style>
+</head>
+<body>
+
+<div class="graphic">
+  <div class="left">
+    <div class="emoji">🛵</div>
+    <h1>Gana dinero<br>entregando con<br><span>Go Rider</span></h1>
+    <p>Recibe pedidos, navega con GPS y cobra<br>cada semana. Tú pones el horario.</p>
+    <div class="tags">
+      <span class="tag highlight">Sin horarios</span>
+      <span class="tag">GPS en vivo</span>
+      <span class="tag">Pago semanal</span>
+    </div>
+  </div>
+  <div class="right">
+    <div class="logo-circle">
+      <img src="icono.png" alt="Go Rider" onerror="this.parentElement.innerHTML='<span style=font-size:80px>🛵</span>'">
+    </div>
+    <div class="rider-badge">GO RIDER</div>
+  </div>
+  <div class="footer-text">www.godeli.cl</div>
+</div>
+
+<!-- Instrucciones -->
+<div style="position:fixed;bottom:10px;left:0;right:0;text-align:center;color:#fff;font-family:sans-serif;font-size:14px;">
+  📸 Ajusta el zoom del navegador hasta que el recuadro mida <strong>1024×500</strong> y toma screenshot
+</div>
+
+</body>
+</html>
