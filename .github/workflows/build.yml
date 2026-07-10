@@ -1,4 +1,4 @@
-name: Build APKs (GoDeli + GoRider)
+name: Build APKs + AABs (GoDeli + GoRider)
 on:
   push:
     branches: [ main ]
@@ -56,8 +56,23 @@ jobs:
         run: flutter build apk --release
         working-directory: ${{ matrix.dir }}
 
+      - name: Build AAB (Android App Bundle para Google Play)
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: flutter build appbundle --release
+        working-directory: ${{ matrix.dir }}
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}-apk
           path: ${{ matrix.dir }}/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-aab
+          path: ${{ matrix.dir }}/build/app/outputs/bundle/release/app-release.aab
