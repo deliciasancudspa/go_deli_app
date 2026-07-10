@@ -3669,16 +3669,10 @@ async function loadComisiones(){
 // CHATS — usa chat_messages (chats directos: order_id null), donde escriben
 // las apps de rider/cliente. La tabla 'messages' no existe en la BD.
 async function loadChats(){
-  let cq=sb.from('chat_messages').select('*,users!sender_id(name,email)').is('order_id',null).order('created_at',{ascending:false}).limit(100);
-  if(currentCommuneId){
-    // Filtrar chats solo de usuarios en la comuna seleccionada
-    try{
-      const {data:communeUsers}=await sb.from('users').select('id').eq('commune_id',currentCommuneId);
-      const ids=(communeUsers||[]).map(u=>u.id);
-      if(ids.length) cq=cq.in('sender_id',ids);
-      else cq=cq.eq('sender_id','__none__'); // sin usuarios en comuna → sin chats
-    }catch(_){}
-  }
+  let cq=sb.from('chat_messages').select('*,users!chat_messages_sender_id_fkey(name,email)').is('order_id',null).order('created_at',{ascending:false}).limit(100);
+  // Filtro por comuna: usa chat_messages.commune_id (no el commune_id del usuario sender)
+  // Incluye mensajes sin comuna (legacy/internos) para no ocultar riders/admins
+  if(currentCommuneId) cq=cq.or(`commune_id.eq.${currentCommuneId},commune_id.is.null`);
   const {data}=await cq;
   const msgs=data||[];
   const threads={};

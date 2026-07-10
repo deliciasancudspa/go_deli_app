@@ -83,7 +83,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       final result = await _sb.from("chat_messages")
         .select("*, users!chat_messages_sender_id_fkey(name)")
         .isFilter("order_id", null)
-        .or("and(sender_id.eq.$_userId,receiver_id.eq.${widget.adminId}),and(sender_id.eq.${widget.adminId},receiver_id.eq.$_userId)")
+        .or("sender_id.eq.$_userId,receiver_id.eq.$_userId")
         .order("created_at", ascending: false);
       if (!mounted) return;
       final newList = List<Map<String, dynamic>>.from(result);
