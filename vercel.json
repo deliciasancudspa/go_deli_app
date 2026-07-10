@@ -6,6 +6,8 @@
     { "src": "/admin", "dest": "/admin.html" },
     { "src": "/web", "dest": "/web.html" },
     { "src": "/tienda", "dest": "/tienda.html" },
+    { "src": "/privacidad", "dest": "/privacidad.html" },
+    { "src": "/privacy", "dest": "/privacidad.html" },
     { "src": "/([^/.]+)", "dest": "/tienda.html?slug=$1" }
   ]
 }

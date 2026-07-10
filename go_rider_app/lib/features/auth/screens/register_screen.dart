@@ -218,7 +218,7 @@ DÉCIMO SEGUNDA: PROHIBICIONES. Apropiación indebida, fraude, suplantación, en
 
 DÉCIMO TERCERA: GEOLOCALIZACIÓN. El repartidor autoriza el tratamiento de su ubicación.
 
-DÉCIMO CUARTA: DATOS PERSONALES. Tratamiento conforme a la Política de Privacidad de GO DELI.
+DÉCIMO CUARTA: DATOS PERSONALES. Tratamiento conforme a la Política de Privacidad de GO DELI, disponible en https://godeli.cl/privacidad.
 
 DÉCIMO QUINTA: PROPIEDAD INTELECTUAL. GO DELI es titular exclusivo de todos los derechos.
 
