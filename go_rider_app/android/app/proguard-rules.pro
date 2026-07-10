@@ -1,30 +1,34 @@
 # ── GoRider ProGuard / R8 rules ───────────────────────────────────────────
-# Generated for Google Play production builds
+# Modo completo con reglas mínimas necesarias para mayor optimización
 
-# Flutter
--keep class io.flutter.** { *; }
+# Flutter — solo lo esencial
+-keep class io.flutter.embedding.** { *; }
+-keep class io.flutter.plugin.** { *; }
 -dontwarn io.flutter.**
 
-# Firebase
--keep class com.google.firebase.** { *; }
+# Firebase (necesario para inicialización por reflexión)
+-keep class com.google.firebase.FirebaseApp { *; }
+-keep class com.google.firebase.messaging.** { *; }
+-keep class com.google.firebase.installations.** { *; }
 -dontwarn com.google.firebase.**
--keep class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
 
-# Supabase (Gotrue + PostgREST + Realtime)
--keep class io.supabase.** { *; }
+# Supabase — HTTP client + serialización
+-keep class io.supabase.gotrue.** { *; }
+-keep class io.supabase.postgrest.** { *; }
+-keep class io.supabase.realtime.** { *; }
 -dontwarn io.supabase.**
--keep class com.supabase.** { *; }
+-dontwarn com.supabase.**
 
 # Google Maps
--keep class com.google.android.libraries.** { *; }
+-keep class com.google.android.libraries.maps.** { *; }
 -dontwarn com.google.android.libraries.**
 
-# Audio players (ExoPlayer)
+# Audio players (ExoPlayer — necesario para reproducción de audio)
 -keep class com.google.android.exoplayer2.** { *; }
 -dontwarn com.google.android.exoplayer2.**
 
-# Kotlin serialization (usado por Supabase)
+# Kotlin serialization
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
 -keepclassmembers class kotlinx.serialization.json.** {
@@ -33,23 +37,20 @@
 -keepclasseswithmembers class kotlinx.serialization.json.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class com.godeli.go_rider.**$$serializer { *; }
--keepclassmembers class com.godeli.go_rider.** {
-    *** Companion;
-}
--keepclasseswithmembers class com.godeli.go_rider.** {
-    kotlinx.serialization.KSerializer serializer(...);
-}
 
-# Keep data classes used by Supabase serialization
+# App-specific — necesario para Supabase data classes
 -keep class com.godeli.go_rider.** { *; }
 
-# General Android
+# Android essentials
 -keepattributes Signature
 -keepattributes *Annotation*
--keepattributes EnclosingMethod
 -keepattributes SourceFile,LineNumberTable
 -keep public class * extends android.app.Activity
 -keep public class * extends android.app.Application
 -keep public class * extends android.app.Service
 -keep public class * extends android.content.BroadcastReceiver
+
+# Evitar warnings de clases que no existen en el classpath
+-dontwarn javax.annotation.**
+-dontwarn kotlin.Unit
+-dontwarn retrofit2.**

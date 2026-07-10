@@ -49,9 +49,9 @@ android {
             else
                 signingConfigs.getByName("debug")
 
-            // R8: reduce y optimiza el APK para producción
+            // R8: reduce y optimiza el APK/AAB para producción
             isMinifyEnabled = true
-            isShrinkResources = false
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
