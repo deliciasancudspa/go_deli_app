@@ -26,8 +26,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.notify-rider]
-# Llamada internamente (trigger DB o admin)
-verify_jwt = true
+# Llamada internamente (trigger DB o admin). verify_jwt = false porque
+# el trigger de BD y los webhooks no tienen JWT de usuario; la autenticación
+# se maneja con x-webhook-secret (NOTIFY_WEBHOOK_SECRET) o isAdminRequest().
+verify_jwt = false
 
 [functions.notify-client]
 # Llamada internamente (trigger DB o admin). verify_jwt = false porque
