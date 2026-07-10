@@ -51,7 +51,7 @@ android {
 
             // R8: reduce y optimiza el APK para producción
             isMinifyEnabled = true
-            isShrinkResources = true
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
