@@ -4,6 +4,7 @@
     { "src": "/", "dest": "/web.html" },
     { "src": "/aliados", "dest": "/aliados.html" },
     { "src": "/admin", "dest": "/admin.html" },
+    { "src": "/riders", "dest": "/riders.html" },
     { "src": "/web", "dest": "/web.html" },
     { "src": "/tienda", "dest": "/tienda.html" },
     { "src": "/privacidad", "dest": "/privacidad.html" },
