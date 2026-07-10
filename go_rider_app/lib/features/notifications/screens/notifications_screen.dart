@@ -4,6 +4,7 @@ import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/services/notification_service.dart";
 import "../../../providers/rider_provider.dart";
 import "../../orders/screens/offer_map_screen.dart";
 
@@ -17,7 +18,7 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsBindingObserver {
   final _sb = Supabase.instance.client;
   List<Map<String, dynamic>> _notifications = [];
   bool _loading = true;
@@ -25,7 +26,63 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final Set<String> _processing = {};
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // ═══ Sonido: al abrir la pantalla de ofertas, detenemos la alarma ═══
+    // El rider ya está viendo las ofertas en la app, no necesita el sonido.
+    NotificationService.stopOfferAlarm();
+    NotificationService.dismissOfferNotifications();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _restartAlarmIfNeeded();
+    super.dispose();
+  }
+
+  /// When leaving the offers screen, restart the alarm if there are still
+  /// pending (unresolved) offers — the rider should keep hearing the sound
+  /// until they come back and handle them.
+  void _restartAlarmIfNeeded() {
+    if (_notifications.isNotEmpty && _notifications.any(_isActive)) {
+      final activeNotif = _notifications.firstWhere(_isActive);
+      final data = activeNotif["data"] as Map<String, dynamic>?;
+      final orderId = data?["order_id"] as String? ?? "pending";
+      final count = _notifications.where(_isActive).length;
+      NotificationService.showOffer(
+        title: "🛵 Pedidos pendientes",
+        body: "Tienes $count oferta(s) de pedido sin responder.",
+        orderId: orderId,
+      );
+    }
+  }
+
+  /// Una notificación está activa si no ha expirado (según nuestro timer local
+  /// de 45 s) y no está en proceso de aceptación/rechazo.
+  bool _isActive(Map<String, dynamic> n) {
+    if (_processing.contains(n["id"] as String)) return false;
+    final raw = n["created_at"] as String?;
+    final created = raw != null ? (DateTime.tryParse(raw) ?? DateTime.now()) : DateTime.now();
+    final elapsed = DateTime.now().toUtc().difference(created.toUtc()).inSeconds;
+    return elapsed < _kTimeout;
+  }
+
+  /// App lifecycle: si el usuario sale de la app mientras hay ofertas activas,
+  /// el sonido debe seguir. Al regresar y tener la pantalla abierta, lo paramos.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _notifications.any(_isActive)) {
+      // Al volver del fondo estando en esta pantalla: paramos sonido
+      NotificationService.stopOfferAlarm();
+      NotificationService.dismissOfferNotifications();
+    } else if (state == AppLifecycleState.paused && _notifications.any(_isActive)) {
+      // Al ir al fondo con ofertas: reactivamos sonido
+      _restartAlarmIfNeeded();
+    }
+  }
 
   Future<void> _load() async {
     final rider = context.read<RiderProvider>();
@@ -42,7 +99,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       // oferta más reciente directamente.
       if (widget.autoOpen && !_dialogShown && _notifications.isNotEmpty && mounted) {
         _dialogShown = true;
-        // Si hay directOrderId, buscar esa notificación específica primero
         Map<String, dynamic>? target;
         if (widget.directOrderId != null) {
           target = _notifications.cast<Map<String, dynamic>?>().firstWhere(
@@ -58,8 +114,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (_) { if (mounted) setState(() => _loading = false); }
   }
 
-  // Abre la oferta sobre un mapa (tienda → cliente, ganancia, distancia).
-  // Si no hay order_id asociado, cae al diálogo simple.
   Future<void> _openOffer(Map<String, dynamic> notif) async {
     final orderId = (notif["data"] as Map?)?["order_id"] as String?;
     if (orderId == null) { _showOfferDialog(notif); return; }
@@ -130,22 +184,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     setState(() => _processing.add(id));
     try {
-      // El motor de despacho (server-side) ofrece el pedido a un rider a la vez.
-      // accept_offer asigna el pedido solo si la oferta vigente es para este rider
-      // (atómico: si otro lo tomó o expiró, devuelve false).
       final accepted = await _sb.rpc("accept_offer", params: {"p_order_id": orderId});
       if (accepted != true) {
         await _sb.from("notifications").update({"is_read": true}).eq("id", id);
         await _load();
+        // ═══ Resolver oferta: detener alarma si no hay más activas ═══
+        await NotificationService.resolveOffer(orderId);
         if (mounted) _showSnack("Este pedido ya no está disponible", AppColors.warning);
         return;
       }
       await _sb.from("notifications").update({"is_read": true}).eq("id", id);
+      // ═══ Resolver: la oferta fue aceptada ═══
+      await NotificationService.resolveOffer(orderId);
       rider.loadActiveOrders();
       await _load();
       if (mounted) {
         _showSnack("✅ Pedido aceptado", AppColors.success);
-        // Abre el detalle con el mapa rider → tienda para recoger el pedido
         context.push("/order/$orderId");
       }
     } catch (e) {
@@ -161,9 +215,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final rider = context.read<RiderProvider>();
     final orderId = (notif["data"] as Map?)?["order_id"] as String?;
     if (orderId == null) {
-      // No order_id — just mark read and remove
       try { await _sb.from("notifications").update({"is_read": true}).eq("id", id); } catch (_) {}
       await _load();
+      // ═══ Resolver (sin order_id, solo limpiamos) ═══
+      _checkAllResolved();
       return;
     }
 
@@ -171,11 +226,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       await _sb.from("order_rejections").insert({"order_id": orderId, "rider_id": rider.riderId});
       await _sb.from("notifications").update({"is_read": true}).eq("id", id);
+      // ═══ Resolver: la oferta fue rechazada ═══
+      await NotificationService.resolveOffer(orderId);
       await _load();
     } catch (e) {
       if (mounted) _showSnack("Error al rechazar: $e", AppColors.error);
     } finally {
       if (mounted) setState(() => _processing.remove(id));
+    }
+  }
+
+  /// Verifica si ya no quedan ofertas pendientes en la lista y, de ser así,
+  /// detiene la alarma.
+  void _checkAllResolved() async {
+    await _load();
+    if (_notifications.isEmpty) {
+      await NotificationService.stopOfferAlarm();
+      await NotificationService.dismissOfferNotifications();
     }
   }
 
@@ -235,9 +302,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 class _OfferCard extends StatefulWidget {
   final Map<String, dynamic> notif;
   final bool isProcessing;
-  final VoidCallback onTap;     // abrir la oferta en el mapa
+  final VoidCallback onTap;
   final VoidCallback onAccept;
-  final VoidCallback onExpired; // called both on "Rechazar" tap and timer expiry
+  final VoidCallback onExpired;
 
   const _OfferCard({
     super.key,
@@ -270,11 +337,11 @@ class _OfferCardState extends State<_OfferCard> {
         setState(() => _remaining--);
         if (_remaining <= 0) {
           _timer?.cancel();
+          // ═══ El timer expiró → la oferta desaparece ═══
           widget.onExpired();
         }
       });
     } else {
-      // Already expired before the screen opened
       WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) widget.onExpired(); });
     }
   }

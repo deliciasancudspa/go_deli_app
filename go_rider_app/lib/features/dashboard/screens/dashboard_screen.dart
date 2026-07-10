@@ -182,7 +182,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             final emoji = rec["emoji"] as String? ?? "";
             final title = rec["title"] as String? ?? "Go Rider";
             final msg   = rec["message"] as String? ?? "";
-            NotificationService.show(title: "$emoji $title", body: msg);
+            final type   = rec["type"] as String? ?? "";
+            final data   = rec["data"] as Map<String, dynamic>?;
+            final orderId = data?["order_id"] as String?;
+
+            // Order offers → persistent notification with looping alarm
+            if (type == "order_offer" && orderId != null && orderId.isNotEmpty) {
+              NotificationService.showOffer(
+                title: "$emoji $title",
+                body: msg,
+                orderId: orderId,
+              );
+            } else {
+              NotificationService.show(title: "$emoji $title", body: msg);
+            }
           },
         ).subscribe();
       } catch (_) { _ordersSubscribed = false; _subscribedRiderId = ""; }
