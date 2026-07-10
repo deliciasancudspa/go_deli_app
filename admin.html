@@ -2923,14 +2923,24 @@ async function loadPagosRidersSemana(){
     const {data:riders,error:eRiders}=await rq;
     if(eRiders)console.warn('riders error',eRiders.message);
 
-    // 3. Pagos ya realizados esta semana
+    // 3. Pagos ya realizados para el periodo seleccionado
+    const periodEnd=new Date(currentSemanaStart);
+    periodEnd.setDate(periodEnd.getDate()+6);
+    const periodStr=`${currentSemanaStart.toLocaleDateString('es-CL')} – ${periodEnd.toLocaleDateString('es-CL')}`;
     let paidMap={};
     try{
-      const {data:paid}=await sb.from('rider_payments')
-        .select('deliverer_id,amount,reference,notes,created_at')
+      // Pagos con period exacto (nuevo formato)
+      const {data:paidByPeriod}=await sb.from('rider_payments')
+        .select('deliverer_id,amount,reference,notes,created_at,period')
+        .eq('period',periodStr);
+      // Pagos legacy sin period (caen por created_at)
+      const {data:paidLegacy}=await sb.from('rider_payments')
+        .select('deliverer_id,amount,reference,notes,created_at,period')
+        .is('period',null)
         .gte('created_at',currentSemanaStart.toISOString())
         .lte('created_at',end.toISOString());
-      (paid||[]).forEach(p=>{paidMap[p.deliverer_id]=p;});
+      const paid=[...(paidByPeriod||[]),...(paidLegacy||[])];
+      paid.forEach(p=>{paidMap[p.deliverer_id]=p;});
     }catch(_){}
 
     // 4. Info bancaria
@@ -3189,6 +3199,7 @@ async function liquidarRiderConfirm(){
       amount: amount,
       reference: ref||null,
       notes: nota||null,
+      period: period,
       created_at: fecha?new Date(fecha).toISOString():new Date().toISOString(),
     };
     if(currentCommuneId) payload.commune_id=currentCommuneId;
@@ -3386,7 +3397,10 @@ async function saveRiderPago(){
   const amount=parseInt(document.getElementById('pago-rider-monto').value)||0;
   if(!riderId){showToast('Selecciona un repartidor','error');return;}
   if(!amount){showToast('Ingresa el monto','error');return;}
-  const riderPayData={deliverer_id:riderId,amount};
+  const periodEnd=new Date(currentSemanaStart);
+  periodEnd.setDate(periodEnd.getDate()+6);
+  const periodStr=`${currentSemanaStart.toLocaleDateString('es-CL')} – ${periodEnd.toLocaleDateString('es-CL')}`;
+  const riderPayData={deliverer_id:riderId,amount,period:periodStr};
   if(currentCommuneId) riderPayData.commune_id=currentCommuneId;
   const {error}=await sb.from('rider_payments').insert(riderPayData);
   if(error){showToast('Error: '+error.message,'error');return;}
@@ -3434,6 +3448,7 @@ async function marcarPagadoRider(riderId,riderName,monto){
   const rpData={
     deliverer_id: riderId,
     amount: Math.round(monto),
+    period: period,
   };
   if(currentCommuneId) rpData.commune_id=currentCommuneId;
   const {error}=await sb.from('rider_payments').insert(rpData);
