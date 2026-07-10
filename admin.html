@@ -4095,29 +4095,47 @@ async function sendPushAll(){
       if(data&&data.ok===false)throw new Error(data.reason||'rechazado por la función');
       showToast(`📤 Push enviado: ${data?.sent??0} dispositivos${data?.failed?` (${data.failed} fallidos)`:''}`);
     } else if(audience==='riders'){
-      // Repartidores → notify-rider (broadcast)
+      // Repartidores → notify-rider (broadcast a deliverers con FCM)
       const payload={broadcast:true,title,body:msg};
       if(currentCommuneId) payload.commune_id=currentCommuneId;
-      const {data,error}=await sb.functions.invoke('notify-rider',{body:payload});
-      if(error)throw error;
+      const res=await fetch(`${SUPA_URL}/functions/v1/notify-rider`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':`Bearer ${(await sb.auth.getSession()).data.session?.access_token||''}`},
+        body:JSON.stringify(payload)
+      });
+      if(!res.ok)throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      const data=await res.json();
       if(data&&data.ok===false)throw new Error(data.reason||'rechazado por la función');
       showToast(`📤 Push enviado: ${data?.sent??0} riders${data?.failed?` (${data.failed} fallidos)`:''}`);
     } else if(audience==='stores'){
-      // Aliados → notify-client con target_role + notificación en BD
-      const payload={broadcast:true,title,body:msg,target_role:'restaurant_owner',redirect_type:redirectType};
-      if(currentCommuneId) payload.commune_id=currentCommuneId;
-      if(storeId) payload.store_id=storeId;
-      if(productId) payload.product_id=productId;
-      if(url) payload.url=url;
-      const {data,error}=await sb.functions.invoke('notify-client',{body:payload});
+      // Aliados → notificación en BD (no usan app, no tienen FCM)
+      const storeOwnersQ=sb.from('users').select('id').eq('role','restaurant_owner');
+      const {data:owners}=await withCommuneRef(storeOwnersQ);
+      const ownerIds=(owners||[]).map(o=>o.id);
+      if(ownerIds.length===0){showToast('⚠️ No hay aliados en esta comuna','error');return;}
+      const notifs=ownerIds.map(oid=>({
+        target:oid,
+        type:'admin_push',
+        emoji:'📢',
+        title:title,
+        message:msg,
+        data:{redirect_type:redirectType,store_id:storeId||null,product_id:productId||null,url:url||null}
+      }));
+      const {error}=await sb.from('notifications').insert(notifs);
       if(error)throw error;
-      if(data&&data.ok===false)throw new Error(data.reason||'rechazado por la función');
-      showToast(`📤 Push enviado: ${data?.sent??0} aliados${data?.failed?` (${data.failed} fallidos)`:''}`);
+      showToast(`📤 Notificación enviada a ${ownerIds.length} aliados`);
     }
     document.getElementById('cfg-push-msg').value='';
   }catch(e){
-    showToast('Error al enviar: '+(e?.message||e),'error');
+    console.error('sendPushAll error:', e);
+    showToast('Error al enviar: '+(e?.message||e)+' (status: '+(e?.status||'?')+')','error');
   }
+}
+
+// Helper: aplica withCommune a una query arbitraria
+function withCommuneRef(query){
+  if(currentCommuneId) return query.or(`commune_id.eq.${currentCommuneId},commune_id.is.null`);
+  return query;
 }
 
 // REALTIME
