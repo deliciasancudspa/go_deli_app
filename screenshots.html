@@ -100,10 +100,56 @@
   /* Map area */
   .map-area {
     flex:1; position:relative; overflow:hidden;
-    background:#e8e8e8;
+    background:#e8e4df;
   }
-  .map-area img {
-    width:100%; height:100%; object-fit:cover;
+  /* Calles */
+  .map-street {
+    position:absolute; background:rgba(255,255,255,0.7);
+    box-shadow:0 0 0 1px rgba(0,0,0,0.05);
+  }
+  /* Edificios */
+  .map-building {
+    position:absolute; background:rgba(200,195,188,0.7);
+    border-radius:2px; box-shadow:0 0 0 1px rgba(0,0,0,0.08);
+  }
+  /* Verde/parque */
+  .map-park {
+    position:absolute; background:rgba(180,210,170,0.5);
+    border-radius:6px;
+  }
+  /* Agua */
+  .map-water {
+    position:absolute; background:rgba(160,200,220,0.6);
+    border-radius:2px;
+  }
+  /* Ruta */
+  .map-route {
+    position:absolute; height:3px;
+    background:transparent;
+    border-top:2.5px dashed #FF6B35;
+    opacity:0.8;
+  }
+  .map-route.active {
+    border-color:#3B82F6; border-style:solid;
+  }
+  /* Pines */
+  .map-pin {
+    position:absolute; z-index:5;
+    width:20px; height:20px; border-radius:50% 50% 50% 0;
+    transform:rotate(-45deg); display:flex;
+    align-items:center; justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+    font-size:9px; font-weight:900; color:#fff;
+  }
+  .map-pin span { transform:rotate(45deg); }
+  .map-pin.store { background:#FF6B35; }
+  .map-pin.rider { background:#3B82F6; }
+  .map-pin.client { background:#EF4444; }
+  .map-label {
+    position:absolute; z-index:4; font-size:9px; font-weight:700;
+    color:#333; background:rgba(255,255,255,0.85);
+    padding:2px 5px; border-radius:3px;
+    white-space:nowrap;
   }
   .bottom-sheet {
     background:#fff; border-radius:22px 22px 0 0; padding:18px;
@@ -306,7 +352,42 @@
     <span style="font-size:16px;">←</span> <span>Nueva oferta de pedido</span>
   </div>
   <div class="map-area">
-    <img src="https://maps.googleapis.com/maps/api/staticmap?center=-41.8686,-73.8255&zoom=15&size=360x500&scale=2&maptype=roadmap&markers=color:orange%7Clabel:P%7C-41.8695,-73.8280&markers=color:red%7Clabel:D%7C-41.8670,-73.8205&path=color:0xff6b35ff%7Cweight:4%7C-41.8695,-73.8280%7C-41.8688,-73.8262%7C-41.8670,-73.8205&key=AIzaSyD5KPaRRZRi0ek7Vk0yIX1Cv0qgf-_w-vQ&language=es" alt="Mapa ruta de entrega">
+    <!-- Calles horizontales -->
+    <div class="map-street" style="top:15%;left:0;right:0;height:8px;"></div>
+    <div class="map-street" style="top:32%;left:0;right:0;height:10px;"></div>
+    <div class="map-street" style="top:48%;left:0;right:0;height:6px;"></div>
+    <div class="map-street" style="top:62%;left:0;right:0;height:9px;"></div>
+    <div class="map-street" style="top:78%;left:0;right:0;height:7px;"></div>
+    <!-- Calles verticales -->
+    <div class="map-street" style="left:18%;top:0;bottom:0;width:7px;"></div>
+    <div class="map-street" style="left:42%;top:0;bottom:0;width:8px;"></div>
+    <div class="map-street" style="left:65%;top:0;bottom:0;width:9px;"></div>
+    <div class="map-street" style="left:80%;top:0;bottom:0;width:6px;"></div>
+    <!-- Edificios -->
+    <div class="map-building" style="top:8%;left:5%;width:12%;height:14%;"></div>
+    <div class="map-building" style="top:5%;left:20%;width:20%;height:20%;"></div>
+    <div class="map-building" style="top:10%;left:68%;width:10%;height:18%;"></div>
+    <div class="map-building" style="top:36%;left:3%;width:14%;height:12%;"></div>
+    <div class="map-building" style="top:34%;left:44%;width:18%;height:16%;"></div>
+    <div class="map-building" style="top:38%;left:82%;width:12%;height:14%;"></div>
+    <div class="map-building" style="top:53%;left:20%;width:16%;height:10%;"></div>
+    <div class="map-building" style="top:50%;left:70%;width:22%;height:14%;"></div>
+    <div class="map-building" style="top:65%;left:5%;width:13%;height:11%;"></div>
+    <div class="map-building" style="top:68%;left:44%;width:20%;height:12%;"></div>
+    <div class="map-building" style="top:82%;left:20%;width:15%;height:10%;"></div>
+    <div class="map-building" style="top:80%;left:60%;width:18%;height:12%;"></div>
+    <!-- Parque -->
+    <div class="map-park" style="top:28%;left:22%;width:15%;height:12%;"></div>
+    <div class="map-park" style="top:65%;left:65%;width:12%;height:8%;"></div>
+    <!-- Agua (borde) -->
+    <div class="map-water" style="top:0;right:0;width:8%;height:35%;"></div>
+    <!-- Ruta -->
+    <div class="map-route" style="top:22%;left:12%;width:55%;transform:rotate(18deg);transform-origin:left top;"></div>
+    <!-- Pines -->
+    <div class="map-pin store" style="top:18%;left:8%;"><span>P</span></div>
+    <div class="map-label" style="top:10%;left:5%;">Pizza Napoli</div>
+    <div class="map-pin client" style="top:36%;left:60%;"><span>D</span></div>
+    <div class="map-label" style="top:28%;left:55%;">Cliente</div>
   </div>
   <div class="bottom-sheet">
     <div style="width:40px;height:4px;background:#E5E7EB;border-radius:2px;margin:0 auto 12px;"></div>
@@ -353,7 +434,45 @@
     <span style="font-size:16px;">←</span> <span>Pedido #4821</span>
   </div>
   <div class="map-area">
-    <img src="https://maps.googleapis.com/maps/api/staticmap?center=-41.8686,-73.8255&zoom=15&size=360x500&scale=2&maptype=roadmap&markers=color:orange%7Clabel:P%7C-41.8695,-73.8280&markers=color:blue%7Clabel:R%7C-41.8685,-73.8250&markers=color:red%7Clabel:D%7C-41.8670,-73.8205&path=color:0x4285f4ff%7Cweight:4%7C-41.8695,-73.8280%7C-41.8685,-73.8250%7C-41.8670,-73.8205&key=AIzaSyD5KPaRRZRi0ek7Vk0yIX1Cv0qgf-_w-vQ&language=es" alt="Mapa pedido activo">
+    <!-- Calles horizontales -->
+    <div class="map-street" style="top:15%;left:0;right:0;height:8px;"></div>
+    <div class="map-street" style="top:32%;left:0;right:0;height:10px;"></div>
+    <div class="map-street" style="top:48%;left:0;right:0;height:6px;"></div>
+    <div class="map-street" style="top:62%;left:0;right:0;height:9px;"></div>
+    <div class="map-street" style="top:78%;left:0;right:0;height:7px;"></div>
+    <!-- Calles verticales -->
+    <div class="map-street" style="left:18%;top:0;bottom:0;width:7px;"></div>
+    <div class="map-street" style="left:42%;top:0;bottom:0;width:8px;"></div>
+    <div class="map-street" style="left:65%;top:0;bottom:0;width:9px;"></div>
+    <div class="map-street" style="left:80%;top:0;bottom:0;width:6px;"></div>
+    <!-- Edificios -->
+    <div class="map-building" style="top:8%;left:5%;width:12%;height:14%;"></div>
+    <div class="map-building" style="top:5%;left:20%;width:20%;height:20%;"></div>
+    <div class="map-building" style="top:10%;left:68%;width:10%;height:18%;"></div>
+    <div class="map-building" style="top:36%;left:3%;width:14%;height:12%;"></div>
+    <div class="map-building" style="top:34%;left:44%;width:18%;height:16%;"></div>
+    <div class="map-building" style="top:38%;left:82%;width:12%;height:14%;"></div>
+    <div class="map-building" style="top:53%;left:20%;width:16%;height:10%;"></div>
+    <div class="map-building" style="top:50%;left:70%;width:22%;height:14%;"></div>
+    <div class="map-building" style="top:65%;left:5%;width:13%;height:11%;"></div>
+    <div class="map-building" style="top:68%;left:44%;width:20%;height:12%;"></div>
+    <div class="map-building" style="top:82%;left:20%;width:15%;height:10%;"></div>
+    <div class="map-building" style="top:80%;left:60%;width:18%;height:12%;"></div>
+    <!-- Parque -->
+    <div class="map-park" style="top:28%;left:22%;width:15%;height:12%;"></div>
+    <div class="map-park" style="top:65%;left:65%;width:12%;height:8%;"></div>
+    <!-- Agua -->
+    <div class="map-water" style="top:0;right:0;width:8%;height:35%;"></div>
+    <!-- Ruta activa -->
+    <div class="map-route active" style="top:22%;left:12%;width:55%;transform:rotate(18deg);transform-origin:left top;"></div>
+    <!-- Pines: pickup → rider → delivery -->
+    <div class="map-pin store" style="top:18%;left:8%;"><span>P</span></div>
+    <div class="map-pin rider" style="top:26%;left:38%;"><span>R</span></div>
+    <div class="map-pin client" style="top:36%;left:60%;"><span>D</span></div>
+    <!-- Labels -->
+    <div class="map-label" style="top:8%;left:5%;">Pickup</div>
+    <div class="map-label" style="top:18%;left:42%;">En ruta</div>
+    <div class="map-label" style="top:30%;left:55%;">Cliente</div>
   </div>
   <div class="bottom-sheet">
     <div style="width:40px;height:4px;background:#E5E7EB;border-radius:2px;margin:0 auto 12px;"></div>
