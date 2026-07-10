@@ -48,6 +48,14 @@ android {
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
+
+            // R8: reduce y optimiza el APK para producción
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
