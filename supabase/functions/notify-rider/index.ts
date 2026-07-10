@@ -64,15 +64,113 @@ async function getAccessToken(): Promise<string> {
   return tokenData.access_token as string;
 }
 
+// ── FCM helpers ──────────────────────────────────────────────────────────────
+
+async function sendFcm(accessToken: string, token: string, title: string, body: string, data?: Record<string,string>): Promise<boolean> {
+  const res = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        message: {
+          token,
+          notification: { title, body },
+          android: {
+            priority: "high",
+            notification: { title, body, channel_id: "go_rider_channel", sound: "default" },
+          },
+          apns: {
+            payload: { aps: { alert: { title, body }, sound: "default", badge: 1 } },
+            headers: { "apns-priority": "10", "apns-push-type": "alert" },
+          },
+          data: data || { route: "notifications" },
+        },
+      }),
+    },
+  );
+  return res.ok;
+}
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+async function isAdminRequest(req: Request, sb: ReturnType<typeof createClient>): Promise<boolean> {
+  try {
+    const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    if (!jwt) return false;
+    const { data: { user } } = await sb.auth.getUser(jwt);
+    if (!user) return false;
+    const { data } = await sb.from("users").select("role").eq("auth_id", user.id).single();
+    return data?.role === "admin";
+  } catch {
+    return false;
+  }
+}
+
+// CORS headers para llamadas desde el navegador (admin panel)
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   try {
-    if (WEBHOOK_SECRET && req.headers.get("x-webhook-secret") !== WEBHOOK_SECRET) {
-      return new Response("unauthorized", { status: 401 });
+    const sb = createClient(SUPABASE_URL, SUPABASE_SVC_KEY);
+    const secretOk = WEBHOOK_SECRET !== "" &&
+      req.headers.get("x-webhook-secret") === WEBHOOK_SECRET;
+
+    if (WEBHOOK_SECRET && !secretOk && !(await isAdminRequest(req, sb))) {
+      return new Response("unauthorized", { status: 401, headers: corsHeaders });
     }
+
     const rawPayload = await req.json();
 
+    // ── BROADCAST: admin envía a todos los riders ──────────────────────────
+    if (rawPayload.broadcast === true) {
+      if (!secretOk && !(await isAdminRequest(req, sb))) {
+        return new Response(JSON.stringify({ ok: false, reason: "solo admin" }), {
+          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+      const bTitle = String(rawPayload.title ?? "Go Deli");
+      const bBody  = String(rawPayload.body ?? "");
+      if (!bBody) return new Response("missing body", { status: 400, headers: corsHeaders });
+
+      // Query all approved deliverers with FCM tokens
+      let ridersQuery = sb
+        .from("deliverers")
+        .select("fcm_token")
+        .eq("status", "approved")
+        .not("fcm_token", "is", null);
+      if (rawPayload.commune_id) {
+        ridersQuery = ridersQuery.eq("commune_id", rawPayload.commune_id);
+      }
+      const { data: riders } = await ridersQuery;
+      const tokens = [...new Set((riders ?? []).map((r) => r.fcm_token).filter(Boolean))];
+
+      const accessToken = await getAccessToken();
+      let sent = 0, failed = 0;
+      // Enviar en batches de 20 para no saturar
+      for (let i = 0; i < tokens.length; i += 20) {
+        await Promise.all(tokens.slice(i, i + 20).map(async (t) => {
+          (await sendFcm(accessToken, t as string, bTitle, bBody)) ? sent++ : failed++;
+        }));
+      }
+      return new Response(JSON.stringify({ ok: true, sent, failed }), {
+        status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // ── INDIVIDUAL: webhook o llamada directa ─────────────────────────────
     // Support Supabase webhook format { record: {...} } and direct call { rider_id, title, body }
     let rider_id: string;
     let title: string;
@@ -81,7 +179,7 @@ serve(async (req) => {
 
     if (rawPayload.record) {
       const rec = rawPayload.record;
-      if (rec.type !== "order_offer") return new Response("skip", { status: 200 });
+      if (rec.type !== "order_offer") return new Response("skip", { status: 200, headers: corsHeaders });
       rider_id = rec.target as string;
       title    = (rec.title   as string) ?? "🛵 Nuevo pedido disponible";
       body     = (rec.message as string) ?? "Tienes un nuevo pedido. Ábrela para aceptarlo.";
@@ -93,10 +191,9 @@ serve(async (req) => {
       order_id = rawPayload.order_id as string ?? null;
     }
 
-    if (!rider_id) return new Response("missing rider_id", { status: 400 });
+    if (!rider_id) return new Response("missing rider_id", { status: 400, headers: corsHeaders });
 
     // Fetch FCM token
-    const sb = createClient(SUPABASE_URL, SUPABASE_SVC_KEY);
     const { data: rider, error } = await sb
       .from("deliverers")
       .select("fcm_token")
@@ -106,61 +203,24 @@ serve(async (req) => {
     if (error || !rider?.fcm_token) {
       return new Response(JSON.stringify({ ok: false, reason: "no_token" }), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
     // Get OAuth2 access token and send FCM v1 push
     const accessToken = await getAccessToken();
+    const dataPayload: Record<string,string> = { route: "notifications" };
+    if (order_id) dataPayload.order_id = order_id;
 
-    const fcmRes = await fetch(
-      `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          message: {
-            token: rider.fcm_token,
-            notification: { title, body },
-            android: {
-              priority: "high",
-              notification: {
-                title, body,
-                channel_id: "go_rider_channel",
-                sound: "default",
-              },
-            },
-            apns: {
-              payload: {
-                aps: {
-                  alert: { title, body },
-                  sound: "default",
-                  badge: 1,
-                },
-              },
-              headers: {
-                "apns-priority": "10",
-                "apns-push-type": "alert",
-              },
-            },
-            data: { route: "notifications", order_id: order_id ?? "" },
-          },
-        }),
-      },
-    );
-
-    const result = await fcmRes.json();
-    return new Response(JSON.stringify(result), {
+    const ok = await sendFcm(accessToken, rider.fcm_token, title, body, dataPayload);
+    return new Response(JSON.stringify({ ok }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
 });

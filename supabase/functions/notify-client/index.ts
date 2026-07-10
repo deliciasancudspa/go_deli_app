@@ -152,11 +152,13 @@ serve(async (req) => {
       const bBody  = String(rawPayload.body ?? "");
       if (!bBody) return new Response("missing body", { status: 400, headers: corsHeaders });
 
-      // Si se especifica comuna, filtrar solo clientes de esa comuna
+      // target_role permite enviar a clientes (default), restaurant_owner, etc.
+      const targetRole = String(rawPayload.target_role ?? "client");
+      // Si se especifica comuna, filtrar solo usuarios de esa comuna
       let clientsQuery = sb
         .from("users")
         .select("fcm_token")
-        .eq("role", "client")
+        .eq("role", targetRole)
         .not("fcm_token", "is", null);
       if (rawPayload.commune_id) {
         clientsQuery = clientsQuery.eq("commune_id", rawPayload.commune_id);

@@ -679,10 +679,17 @@ tr:hover td{background:#FAFAFA;}
             <div class="card">
               <div class="card-header"><h3>📱 Notificaciones push</h3></div>
               <div style="padding:16px;">
-                <div class="form-group"><label>Mensaje de bienvenida</label><textarea id="cfg-welcome" rows="3" placeholder="Bienvenido a Go Deli..."></textarea></div>
+                <div class="form-group">
+                  <label>👥 Audiencia</label>
+                  <select id="cfg-push-audience" onchange="onPushAudienceChange()" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;outline:none;background:var(--surface);">
+                    <option value="clients">🛍️ Clientes (app GoDeli)</option>
+                    <option value="riders">🛵 Repartidores (app GoRider)</option>
+                    <option value="stores">🏪 Aliados (dueños de tienda)</option>
+                  </select>
+                </div>
                 <div class="form-group"><label>Título de la notificación</label><input type="text" id="cfg-push-title" placeholder="Go Deli" maxlength="60"></div>
                 <div class="form-group"><label>Mensaje</label><input type="text" id="cfg-push-msg" placeholder="Texto de la notificación..." maxlength="180"></div>
-                <div class="form-group">
+                <div class="form-group" id="push-redirect-group">
                   <label>📍 Al tocar la notificación, redirigir a</label>
                   <select id="cfg-push-redirect" onchange="onPushRedirectChange()" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;outline:none;background:var(--surface);">
                     <option value="home">🏠 Inicio de la app</option>
@@ -708,7 +715,7 @@ tr:hover td{background:#FAFAFA;}
                   <input type="text" id="cfg-push-url" placeholder="https://..." maxlength="500">
                 </div>
                 <button class="btn btn-secondary" onclick="sendPushAll()">📤 Enviar notificación</button>
-                <p style="font-size:11px;color:var(--muted);margin-top:8px;">Se envía por push (FCM). El alcance depende del selector Nacional/Comuna.</p>
+                <p style="font-size:11px;color:var(--muted);margin-top:8px;">Se envía por push (FCM). El alcance depende del selector Nacional/Comuna y la audiencia elegida.</p>
               </div>
             </div>
           </div>
@@ -3995,7 +4002,23 @@ async function loadPushStores(){
   _pushStoresCache=data||[];
   return _pushStoresCache;
 }
+function onPushAudienceChange(){
+  const audience=document.getElementById('cfg-push-audience').value;
+  const redirectGroup=document.getElementById('push-redirect-group');
+  // Solo clientes y aliados tienen redirección a tienda/producto
+  if(audience==='riders'){
+    if(redirectGroup) redirectGroup.style.display='none';
+    document.getElementById('push-store-row').style.display='none';
+    document.getElementById('push-product-row').style.display='none';
+    document.getElementById('push-url-row').style.display='none';
+  } else {
+    if(redirectGroup) redirectGroup.style.display='';
+    onPushRedirectChange(); // mostrar campos según redirect type actual
+  }
+}
 function onPushRedirectChange(){
+  const audience=document.getElementById('cfg-push-audience')?.value||'clients';
+  if(audience==='riders') return;
   const type=document.getElementById('cfg-push-redirect').value;
   document.getElementById('push-store-row').style.display=(type==='store'||type==='product')?'':'none';
   document.getElementById('push-product-row').style.display=(type==='product')?'':'none';
@@ -4033,34 +4056,64 @@ onCommuneChange=function(val){
 };
 
 async function sendPushAll(){
+  const audience=document.getElementById('cfg-push-audience')?.value||'clients';
   const title=(document.getElementById('cfg-push-title')?.value||'').trim()||'Go Deli 🛵';
   const msg=document.getElementById('cfg-push-msg').value.trim();
   if(!msg){showToast('Escribe un mensaje','error');return;}
-  const redirectType=document.getElementById('cfg-push-redirect').value;
-  const storeId=document.getElementById('cfg-push-store').value||null;
-  const productId=document.getElementById('cfg-push-product').value||null;
-  const url=document.getElementById('cfg-push-url').value.trim()||null;
-  // Validar campos requeridos según tipo de redirección
-  if(redirectType==='store'&&!storeId){showToast('Selecciona una tienda','error');return;}
-  if(redirectType==='product'&&(!storeId||!productId)){showToast('Selecciona tienda y producto','error');return;}
-  if(redirectType==='url'&&!url){showToast('Escribe la URL','error');return;}
+
+  // Validar redirección solo para clientes y aliados
+  let redirectType='home', storeId=null, productId=null, url=null;
+  if(audience!=='riders'){
+    redirectType=document.getElementById('cfg-push-redirect').value;
+    storeId=document.getElementById('cfg-push-store').value||null;
+    productId=document.getElementById('cfg-push-product').value||null;
+    url=document.getElementById('cfg-push-url').value.trim()||null;
+    if(redirectType==='store'&&!storeId){showToast('Selecciona una tienda','error');return;}
+    if(redirectType==='product'&&(!storeId||!productId)){showToast('Selecciona tienda y producto','error');return;}
+    if(redirectType==='url'&&!url){showToast('Escribe la URL','error');return;}
+  }
 
   const scopeLabel=currentCommuneId
     ? `la comuna ${allComunas.find(c=>c.commune_id===currentCommuneId)?.commune_name||'seleccionada'}`
     : 'TODAS las comunas (Nacional)';
-  const redirectLabels={home:'Inicio de la app',store:'Tienda específica',product:'Producto de tienda',url:'URL externa'};
-  if(!confirm(`¿Enviar esta notificación push a los clientes de ${scopeLabel}?\n\n${title}\n${msg}\n\nRedirige a: ${redirectLabels[redirectType]}`))return;
+  const audienceLabels={clients:'los clientes 🛍️',riders:'los repartidores 🛵',stores:'los aliados 🏪'};
+  const audienceLabel=audienceLabels[audience]||audience;
+
+  if(!confirm(`¿Enviar esta notificación push a ${audienceLabel} de ${scopeLabel}?\n\n${title}\n${msg}`))return;
   showToast('Enviando…');
+
   try{
-    const payload={broadcast:true,title,body:msg,redirect_type:redirectType};
-    if(currentCommuneId) payload.commune_id=currentCommuneId;
-    if(storeId) payload.store_id=storeId;
-    if(productId) payload.product_id=productId;
-    if(url) payload.url=url;
-    const {data,error}=await sb.functions.invoke('notify-client',{body:payload});
-    if(error)throw error;
-    if(data&&data.ok===false)throw new Error(data.reason||'rechazado por la función');
-    showToast(`📤 Push enviado: ${data?.sent??0} dispositivos${data?.failed?` (${data.failed} fallidos)`:''}`);
+    if(audience==='clients'){
+      // Clientes → notify-client (comportamiento existente)
+      const payload={broadcast:true,title,body:msg,redirect_type:redirectType};
+      if(currentCommuneId) payload.commune_id=currentCommuneId;
+      if(storeId) payload.store_id=storeId;
+      if(productId) payload.product_id=productId;
+      if(url) payload.url=url;
+      const {data,error}=await sb.functions.invoke('notify-client',{body:payload});
+      if(error)throw error;
+      if(data&&data.ok===false)throw new Error(data.reason||'rechazado por la función');
+      showToast(`📤 Push enviado: ${data?.sent??0} dispositivos${data?.failed?` (${data.failed} fallidos)`:''}`);
+    } else if(audience==='riders'){
+      // Repartidores → notify-rider (broadcast)
+      const payload={broadcast:true,title,body:msg};
+      if(currentCommuneId) payload.commune_id=currentCommuneId;
+      const {data,error}=await sb.functions.invoke('notify-rider',{body:payload});
+      if(error)throw error;
+      if(data&&data.ok===false)throw new Error(data.reason||'rechazado por la función');
+      showToast(`📤 Push enviado: ${data?.sent??0} riders${data?.failed?` (${data.failed} fallidos)`:''}`);
+    } else if(audience==='stores'){
+      // Aliados → notify-client con target_role + notificación en BD
+      const payload={broadcast:true,title,body:msg,target_role:'restaurant_owner',redirect_type:redirectType};
+      if(currentCommuneId) payload.commune_id=currentCommuneId;
+      if(storeId) payload.store_id=storeId;
+      if(productId) payload.product_id=productId;
+      if(url) payload.url=url;
+      const {data,error}=await sb.functions.invoke('notify-client',{body:payload});
+      if(error)throw error;
+      if(data&&data.ok===false)throw new Error(data.reason||'rechazado por la función');
+      showToast(`📤 Push enviado: ${data?.sent??0} aliados${data?.failed?` (${data.failed} fallidos)`:''}`);
+    }
     document.getElementById('cfg-push-msg').value='';
   }catch(e){
     showToast('Error al enviar: '+(e?.message||e),'error');
