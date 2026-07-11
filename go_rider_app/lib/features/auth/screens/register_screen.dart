@@ -493,44 +493,53 @@ EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · www.godeli.cl
                       ]),
                       const SizedBox(height: 12),
                       // Canvas de firma
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: AppColors.border, width: 2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(children: [
-                          RepaintBoundary(
-                            key: _signatureKey,
-                            child: GestureDetector(
-                              onPanStart: _onPanStart,
-                              onPanUpdate: _onPanUpdate,
-                              onPanEnd: _onPanEnd,
-                              child: CustomPaint(
-                                painter: _SignaturePainter(_signatureStrokes, _currentStroke),
-                                size: const Size(double.infinity, 120),
+                      Listener(
+                        onPointerDown: (_) {},
+                        onPointerMove: (_) {},
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: _signatureDrawn ? AppColors.accent : AppColors.border, width: 2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(children: [
+                            ClipRect(
+                              child: RepaintBoundary(
+                                key: _signatureKey,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onPanStart: _onPanStart,
+                                  onPanUpdate: _onPanUpdate,
+                                  onPanEnd: _onPanEnd,
+                                  child: CustomPaint(
+                                    painter: _SignaturePainter(_signatureStrokes, _currentStroke),
+                                    size: const Size(double.infinity, 200),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: const BoxDecoration(
-                              border: Border(top: BorderSide(color: AppColors.border)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: const BoxDecoration(
+                                border: Border(top: BorderSide(color: AppColors.border)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text("Dibuja tu firma en el recuadro", style: TextStyle(fontSize: 11, color: AppColors.textLight)),
+                                  TextButton.icon(
+                                    onPressed: _clearSignature,
+                                    icon: const Icon(Icons.delete_outline, size: 14),
+                                    label: const Text("Limpiar", style: TextStyle(fontSize: 11)),
+                                    style: TextButton.styleFrom(foregroundColor: AppColors.textLight, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                                  ),
+                                ],
+                              ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text("Dibuja tu firma arriba", style: TextStyle(fontSize: 11, color: AppColors.textLight)),
-                                TextButton.icon(
-                                  onPressed: _clearSignature,
-                                  icon: const Icon(Icons.delete_outline, size: 14),
-                                  label: const Text("Limpiar", style: TextStyle(fontSize: 11)),
-                                  style: TextButton.styleFrom(foregroundColor: AppColors.textLight, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ]),
+                          ]),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       const Text("🔒 Al firmar se registrará tu IP, dispositivo, email, fecha y hora. La firma electrónica tiene validez legal conforme a la Ley N° 19.799.", style: TextStyle(fontSize: 10, color: AppColors.textLight)),
@@ -568,17 +577,35 @@ class _SignaturePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Línea guía punteada
+    final guidePaint = Paint()
+      ..color = const Color(0xFFD1D5DB)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    const dashW = 6.0, gapW = 4.0;
+    var x = 0.0;
+    final guideY = size.height * 0.55;
+    while (x < size.width) {
+      canvas.drawLine(Offset(x, guideY), Offset(x + dashW, guideY), guidePaint);
+      x += dashW + gapW;
+    }
+
+    // Trazo suavizado con curvas Bezier
     final paint = Paint()
       ..color = const Color(0xFF1A0033)
-      ..strokeWidth = 2.5
+      ..strokeWidth = 3.0
       ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
 
     for (final stroke in strokes) {
       if (stroke.length < 2) continue;
       final path = Path()..moveTo(stroke.first.dx, stroke.first.dy);
       for (int i = 1; i < stroke.length; i++) {
-        path.lineTo(stroke[i].dx, stroke[i].dy);
+        final prev = stroke[i - 1];
+        final curr = stroke[i];
+        final mid = Offset((prev.dx + curr.dx) / 2, (prev.dy + curr.dy) / 2);
+        path.quadraticBezierTo(prev.dx, prev.dy, mid.dx, mid.dy);
       }
       canvas.drawPath(path, paint);
     }
@@ -586,12 +613,15 @@ class _SignaturePainter extends CustomPainter {
     if (currentStroke.length >= 2) {
       final path = Path()..moveTo(currentStroke.first.dx, currentStroke.first.dy);
       for (int i = 1; i < currentStroke.length; i++) {
-        path.lineTo(currentStroke[i].dx, currentStroke[i].dy);
+        final prev = currentStroke[i - 1];
+        final curr = currentStroke[i];
+        final mid = Offset((prev.dx + curr.dx) / 2, (prev.dy + curr.dy) / 2);
+        path.quadraticBezierTo(prev.dx, prev.dy, mid.dx, mid.dy);
       }
       canvas.drawPath(path, paint);
     } else if (currentStroke.length == 1) {
       final p = currentStroke.first;
-      canvas.drawCircle(p, 1.5, paint..style = PaintingStyle.fill);
+      canvas.drawCircle(p, 2, paint..style = PaintingStyle.fill);
       paint.style = PaintingStyle.stroke;
     }
   }
