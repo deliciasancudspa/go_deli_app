@@ -23,6 +23,8 @@ BEGIN
   END IF;
 
   -- Insertar perfil básico desde los metadatos del registro
+  -- COALESCE + NULLIF manejan campos faltantes, vacíos, o registros
+  -- que no mandan metadata (web, Google Sign-In pre complete-profile, etc.)
   INSERT INTO public.users (
     auth_id,
     email,
@@ -37,14 +39,21 @@ BEGIN
   ) VALUES (
     NEW.id,
     NEW.email,
-    NEW.raw_user_meta_data->>'name',
-    NEW.raw_user_meta_data->>'phone',
-    COALESCE(NEW.raw_user_meta_data->>'role', 'client'),
-    NEW.raw_user_meta_data->>'nationality',
-    NEW.raw_user_meta_data->>'national_id',
-    NEW.raw_user_meta_data->>'national_id_type',
-    NEW.raw_user_meta_data->>'region',
-    NEW.raw_user_meta_data->>'city'
+    COALESCE(
+      NULLIF(NEW.raw_user_meta_data->>'name', ''),
+      NULLIF(NEW.raw_user_meta_data->>'full_name', ''),
+      SPLIT_PART(NEW.email, '@', 1)
+    ),
+    NULLIF(NEW.raw_user_meta_data->>'phone', ''),
+    COALESCE(
+      NULLIF(NEW.raw_user_meta_data->>'role', ''),
+      'client'
+    ),
+    NULLIF(NEW.raw_user_meta_data->>'nationality', ''),
+    NULLIF(NEW.raw_user_meta_data->>'national_id', ''),
+    NULLIF(NEW.raw_user_meta_data->>'national_id_type', ''),
+    NULLIF(NEW.raw_user_meta_data->>'region', ''),
+    NULLIF(NEW.raw_user_meta_data->>'city', '')
   );
 
   RETURN NEW;
