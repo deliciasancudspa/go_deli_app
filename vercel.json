@@ -11,6 +11,7 @@
     { "src": "/privacy", "dest": "/privacidad.html" },
     { "src": "/eliminar-cuenta", "dest": "/eliminar-cuenta.html" },
     { "src": "/delete-account", "dest": "/eliminar-cuenta.html" },
+    { "src": "/gorider-confirm", "dest": "/gorider-confirm.html" },
     { "src": "/([^/.]+)", "dest": "/tienda.html?slug=$1" }
   ]
 }

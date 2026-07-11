@@ -121,6 +121,7 @@ class RiderProvider extends ChangeNotifier {
       final res = await _sb.auth.signUp(
         email: riderEmail,
         password: password,
+        emailRedirectTo: "https://godeli.cl/gorider-confirm",
         data: {
           "name": name,
           "phone": phone,
