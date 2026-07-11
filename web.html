@@ -1392,6 +1392,34 @@ function updateGreeting() {
 }
 
 // ── AUTH ──────────────────────────────────────────────────
+function translateAuthError(e) {
+  var msg = (e && (e.message || e.code || '')) || String(e);
+  var lc = msg.toLowerCase();
+
+  // Rate limit de email (registro, recuperacion, magic link)
+  if (/over_email_send_rate_limit/.test(msg)) {
+    var m = msg.match(/after\s+(\d+)\s+seconds?/i);
+    if (m && m[1]) return 'Por seguridad, debes esperar ' + m[1] + ' segundos antes de solicitar otro correo.';
+    return 'Por seguridad, debes esperar antes de solicitar otro correo. Intenta de nuevo en un minuto.';
+  }
+  if (/invalid login credentials|invalid_credentials/i.test(msg))
+    return 'Email o contraseña incorrectos. Verifica tus datos e intenta de nuevo.';
+  if (/already registered|already exists|user already/i.test(msg))
+    return 'Ya existe una cuenta con este email. Si olvidaste tu contraseña, puedes recuperarla.';
+  if (/email not confirmed/i.test(msg))
+    return 'Debes confirmar tu email antes de iniciar sesión. Revisa tu bandeja de entrada (y spam).';
+  if (/password.*(weak|strong)/i.test(msg))
+    return 'La contraseña es muy débil. Usa al menos 8 caracteres con mayúsculas, minúsculas y números.';
+  if (/over_request_rate_limit|too many requests/i.test(msg))
+    return 'Demasiados intentos. Espera un momento y vuelve a intentarlo.';
+  if (/network|timeout|connection|host/i.test(msg) && /error/i.test(msg))
+    return 'Error de conexión. Revisa tu internet y vuelve a intentarlo.';
+  if (/database error saving new user/i.test(msg))
+    return 'Error interno del servidor. Intenta de nuevo en unos segundos. Si el problema persiste, contacta a soporte@godeli.cl.';
+
+  return msg; // fallback: mensaje original
+}
+
 function openAuthModal(mode) {
   document.getElementById('auth-modal').classList.add('open');
   switchAuthMode(mode);
@@ -1413,7 +1441,7 @@ async function doLogin() {
     await loadUserProfile(data.user.id);
     closeAuthModal(); updateAuthUI();
     showToast('Bienvenido de vuelta!');
-  } catch(e) { err.textContent = 'Email o contraseña incorrectos'; err.style.display='block'; }
+  } catch(e) { err.textContent = translateAuthError(e); err.style.display='block'; }
 }
 // ── RUT ───────────────────────────────────────────────────
 function formatRUT(input) {
@@ -1493,7 +1521,7 @@ async function doRegister() {
     await loadUserProfile(data.user.id);
     closeAuthModal(); updateAuthUI();
     showToast('Cuenta creada! Bienvenido a Go Deli!');
-  } catch(e) { err.textContent = e.message; err.style.display='block'; }
+  } catch(e) { err.textContent = translateAuthError(e); err.style.display='block'; }
 }
 async function doLogout() {
   await sb.auth.signOut();
