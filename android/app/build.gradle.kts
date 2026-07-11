@@ -60,13 +60,15 @@ android {
             else
                 signingConfigs.getByName("debug")
 
-            // R8: reduce y optimiza el APK/AAB para producción
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            // R8: desactivado temporalmente — requiere reglas más exhaustivas
+            // para las dependencias de GoDeli (dio, secure_storage, supabase, etc.)
+            // TODO: reactivar cuando se validen las reglas ProGuard con tests
+            // isMinifyEnabled = true
+            // isShrinkResources = true
+            // proguardFiles(
+            //     getDefaultProguardFile("proguard-android-optimize.txt"),
+            //     "proguard-rules.pro"
+            // )
         }
     }
 }
