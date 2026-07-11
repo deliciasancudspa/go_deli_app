@@ -5,6 +5,7 @@ import "package:flutter/material.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:http/http.dart" as http;
 import "../config/app_config.dart";
+import "../core/utils/auth_error_translator.dart";
 
 class RiderProvider extends ChangeNotifier {
   final _sb = Supabase.instance.client;
@@ -87,8 +88,10 @@ class RiderProvider extends ChangeNotifier {
       final res = await _sb.auth.signInWithPassword(email: riderEmail, password: password);
       await _loadProfile(res.user!.id);
       return null;
+    } on AuthApiException catch (e) {
+      return translateAuthError(e);
     } catch (e) {
-      return e.toString();
+      return translateAuthError(e);
     } finally {
       _loading = false; notifyListeners();
     }
@@ -121,7 +124,7 @@ class RiderProvider extends ChangeNotifier {
       final res = await _sb.auth.signUp(
         email: riderEmail,
         password: password,
-        emailRedirectTo: "https://godeli.cl/gorider-confirm",
+        emailRedirectTo: "gorider://auth/callback",
         data: {
           "name": name,
           "phone": phone,
@@ -177,8 +180,10 @@ class RiderProvider extends ChangeNotifier {
       _user = user; _rider = rider;
       notifyListeners();
       return null;
+    } on AuthApiException catch (e) {
+      return translateAuthError(e);
     } catch (e) {
-      return e.toString();
+      return translateAuthError(e);
     } finally {
       _loading = false; notifyListeners();
     }
@@ -254,7 +259,7 @@ class RiderProvider extends ChangeNotifier {
       await _loadProfile(authUid);
       return null;
     } catch (e) {
-      return e.toString();
+      return translateAuthError(e);
     } finally {
       _loading = false; notifyListeners();
     }

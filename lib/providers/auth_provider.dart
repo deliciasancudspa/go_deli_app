@@ -3,6 +3,7 @@ import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/material.dart";
 import "package:google_sign_in/google_sign_in.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "../core/utils/auth_error_translator.dart";
 import "../services/notification_service.dart";
 
 class AuthProvider extends ChangeNotifier {
@@ -79,8 +80,10 @@ class AuthProvider extends ChangeNotifier {
       _loading = true; notifyListeners();
       await _sb.auth.signInWithPassword(email: email, password: password);
       return null;
+    } on AuthApiException catch (e) {
+      return translateAuthError(e);
     } catch (e) {
-      return e.toString();
+      return translateAuthError(e);
     } finally {
       _loading = false; notifyListeners();
     }
@@ -110,6 +113,7 @@ class AuthProvider extends ChangeNotifier {
       final res = await _sb.auth.signUp(
         email: email,
         password: password,
+        emailRedirectTo: "godeli://auth/callback",
         data: {
           "name": name,
           "phone": phone,
@@ -145,8 +149,10 @@ class AuthProvider extends ChangeNotifier {
         }
       }
       return null;
+    } on AuthApiException catch (e) {
+      return translateAuthError(e);
     } catch (e) {
-      return e.toString();
+      return translateAuthError(e);
     } finally {
       _loading = false; notifyListeners();
     }
@@ -189,7 +195,7 @@ class AuthProvider extends ChangeNotifier {
       }
       return "needs_profile_completion";
     } catch (e) {
-      return e.toString();
+      return translateAuthError(e);
     } finally {
       _loading = false; notifyListeners();
     }
@@ -268,7 +274,7 @@ class AuthProvider extends ChangeNotifier {
       );
       return null;
     } catch (e) {
-      return e.toString();
+      return translateAuthError(e);
     } finally {
       _loading = false; notifyListeners();
     }
@@ -284,7 +290,7 @@ class AuthProvider extends ChangeNotifier {
       await loadProfile();
       return null;
     } catch (e) {
-      return e.toString();
+      return translateAuthError(e);
     } finally {
       _loading = false; notifyListeners();
     }
