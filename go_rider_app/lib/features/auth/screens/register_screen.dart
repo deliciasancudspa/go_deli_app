@@ -46,8 +46,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   List<Offset> _currentStroke = [];
   bool _signatureDrawn = false;
   bool _showContract = false;
+  final ValueNotifier<bool> _isDrawing = ValueNotifier(false);
 
   void _onPanStart(DragStartDetails d) {
+    _isDrawing.value = true;
     setState(() {
       _currentStroke = [d.localPosition];
       _signatureDrawn = true;
@@ -57,8 +59,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _currentStroke.add(d.localPosition));
   }
   void _onPanEnd(DragEndDetails d) {
+    _isDrawing.value = false;
     setState(() {
-      _signatureStrokes.add(List.from(_currentStroke));
+      if (_currentStroke.length > 1) {
+        _signatureStrokes.add(List.from(_currentStroke));
+      }
       _currentStroke = [];
     });
   }
@@ -412,8 +417,13 @@ EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · www.godeli.cl
                 ]),
               ),
               // PASO 4: Términos, consentimientos y firma digital
-              SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+              ValueListenableBuilder<bool>(
+                valueListenable: _isDrawing,
+                builder: (_, isDrawing, child) => SingleChildScrollView(
+                  physics: isDrawing
+                      ? const NeverScrollableScrollPhysics()
+                      : const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.all(20),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Text("Terminos y firma", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 6),
@@ -561,6 +571,7 @@ EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · www.godeli.cl
                   const Text("Tu solicitud sera revisada en 24-48 horas habiles", textAlign: TextAlign.center, style: TextStyle(color: AppColors.textLight, fontSize: 13)),
                 ]),
               ),
+                ), // ValueListenableBuilder
             ],
           ),
         ),
