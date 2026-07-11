@@ -41,50 +41,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _termContract = false;
   bool _termPrivacy = false;
   bool _termGeo = false;
-  final _signatureKey = GlobalKey();
-  final List<List<Offset>> _signatureStrokes = [];
-  List<Offset> _currentStroke = [];
-  bool _signatureDrawn = false;
   bool _showContract = false;
+  final _signatureKey = GlobalKey<_SignaturePadState>();
   final ValueNotifier<bool> _isDrawing = ValueNotifier(false);
-
-  void _onPanStart(DragStartDetails d) {
-    _isDrawing.value = true;
-    setState(() {
-      _currentStroke = [d.localPosition];
-      _signatureDrawn = true;
-    });
-  }
-  void _onPanUpdate(DragUpdateDetails d) {
-    setState(() => _currentStroke.add(d.localPosition));
-  }
-  void _onPanEnd(DragEndDetails d) {
-    _isDrawing.value = false;
-    setState(() {
-      if (_currentStroke.length > 1) {
-        _signatureStrokes.add(List.from(_currentStroke));
-      }
-      _currentStroke = [];
-    });
-  }
-  void _clearSignature() {
-    setState(() {
-      _signatureStrokes.clear();
-      _currentStroke = [];
-      _signatureDrawn = false;
-    });
-  }
-
-  Future<String?> _captureSignature() async {
-    try {
-      final boundary = _signatureKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return null;
-      final image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return null;
-      return base64Encode(byteData.buffer.asUint8List());
-    } catch (_) { return null; }
-  }
 
   Future<void> _submit() async {
     if (_accountNumCtrl.text.isEmpty || _accountHolderCtrl.text.isEmpty) {
@@ -97,7 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     // Validar firma
-    if (!_signatureDrawn) {
+    if (!_signatureKey.currentState!.isDrawn) {
       setState(() => _error = "Debes dibujar tu firma en el recuadro");
       return;
     }
@@ -115,7 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _error = "El RUT del firmante no es válido");
       return;
     }
-    final sigBase64 = await _captureSignature();
+    final sigBase64 = await _signatureKey.currentState!.capture();
 
     final rider = context.read<RiderProvider>();
     final err = await rider.register(
@@ -161,6 +120,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _accountRutCtrl.dispose();
     _signerNameCtrl.dispose();
     _signerRutCtrl.dispose();
+    _isDrawing.dispose();
     super.dispose();
   }
 
@@ -489,7 +449,7 @@ EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · www.godeli.cl
                   ),
                   const SizedBox(height: 16),
 
-                  // Firma digital
+                  // Firma digital — widget aislado para evitar rebuilds masivos al dibujar
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border, width: 2)),
@@ -502,55 +462,8 @@ EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · www.godeli.cl
                         Expanded(child: _field(_signerRutCtrl, "RUT *", Icons.badge_outlined)),
                       ]),
                       const SizedBox(height: 12),
-                      // Canvas de firma
-                      Listener(
-                        onPointerDown: (_) {},
-                        onPointerMove: (_) {},
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(color: _signatureDrawn ? AppColors.accent : AppColors.border, width: 2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(children: [
-                            ClipRect(
-                              child: RepaintBoundary(
-                                key: _signatureKey,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onPanStart: _onPanStart,
-                                  onPanUpdate: _onPanUpdate,
-                                  onPanEnd: _onPanEnd,
-                                  child: CustomPaint(
-                                    painter: _SignaturePainter(_signatureStrokes, _currentStroke),
-                                    size: const Size(double.infinity, 200),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: const BoxDecoration(
-                                border: Border(top: BorderSide(color: AppColors.border)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text("Dibuja tu firma en el recuadro", style: TextStyle(fontSize: 11, color: AppColors.textLight)),
-                                  TextButton.icon(
-                                    onPressed: _clearSignature,
-                                    icon: const Icon(Icons.delete_outline, size: 14),
-                                    label: const Text("Limpiar", style: TextStyle(fontSize: 11)),
-                                    style: TextButton.styleFrom(foregroundColor: AppColors.textLight, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ]),
-                        ),
-                      ),
+                      // Canvas de firma — widget independiente con su propio setState
+                      _SignaturePad(key: _signatureKey, isDrawingNotifier: _isDrawing),
                       const SizedBox(height: 8),
                       const Text("🔒 Al firmar se registrará tu IP, dispositivo, email, fecha y hora. La firma electrónica tiene validez legal conforme a la Ley N° 19.799.", style: TextStyle(fontSize: 10, color: AppColors.textLight)),
                     ]),
@@ -572,6 +485,113 @@ EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · www.godeli.cl
                 ]),
               ),
                 ), // ValueListenableBuilder
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Signature pad widget autónomo ──
+// Gestiona su propio estado de dibujo para evitar rebuilds masivos del formulario.
+class _SignaturePad extends StatefulWidget {
+  final ValueNotifier<bool> isDrawingNotifier;
+  const _SignaturePad({super.key, required this.isDrawingNotifier});
+
+  @override
+  State<_SignaturePad> createState() => _SignaturePadState();
+}
+
+class _SignaturePadState extends State<_SignaturePad> {
+  final List<List<Offset>> _strokes = [];
+  List<Offset> _currentStroke = [];
+  bool _drawn = false;
+  final GlobalKey _repaintKey = GlobalKey();
+
+  bool get isDrawn => _drawn;
+
+  void _onPanStart(DragStartDetails d) {
+    widget.isDrawingNotifier.value = true;
+    _currentStroke = [d.localPosition];
+    _drawn = true;
+    setState(() {}); // rebuild solo dentro de _SignaturePad (muy pequeño)
+  }
+
+  void _onPanUpdate(DragUpdateDetails d) {
+    _currentStroke.add(d.localPosition);
+    setState(() {}); // rebuild solo dentro de _SignaturePad
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    widget.isDrawingNotifier.value = false;
+    if (_currentStroke.length > 1) {
+      _strokes.add(List.from(_currentStroke));
+    }
+    _currentStroke = [];
+    setState(() {});
+  }
+
+  void _clear() {
+    _strokes.clear();
+    _currentStroke = [];
+    _drawn = false;
+    setState(() {});
+  }
+
+  Future<String?> capture() async {
+    try {
+      final boundary = _repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
+      return base64Encode(byteData.buffer.asUint8List());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _drawn ? AppColors.accent : AppColors.border, width: 2),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: [
+        ClipRect(
+          child: RepaintBoundary(
+            key: _repaintKey,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: _onPanStart,
+              onPanUpdate: _onPanUpdate,
+              onPanEnd: _onPanEnd,
+              child: CustomPaint(
+                painter: _SignaturePainter(_strokes, _currentStroke),
+                size: const Size(double.infinity, 200),
+              ),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: AppColors.border)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Dibuja tu firma en el recuadro", style: TextStyle(fontSize: 11, color: AppColors.textLight)),
+              TextButton.icon(
+                onPressed: _clear,
+                icon: const Icon(Icons.delete_outline, size: 14),
+                label: const Text("Limpiar", style: TextStyle(fontSize: 11)),
+                style: TextButton.styleFrom(foregroundColor: AppColors.textLight, padding: const EdgeInsets.symmetric(horizontal: 8)),
+              ),
             ],
           ),
         ),
