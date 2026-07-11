@@ -43,7 +43,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _termGeo = false;
   bool _showContract = false;
   final _signatureKey = GlobalKey<_SignaturePadState>();
-  final ValueNotifier<bool> _isDrawing = ValueNotifier(false);
 
   Future<void> _submit() async {
     if (_accountNumCtrl.text.isEmpty || _accountHolderCtrl.text.isEmpty) {
@@ -120,7 +119,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _accountRutCtrl.dispose();
     _signerNameCtrl.dispose();
     _signerRutCtrl.dispose();
-    _isDrawing.dispose();
     super.dispose();
   }
 
@@ -377,114 +375,123 @@ EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · www.godeli.cl
                 ]),
               ),
               // PASO 4: Términos, consentimientos y firma digital
-              ValueListenableBuilder<bool>(
-                valueListenable: _isDrawing,
-                builder: (_, isDrawing, child) => SingleChildScrollView(
-                  physics: isDrawing
-                      ? const NeverScrollableScrollPhysics()
-                      : const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.all(20),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text("Terminos y firma", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 6),
-                  const Text("Revisa el contrato, acepta los consentimientos y firma digitalmente", style: TextStyle(color: AppColors.textLight, fontSize: 14)),
-                  const SizedBox(height: 16),
-
-                  // Contrato colapsable
-                  Container(
-                    decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)),
-                    child: Column(children: [
-                      InkWell(
-                        onTap: () => setState(() => _showContract = !_showContract),
-                        borderRadius: BorderRadius.vertical(top: const Radius.circular(12), bottom: _showContract ? Radius.zero : const Radius.circular(12)),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Row(children: [
-                            const Icon(Icons.article_outlined, color: AppColors.accent, size: 20),
-                            const SizedBox(width: 10),
-                            const Expanded(child: Text("Contrato de Repartidor Independiente", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
-                            Icon(_showContract ? Icons.expand_less : Icons.expand_more, color: AppColors.textLight),
-                          ]),
-                        ),
-                      ),
-                      if (_showContract)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                          child: Text(_contractSummary, style: const TextStyle(fontSize: 10, height: 1.5, color: AppColors.textMedium)),
-                        ),
-                    ]),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Consentimientos
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFDDD6FE))),
-                    child: Column(children: [
-                      const Text("📋 Consentimientos requeridos", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF5B21B6))),
-                      const SizedBox(height: 10),
-                      CheckboxListTile(
-                        dense: true, contentPadding: EdgeInsets.zero,
-                        activeColor: AppColors.accent,
-                        title: const Text("Acepto el Contrato de Repartidor Independiente de Go Deli.", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        value: _termContract,
-                        onChanged: (v) => setState(() => _termContract = v ?? false),
-                      ),
-                      CheckboxListTile(
-                        dense: true, contentPadding: EdgeInsets.zero,
-                        activeColor: AppColors.accent,
-                        title: const Text("Acepto la Política de Privacidad de GO DELI.", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        value: _termPrivacy,
-                        onChanged: (v) => setState(() => _termPrivacy = v ?? false),
-                      ),
-                      CheckboxListTile(
-                        dense: true, contentPadding: EdgeInsets.zero,
-                        activeColor: AppColors.accent,
-                        title: const Text("Autorizo el tratamiento de mis datos personales y geolocalización.", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        value: _termGeo,
-                        onChanged: (v) => setState(() => _termGeo = v ?? false),
-                      ),
-                    ]),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Firma digital — widget aislado para evitar rebuilds masivos al dibujar
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border, width: 2)),
+              // Layout: contenido scrolleable arriba, firma FIJA abajo.
+              // Así la firma NUNCA compite con el Scrollable por los gestos táctiles.
+              Column(children: [
+                // ── Parte superior scrolleable ──
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.all(20),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text("✍️ Firma digital del Repartidor", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                      const SizedBox(height: 12),
+                      const Text("Terminos y firma", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 6),
+                      const Text("Revisa el contrato, acepta los consentimientos y firma digitalmente", style: TextStyle(color: AppColors.textLight, fontSize: 14)),
+                      const SizedBox(height: 16),
+
+                      // Contrato colapsable
+                      Container(
+                        decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(12)),
+                        child: Column(children: [
+                          InkWell(
+                            onTap: () => setState(() => _showContract = !_showContract),
+                            borderRadius: BorderRadius.vertical(top: const Radius.circular(12), bottom: _showContract ? Radius.zero : const Radius.circular(12)),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              child: Row(children: [
+                                const Icon(Icons.article_outlined, color: AppColors.accent, size: 20),
+                                const SizedBox(width: 10),
+                                const Expanded(child: Text("Contrato de Repartidor Independiente", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                                Icon(_showContract ? Icons.expand_less : Icons.expand_more, color: AppColors.textLight),
+                              ]),
+                            ),
+                          ),
+                          if (_showContract)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                              child: Text(_contractSummary, style: const TextStyle(fontSize: 10, height: 1.5, color: AppColors.textMedium)),
+                            ),
+                        ]),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Consentimientos
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFDDD6FE))),
+                        child: Column(children: [
+                          const Text("📋 Consentimientos requeridos", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF5B21B6))),
+                          const SizedBox(height: 10),
+                          CheckboxListTile(
+                            dense: true, contentPadding: EdgeInsets.zero,
+                            activeColor: AppColors.accent,
+                            title: const Text("Acepto el Contrato de Repartidor Independiente de Go Deli.", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            value: _termContract,
+                            onChanged: (v) => setState(() => _termContract = v ?? false),
+                          ),
+                          CheckboxListTile(
+                            dense: true, contentPadding: EdgeInsets.zero,
+                            activeColor: AppColors.accent,
+                            title: const Text("Acepto la Política de Privacidad de GO DELI.", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            value: _termPrivacy,
+                            onChanged: (v) => setState(() => _termPrivacy = v ?? false),
+                          ),
+                          CheckboxListTile(
+                            dense: true, contentPadding: EdgeInsets.zero,
+                            activeColor: AppColors.accent,
+                            title: const Text("Autorizo el tratamiento de mis datos personales y geolocalización.", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            value: _termGeo,
+                            onChanged: (v) => setState(() => _termGeo = v ?? false),
+                          ),
+                        ]),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Nombre y RUT del firmante (en zona scrolleable)
                       Row(children: [
                         Expanded(child: _field(_signerNameCtrl, "Nombre completo *", Icons.person_outline)),
                         const SizedBox(width: 12),
                         Expanded(child: _field(_signerRutCtrl, "RUT *", Icons.badge_outlined)),
                       ]),
                       const SizedBox(height: 12),
-                      // Canvas de firma — widget independiente con su propio setState
-                      _SignaturePad(key: _signatureKey, isDrawingNotifier: _isDrawing),
-                      const SizedBox(height: 8),
-                      const Text("🔒 Al firmar se registrará tu IP, dispositivo, email, fecha y hora. La firma electrónica tiene validez legal conforme a la Ley N° 19.799.", style: TextStyle(fontSize: 10, color: AppColors.textLight)),
                     ]),
                   ),
+                ),
 
-                  if (_error != null && _step == 3) ...[
+                // ── Firma digital FIJA (NUNCA dentro del scroll) ──
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border, width: 2)),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text("✍️ Firma digital del Repartidor", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                        const SizedBox(height: 12),
+                        _SignaturePad(key: _signatureKey),
+                        const SizedBox(height: 8),
+                        const Text("🔒 Al firmar se registrará tu IP, dispositivo, email, fecha y hora. La firma electrónica tiene validez legal conforme a la Ley N° 19.799.", style: TextStyle(fontSize: 10, color: AppColors.textLight)),
+                      ]),
+                    ),
+
+                    if (_error != null && _step == 3) ...[
+                      const SizedBox(height: 8),
+                      Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+                    ],
                     const SizedBox(height: 12),
-                    Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
-                  ],
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: rider.loading ? null : _submit,
-                    child: rider.loading
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text("Firmar y enviar solicitud ✍️"),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text("Tu solicitud sera revisada en 24-48 horas habiles", textAlign: TextAlign.center, style: TextStyle(color: AppColors.textLight, fontSize: 13)),
-                ]),
-              ),
-                ), // ValueListenableBuilder
+                    ElevatedButton(
+                      onPressed: rider.loading ? null : _submit,
+                      child: rider.loading
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text("Firmar y enviar solicitud ✍️"),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text("Tu solicitud sera revisada en 24-48 horas habiles", textAlign: TextAlign.center, style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+                    const SizedBox(height: 12),
+                  ]),
+                ),
+              ]),
             ],
           ),
         ),
@@ -495,9 +502,9 @@ EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · www.godeli.cl
 
 // ── Signature pad widget autónomo ──
 // Gestiona su propio estado de dibujo para evitar rebuilds masivos del formulario.
+// Se coloca SIEMPRE fuera de un SingleChildScrollView para evitar competencia de gestos.
 class _SignaturePad extends StatefulWidget {
-  final ValueNotifier<bool> isDrawingNotifier;
-  const _SignaturePad({super.key, required this.isDrawingNotifier});
+  const _SignaturePad({super.key});
 
   @override
   State<_SignaturePad> createState() => _SignaturePadState();
@@ -512,7 +519,6 @@ class _SignaturePadState extends State<_SignaturePad> {
   bool get isDrawn => _drawn;
 
   void _onPanStart(DragStartDetails d) {
-    widget.isDrawingNotifier.value = true;
     _currentStroke = [d.localPosition];
     _drawn = true;
     setState(() {}); // rebuild solo dentro de _SignaturePad (muy pequeño)
@@ -524,7 +530,6 @@ class _SignaturePadState extends State<_SignaturePad> {
   }
 
   void _onPanEnd(DragEndDetails d) {
-    widget.isDrawingNotifier.value = false;
     if (_currentStroke.length > 1) {
       _strokes.add(List.from(_currentStroke));
     }
