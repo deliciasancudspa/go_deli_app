@@ -113,7 +113,7 @@ class AuthProvider extends ChangeNotifier {
       final res = await _sb.auth.signUp(
         email: email,
         password: password,
-        emailRedirectTo: "godeli://auth/callback",
+        emailRedirectTo: "https://godeli.cl/godeli-confirm",
         data: {
           "name": name,
           "phone": phone,
