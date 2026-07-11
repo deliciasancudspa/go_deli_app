@@ -80,7 +80,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (err == "duplicate_national_id") {
       _showDuplicateDialog();
     } else if (err != null) {
-      setState(() => _error = "Error al registrarse. Intenta con otro correo.");
+      setState(() => _error = err);
     } else {
       context.go("/home");
     }

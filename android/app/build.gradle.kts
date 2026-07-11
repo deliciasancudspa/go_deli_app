@@ -59,16 +59,6 @@ android {
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
-
-            // R8: desactivado temporalmente — requiere reglas más exhaustivas
-            // para las dependencias de GoDeli (dio, secure_storage, supabase, etc.)
-            // TODO: reactivar cuando se validen las reglas ProGuard con tests
-            // isMinifyEnabled = true
-            // isShrinkResources = true
-            // proguardFiles(
-            //     getDefaultProguardFile("proguard-android-optimize.txt"),
-            //     "proguard-rules.pro"
-            // )
         }
     }
 }
