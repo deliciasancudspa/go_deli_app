@@ -82,7 +82,9 @@ class RiderProvider extends ChangeNotifier {
   Future<String?> signIn(String email, String password) async {
     try {
       _loading = true; notifyListeners();
-      final res = await _sb.auth.signInWithPassword(email: email, password: password);
+      // Mismo sufijo +gorider que en register — transparente para el usuario
+      final riderEmail = email.replaceFirst("@", "+gorider@");
+      final res = await _sb.auth.signInWithPassword(email: riderEmail, password: password);
       await _loadProfile(res.user!.id);
       return null;
     } catch (e) {
@@ -96,86 +98,13 @@ class RiderProvider extends ChangeNotifier {
     String? authUid;
     try {
       _loading = true; notifyListeners();
-
-      // ── Paso 1: Crear cuenta (o reutilizar si ya existe en GoDeli) ──
-      final signUpResult = await _signUpOrSignIn(email: email, password: password);
-      if (signUpResult["error"] != null) return signUpResult["error"] as String?;
-      authUid = signUpResult["authUid"] as String;
-      final isExistingUser = signUpResult["isExistingUser"] as bool;
-
-      // ── Paso 2: Si el usuario ya existía (registrado en GoDeli), crear perfil rider ──
-      if (isExistingUser) {
-        final existingUser = await _sb.from("users").select().eq("auth_id", authUid).maybeSingle();
-        if (existingUser == null) {
-          return "Error: no se encontró tu cuenta. Contacta a soporte@godeli.cl";
-        }
-
-        // Verificar que no tenga ya un perfil de repartidor
-        final existingRider = await _sb.from("deliverers").select().eq("user_id", existingUser["id"]).maybeSingle();
-        if (existingRider != null) {
-          await _sb.auth.signOut();
-          return "Ya tienes una cuenta de repartidor. Inicia sesión en vez de registrarte.";
-        }
-
-        // Actualizar nombre/teléfono por si cambiaron
-        await _sb.from("users").update({"name": name, "phone": phone}).eq("id", existingUser["id"]);
-
-        // Crear perfil de repartidor para el usuario existente
-        Map<String, dynamic> rider;
-        try {
-          rider = await _sb.from("deliverers").insert({
-            "user_id": existingUser["id"],
-            "vehicle_type": vehicle,
-            "vehicle_plate": plate,
-            "status": "pending",
-            "is_online": false,
-            "is_available": false,
-            "commune_id": communeId,
-          }).select().single();
-          await _sb.from("deliverer_bank_info").insert({
-            "deliverer_id": rider["id"],
-            "bank_name": bankName,
-            "account_type": accountType,
-            "account_number": accountNumber,
-            "account_holder": accountHolder,
-            "rut": accountRut,
-          });
-        } catch (insertError) {
-          // Rollback: borrar deliverer si falló bank info
-          await _sb.from("deliverers").delete().eq("user_id", existingUser["id"]);
-          throw Exception("Error al crear perfil de repartidor. Intenta de nuevo.");
-        }
-
-        // ── Notificación al admin ──
-        final signedAt = DateTime.now().toIso8601String();
-        try {
-          await _sb.from("notifications").insert({
-            "type": "alert", "emoji": "🛵", "target": "admin", "is_read": false,
-            "title": "🛵 Nuevo repartidor registrado (usuario existente)",
-            "message": "$name · $vehicle · $email (ya tenía cuenta GoDeli)",
-            "data": {
-              "name": name, "rut": rut, "phone": phone, "email": email,
-              "vehicle": vehicle, "plate": plate,
-              "contract_accepted": true,
-              "privacy_accepted": true,
-              "geolocation_authorized": true,
-              "accepted_at": signedAt,
-              "contract_version": "1.0",
-              "signer_name": signerName,
-              "signer_rut": signerRut,
-              "signed_at": signedAt,
-              "signature_image": signatureImage,
-              "existing_user": true,
-            }
-          });
-        } catch (_) { /* non-blocking */ }
-
-        // Recargar perfil completo (asegura que _user y _rider queden poblados)
-        await _loadProfile(authUid);
-        return null;
-      }
-
-      // ── Paso 3: Flujo normal — usuario completamente nuevo ──
+      // Sufijo +gorider: separa el auth de GoDeli. ana@gmail.com y
+      // ana+gorider@gmail.com son usuarios distintos en Supabase Auth,
+      // pero los correos llegan al mismo inbox (Gmail, Outlook, Yahoo, etc.)
+      final riderEmail = email.replaceFirst("@", "+gorider@");
+      final res = await _sb.auth.signUp(email: riderEmail, password: password);
+      if (res.user == null) throw Exception("Error al crear cuenta");
+      authUid = res.user!.id;
       final user = await _sb.from("users").insert({"auth_id": authUid, "email": email, "name": name, "phone": phone, "role": "deliverer"}).select().single();
       Map<String, dynamic> rider;
       try {
@@ -220,32 +149,6 @@ class RiderProvider extends ChangeNotifier {
       return e.toString();
     } finally {
       _loading = false; notifyListeners();
-    }
-  }
-
-  /// Intenta crear cuenta nueva. Si el email ya está registrado (ej. en
-  /// GoDeli), intenta iniciar sesión con la misma contraseña. Retorna
-  /// [authUid] e [isExistingUser] para que el caller decida el flujo.
-  Future<Map<String, dynamic>> _signUpOrSignIn({required String email, required String password}) async {
-    try {
-      final res = await _sb.auth.signUp(email: email, password: password);
-      if (res.user == null) throw Exception("Error al crear cuenta");
-      return {"authUid": res.user!.id, "isExistingUser": false};
-    } catch (signUpError) {
-      final errStr = signUpError.toString().toLowerCase();
-      // Si el email ya existe, intentar login con la misma contraseña
-      if (errStr.contains("already") || errStr.contains("exists") ||
-          errStr.contains("registrado") || errStr.contains("duplicate") ||
-          errStr.contains("user already")) {
-        try {
-          final res = await _sb.auth.signInWithPassword(email: email, password: password);
-          if (res.user == null) throw Exception("Error al iniciar sesión");
-          return {"authUid": res.user!.id, "isExistingUser": true};
-        } catch (signInError) {
-          return {"error": "Este correo ya está registrado (¿tienes cuenta en GoDeli?). Usa la misma contraseña o recupera tu cuenta.", "authUid": null};
-        }
-      }
-      return {"error": signUpError.toString(), "authUid": null};
     }
   }
 
