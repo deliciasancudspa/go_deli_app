@@ -7,6 +7,11 @@
 -- - Si NO hay sesión (confirmación de email activada):
 --   → la app no puede insertar (RLS bloquea), el trigger lo hace por ella
 --
+-- Maneja 3 casos:
+-- 1. Perfil ya vinculado al auth_id → skip
+-- 2. Perfil existe con el mismo email pero auth_id huérfano/antiguo → recuperar
+-- 3. No existe perfil → crear desde metadatos (con fallbacks seguros)
+--
 -- EJECUTAR EN: Supabase Dashboard → SQL Editor → pegar y Run
 -- ============================================================================
 
@@ -16,26 +21,32 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  existing_profile public.users%ROWTYPE;
 BEGIN
-  -- Si la app ya insertó el perfil (sesión existente), no duplicar
+  -- Caso 1: Ya existe perfil con este auth_id → no hacer nada
   IF EXISTS (SELECT 1 FROM public.users WHERE auth_id = NEW.id) THEN
     RETURN NEW;
   END IF;
 
-  -- Insertar perfil básico desde los metadatos del registro
-  -- COALESCE + NULLIF manejan campos faltantes, vacíos, o registros
-  -- que no mandan metadata (web, Google Sign-In pre complete-profile, etc.)
+  -- Buscar perfil por email (puede tener auth_id antiguo huérfano o NULL)
+  SELECT * INTO existing_profile FROM public.users
+  WHERE email = NEW.email
+  LIMIT 1;
+
+  -- Caso 2: Existe perfil con este email → recuperarlo
+  IF FOUND THEN
+    UPDATE public.users SET
+      auth_id = NEW.id,
+      updated_at = now()
+    WHERE id = existing_profile.id;
+    RETURN NEW;
+  END IF;
+
+  -- Caso 3: No existe → crear perfil nuevo desde metadatos
   INSERT INTO public.users (
-    auth_id,
-    email,
-    name,
-    phone,
-    role,
-    nationality,
-    national_id,
-    national_id_type,
-    region,
-    city
+    auth_id, email, name, phone, role,
+    nationality, national_id, national_id_type, region, city
   ) VALUES (
     NEW.id,
     NEW.email,
@@ -45,10 +56,7 @@ BEGIN
       SPLIT_PART(NEW.email, '@', 1)
     ),
     NULLIF(NEW.raw_user_meta_data->>'phone', ''),
-    COALESCE(
-      NULLIF(NEW.raw_user_meta_data->>'role', ''),
-      'client'
-    ),
+    COALESCE(NULLIF(NEW.raw_user_meta_data->>'role', ''), 'client'),
     NULLIF(NEW.raw_user_meta_data->>'nationality', ''),
     NULLIF(NEW.raw_user_meta_data->>'national_id', ''),
     NULLIF(NEW.raw_user_meta_data->>'national_id_type', ''),
