@@ -47,6 +47,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     if (!rider.isLoggedIn) {
       context.go("/login");
+    } else if (rider.riderId.isEmpty) {
+      // Usuario existe (auth + users) pero no tiene perfil de repartidor.
+      // Ocurre si confirmó su email después del registro inicial.
+      context.go("/register");
     } else if (!rider.isApproved) {
       context.go("/pending");
     } else {

@@ -98,13 +98,44 @@ class RiderProvider extends ChangeNotifier {
     String? authUid;
     try {
       _loading = true; notifyListeners();
+
+      // Si el usuario ya está autenticado (confirmó su email y volvió),
+      // solo falta crear su perfil de repartidor — no hacer signUp de nuevo.
+      final session = _sb.auth.currentSession;
+      if (session != null) {
+        return await _completeRiderProfile(
+          authUid: session.user.id,
+          name: name, email: email, phone: phone, rut: rut,
+          vehicle: vehicle, plate: plate, bankName: bankName,
+          accountType: accountType, accountNumber: accountNumber,
+          accountHolder: accountHolder, accountRut: accountRut,
+          communeId: communeId, signerName: signerName,
+          signerRut: signerRut, signatureImage: signatureImage,
+        );
+      }
+
       // Sufijo +gorider: separa el auth de GoDeli. ana@gmail.com y
       // ana+gorider@gmail.com son usuarios distintos en Supabase Auth,
       // pero los correos llegan al mismo inbox (Gmail, Outlook, Yahoo, etc.)
       final riderEmail = email.replaceFirst("@", "+gorider@");
-      final res = await _sb.auth.signUp(email: riderEmail, password: password);
+      final res = await _sb.auth.signUp(
+        email: riderEmail,
+        password: password,
+        data: {
+          "name": name,
+          "phone": phone,
+          "role": "deliverer",
+        },
+      );
       if (res.user == null) throw Exception("Error al crear cuenta");
       authUid = res.user!.id;
+
+      // Si no hay sesión (email sin confirmar), el trigger BD crea el perfil.
+      // El repartidor deberá confirmar su email y luego iniciar sesión.
+      if (res.session == null) {
+        return "revisa_tu_correo";
+      }
+
       final user = await _sb.from("users").insert({"auth_id": authUid, "email": email, "name": name, "phone": phone, "role": "deliverer"}).select().single();
       Map<String, dynamic> rider;
       try {
@@ -144,6 +175,82 @@ class RiderProvider extends ChangeNotifier {
 
       _user = user; _rider = rider;
       notifyListeners();
+      return null;
+    } catch (e) {
+      return e.toString();
+    } finally {
+      _loading = false; notifyListeners();
+    }
+  }
+
+  /// Completa el perfil de repartidor para un usuario que ya confirmó su email.
+  /// Solo se usa cuando el auth ya existe (sesión activa) pero falta la fila en deliverers.
+  Future<String?> _completeRiderProfile({
+    required String authUid,
+    required String name, required String email, required String phone,
+    required String rut, required String vehicle, required String plate,
+    required String bankName, required String accountType,
+    required String accountNumber, required String accountHolder,
+    required String accountRut, String? communeId,
+    String? signerName, String? signerRut, String? signatureImage,
+  }) async {
+    try {
+      // Buscar o crear la fila en users
+      var user = await _sb.from("users").select().eq("auth_id", authUid).maybeSingle();
+      user ??= await _sb.from("users").insert({
+        "auth_id": authUid, "email": email, "name": name,
+        "phone": phone, "role": "deliverer",
+      }).select().single();
+
+      // Verificar que no exista ya un deliverer
+      final existingRider = await _sb.from("deliverers").select().eq("user_id", user["id"]).maybeSingle();
+      if (existingRider != null) {
+        await _loadProfile(authUid);
+        return null; // Ya tiene perfil, cargar y seguir
+      }
+
+      // Crear perfil de repartidor
+      final rider = await _sb.from("deliverers").insert({
+        "user_id": user["id"],
+        "vehicle_type": vehicle,
+        "vehicle_plate": plate,
+        "status": "pending",
+        "is_online": false,
+        "is_available": false,
+        "commune_id": communeId,
+      }).select().single();
+      await _sb.from("deliverer_bank_info").insert({
+        "deliverer_id": rider["id"],
+        "bank_name": bankName, "account_type": accountType,
+        "account_number": accountNumber, "account_holder": accountHolder,
+        "rut": accountRut,
+      });
+
+      // Notificar al admin
+      final signedAt = DateTime.now().toIso8601String();
+      try {
+        await _sb.from("notifications").insert({
+          "type": "alert", "emoji": "🛵", "target": "admin", "is_read": false,
+          "title": "🛵 Nuevo repartidor (confirmó email)",
+          "message": "$name · $vehicle · $email",
+          "data": {
+            "name": name, "rut": rut, "phone": phone, "email": email,
+            "vehicle": vehicle, "plate": plate,
+            "contract_accepted": true,
+            "privacy_accepted": true,
+            "geolocation_authorized": true,
+            "accepted_at": signedAt,
+            "contract_version": "1.0",
+            "signer_name": signerName,
+            "signer_rut": signerRut,
+            "signed_at": signedAt,
+            "signature_image": signatureImage,
+            "post_confirmation": true,
+          }
+        });
+      } catch (_) { /* non-blocking */ }
+
+      await _loadProfile(authUid);
       return null;
     } catch (e) {
       return e.toString();

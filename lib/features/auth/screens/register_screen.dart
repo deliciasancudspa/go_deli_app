@@ -79,6 +79,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
     if (err == "duplicate_national_id") {
       _showDuplicateDialog();
+    } else if (err == "revisa_tu_correo") {
+      setState(() => _error = "Revisa tu correo y confirma tu cuenta para continuar.");
     } else if (err != null) {
       setState(() => _error = err);
     } else {

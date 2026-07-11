@@ -3,314 +3,830 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Go Rider — Screenshots Tablet Play Store</title>
+<title>Go Deli — Screenshots Tablet Play Store</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#fff; display:flex; flex-wrap:wrap; gap:60px; justify-content:center; padding:40px; }
-  .tablet7 {
-    width:600px; height:960px; border-radius:28px; overflow:hidden;
-    background:#F0F2F5; box-shadow:0 4px 24px rgba(0,0,0,0.15);
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#fff;display:flex;flex-wrap:wrap;gap:36px;justify-content:center;padding:36px}
+
+  /* ═══ 7" Tablet: ~600×960 ═══ */
+  .t7{
+    width:600px;height:960px;border-radius:24px;overflow:hidden;
+    background:#F8F4FF;box-shadow:0 6px 30px rgba(0,0,0,0.18);
     font-family:'Nunito','Segoe UI',-apple-system,sans-serif;
-    display:flex; flex-direction:column; position:relative;
+    display:flex;flex-direction:column;position:relative;
   }
-  .tablet10 {
-    width:800px; height:1280px; border-radius:32px; overflow:hidden;
-    background:#F0F2F5; box-shadow:0 4px 24px rgba(0,0,0,0.15);
+  /* ═══ 10" Tablet: ~800×1280 ═══ */
+  .t10{
+    width:800px;height:1280px;border-radius:28px;overflow:hidden;
+    background:#F8F4FF;box-shadow:0 6px 30px rgba(0,0,0,0.18);
     font-family:'Nunito','Segoe UI',-apple-system,sans-serif;
-    display:flex; flex-direction:column; position:relative;
+    display:flex;flex-direction:column;position:relative;
   }
-  .statusbar { background:#1A1A2E; color:#fff; padding:10px 22px; display:flex; justify-content:space-between; font-size:13px; font-weight:700; }
-  .appbar { background:#1A1A2E; color:#fff; padding:12px 22px 16px; display:flex; align-items:center; gap:14px; }
-  .appbar .avatar { width:48px; height:48px; border-radius:50%; background:#FF6B35; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:20px; }
-  .appbar .title { font-size:18px; font-weight:800; }
-  .appbar .subtitle { font-size:13px; color:rgba(255,255,255,0.7); }
-  .body { flex:1; overflow-y:auto; padding:20px; }
-  .kpi-row { display:flex; gap:14px; margin-bottom:14px; }
-  .kpi { flex:1; background:#fff; border-radius:16px; padding:18px; border:1px solid #E5E7EB; }
-  .kpi .icon { font-size:24px; margin-bottom:6px; }
-  .kpi .value { font-size:24px; font-weight:900; }
-  .kpi .label { font-size:12px; color:#9CA3AF; font-weight:600; }
-  .section-title { font-size:16px; font-weight:800; color:#374151; margin:22px 0 12px; }
-  .order-card { background:#fff; border-radius:18px; padding:18px; margin-bottom:14px; border:2px solid rgba(245,158,11,0.4); }
-  .order-card .row { display:flex; align-items:center; gap:12px; }
-  .store-avatar { width:44px; height:44px; border-radius:12px; background:#f0f0f0; display:flex; align-items:center; justify-content:center; font-size:24px; }
-  .status-badge { padding:5px 12px; border-radius:10px; font-size:11px; font-weight:800; background:rgba(245,158,11,0.12); color:#F59E0B; }
-  .offer-card { background:#fff; border-radius:22px; margin-bottom:16px; overflow:hidden; border:2px solid rgba(34,197,94,0.45); }
-  .offer-header { background:rgba(255,107,53,0.08); padding:16px 20px; display:flex; align-items:center; gap:14px; }
-  .timer-bar { padding:10px 20px; }
-  .timer-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:12px; }
-  .progress-bar { height:8px; border-radius:4px; background:#E5E7EB; overflow:hidden; }
-  .progress-fill { height:100%; border-radius:4px; }
-  .offer-details { padding:14px 20px; }
-  .detail-line { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:14px; color:#374151; }
-  .btn-row { display:flex; gap:14px; padding:0 18px 18px; }
-  .btn { flex:1; padding:16px; border-radius:14px; font-weight:800; font-size:16px; text-align:center; border:none; }
-  .btn-reject { background:#fff; color:#EF4444; border:2px solid #EF4444; }
-  .btn-accept { background:#22C55E; color:#fff; }
-  .toggle { width:64px; height:32px; border-radius:16px; background:#22C55E; display:flex; align-items:center; padding:3px; }
-  .toggle-knob { width:26px; height:26px; border-radius:50%; background:#fff; margin-left:auto; }
-  .bottomnav { background:#fff; display:flex; padding:10px 0 6px; border-top:1px solid #E5E7EB; }
-  .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:12px; color:#9CA3AF; font-weight:700; }
-  .nav-item.active { color:#FF6B35; }
-  .nav-item .nav-icon { font-size:24px; }
-  /* Map */
-  .map-area { flex:1; position:relative; overflow:hidden; background:#e8e4df; }
-  .map-street { position:absolute; background:rgba(255,255,255,0.7); box-shadow:0 0 0 1px rgba(0,0,0,0.05); }
-  .map-building { position:absolute; background:rgba(200,195,188,0.7); border-radius:3px; box-shadow:0 0 0 1px rgba(0,0,0,0.08); }
-  .map-park { position:absolute; background:rgba(180,210,170,0.5); border-radius:8px; }
-  .map-water { position:absolute; background:rgba(160,200,220,0.6); border-radius:3px; }
-  .map-route { position:absolute; height:4px; background:transparent; border-top:3px dashed #FF6B35; opacity:0.8; }
-  .map-route.active { border-color:#3B82F6; border-style:solid; }
-  .map-pin { position:absolute; z-index:5; width:26px; height:26px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.3); font-size:11px; font-weight:900; color:#fff; }
-  .map-pin span { transform:rotate(45deg); }
-  .map-pin.store { background:#FF6B35; }
-  .map-pin.rider { background:#3B82F6; }
-  .map-pin.client { background:#EF4444; }
-  .map-label { position:absolute; z-index:4; font-size:10px; font-weight:700; color:#333; background:rgba(255,255,255,0.85); padding:3px 7px; border-radius:4px; white-space:nowrap; }
-  .bottom-sheet { background:#fff; border-radius:24px 24px 0 0; padding:22px; box-shadow:0 -3px 16px rgba(0,0,0,0.1); }
-  .meta-row { display:flex; gap:14px; margin-bottom:16px; }
-  .meta { flex:1; padding:14px 16px; border-radius:14px; font-size:13px; font-weight:700; }
-  .empty-state { text-align:center; padding:50px; color:#9CA3AF; }
-  .empty-state .big-icon { font-size:60px; margin-bottom:14px; }
-  .info-badge { background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.3); border-radius:12px; padding:10px 14px; display:flex; gap:8px; align-items:flex-start; font-size:13px; color:#F59E0B; font-weight:600; }
+
+  /* ── Shared components (scaled for tablet) ── */
+  .sb{background:#fff;padding:8px 24px;display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#1A1A2E}
+  .t10 .sb{font-size:14px}
+
+  .gh{
+    background:linear-gradient(135deg,#9E00FF,#FF6B00);
+    padding:10px 20px 10px;color:#fff;display:flex;align-items:center;gap:10px;
+  }
+  .t10 .gh{padding:14px 28px 14px}
+  .gh-title{font-size:17px;font-weight:800}
+  .t10 .gh-title{font-size:21px}
+
+  .sbox{
+    background:rgba(255,255,255,0.2);border-radius:14px;padding:12px 18px;
+    display:flex;align-items:center;gap:10px;font-size:16px;color:rgba(255,255,255,0.7);
+  }
+  .t10 .sbox{padding:16px 22px;font-size:20px}
+
+  .bd{flex:1;overflow-y:auto}
+  .t10 .bd{}
+
+  /* Bottom nav */
+  .bn{
+    background:#fff;display:flex;border-top:1px solid #f0ecf5;
+    box-shadow:0 -2px 12px rgba(0,0,0,0.08);
+  }
+  .bn-i{
+    flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 8px;
+    font-size:12px;font-weight:700;color:#888;position:relative;gap:3px;
+  }
+  .t10 .bn-i{font-size:14px;padding:14px 0 10px}
+  .bn-i.sel{color:#9E00FF}
+  .bn-i .ind{
+    position:absolute;top:0;left:18px;right:18px;height:4px;border-radius:2px;
+  }
+  .t10 .bn-i .ind{left:24px;right:24px}
+  .bn-i.sel .ind{background:linear-gradient(90deg,#9E00FF,#FF6B00)}
+  .bn-i .ic{font-size:26px}
+  .t10 .bn-i .ic{font-size:32px}
+
+  /* Categories */
+  .ct-row{display:flex;gap:16px;padding:18px 20px 12px;overflow-x:auto}
+  .t10 .ct-row{gap:22px;padding:24px 28px 16px}
+  .ct-chip{flex-shrink:0;width:80px;text-align:center}
+  .t10 .ct-chip{width:100px}
+  .ct-ico{
+    width:56px;height:56px;border-radius:18px;margin:0 auto 6px;
+    background:#fff;border:2px solid #E5E0F0;
+    display:flex;align-items:center;justify-content:center;font-size:28px;
+  }
+  .t10 .ct-ico{width:72px;height:72px;border-radius:22px;font-size:36px;margin-bottom:8px}
+  .ct-chip.sel .ct-ico{background:#FF6B00;border-color:#FF6B00}
+  .ct-chip .lbl{font-size:12px;font-weight:800;color:#666}
+  .t10 .ct-chip .lbl{font-size:15px}
+  .ct-chip.sel .lbl{color:#FF6B00}
+
+  /* Banner */
+  .banner{position:relative;margin:6px 20px 16px}
+  .t10 .banner{margin:8px 28px 20px}
+  .banner .slide{
+    aspect-ratio:2/1;border-radius:22px;display:flex;align-items:flex-end;
+    padding:20px;color:#fff;font-weight:800;font-size:18px;
+    box-shadow:0 3px 16px rgba(255,107,0,0.25);
+  }
+  .t10 .banner .slide{border-radius:28px;padding:28px;font-size:24px}
+  .banner .dots{display:flex;justify-content:center;gap:8px;margin-top:10px}
+  .t10 .banner .dots{gap:10px;margin-top:14px}
+  .banner .dot{width:8px;height:8px;border-radius:4px;background:#E5E0F0}
+  .t10 .banner .dot{width:10px;height:10px;border-radius:5px}
+  .banner .dot.on{width:24px;background:#FF6B00}
+  .t10 .banner .dot.on{width:30px}
+
+  /* Section title */
+  .sec{padding:20px 20px 10px;font-size:18px;font-weight:800;color:#1A0033}
+  .t10 .sec{padding:26px 28px 14px;font-size:22px}
+
+  /* Store cards grid (2-3 cols) */
+  .store-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:0 20px 16px}
+  .t10 .store-grid{grid-template-columns:repeat(3,1fr);gap:18px;padding:0 28px 20px}
+
+  .sc{
+    background:#fff;border-radius:18px;overflow:hidden;
+    box-shadow:0 2px 10px rgba(0,0,0,0.06);
+  }
+  .t10 .sc{border-radius:22px}
+  .sc-cover{
+    aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;font-size:52px;
+  }
+  .t10 .sc-cover{font-size:64px}
+  .sc-cover.g1{background:linear-gradient(135deg,#EF4444,#F97316)}
+  .sc-cover.g2{background:linear-gradient(135deg,#22C55E,#16A34A)}
+  .sc-cover.g3{background:linear-gradient(135deg,#F59E0B,#D97706)}
+  .sc-info{padding:14px}
+  .t10 .sc-info{padding:18px}
+  .sc-row{display:flex;align-items:center;gap:10px}
+  .sc-av{
+    width:32px;height:32px;border-radius:50%;background:#E5E0F0;
+    display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;
+  }
+  .t10 .sc-av{width:40px;height:40px;font-size:20px}
+  .sc-name{flex:1;font-size:15px;font-weight:800;color:#1A0033;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .t10 .sc-name{font-size:18px}
+  .sc-meta{font-size:12px;color:#9CA3AF;margin-top:3px}
+  .t10 .sc-meta{font-size:14px;margin-top:5px}
+  .sc-badges{display:flex;gap:6px;margin-top:5px}
+  .badge{font-size:10px;font-weight:800;padding:3px 10px;border-radius:6px}
+  .t10 .badge{font-size:12px;padding:4px 12px}
+  .badge.feat{background:#FF6B00;color:#fff}
+
+  /* Store header */
+  .sh-cover{
+    height:180px;position:relative;display:flex;align-items:flex-end;
+  }
+  .t10 .sh-cover{height:240px}
+  .sh-cover .back{
+    position:absolute;top:14px;left:18px;background:rgba(0,0,0,0.4);color:#fff;
+    width:40px;height:40px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:18px;
+  }
+  .t10 .sh-cover .back{width:52px;height:52px;font-size:22px}
+  .sh-cover .acts{position:absolute;top:14px;right:18px;display:flex;gap:8px}
+  .sh-cover .act{
+    background:rgba(0,0,0,0.4);color:#fff;width:40px;height:40px;
+    border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:18px;position:relative;
+  }
+  .t10 .sh-cover .act{width:52px;height:52px;font-size:22px}
+  .sh-logo{
+    width:100px;height:100px;border-radius:50%;border:4px solid #fff;
+    background:#fff;display:flex;align-items:center;justify-content:center;
+    font-size:48px;margin-left:22px;margin-bottom:-26px;position:relative;z-index:2;
+    box-shadow:0 5px 16px rgba(0,0,0,0.15);
+  }
+  .t10 .sh-logo{width:130px;height:130px;font-size:64px;margin-left:30px;margin-bottom:-34px}
+
+  .si-bar{background:#fff;padding:34px 20px 14px}
+  .t10 .si-bar{padding:46px 28px 18px}
+  .si-name{font-size:26px;font-weight:900;color:#1A0033}
+  .t10 .si-name{font-size:32px}
+  .si-desc{font-size:16px;color:#9CA3AF;margin:3px 0}
+  .t10 .si-desc{font-size:20px}
+  .si-meta{font-size:14px;color:#666;display:flex;gap:16px;margin-top:4px}
+  .t10 .si-meta{font-size:17px;gap:20px}
+
+  /* Menu category chips */
+  .mc-row{
+    display:flex;gap:8px;padding:10px 18px;overflow-x:auto;
+    background:#fff;border-bottom:1px solid #f5f0fa;
+  }
+  .t10 .mc-row{padding:14px 26px;gap:12px}
+  .mc-chip{
+    flex-shrink:0;padding:8px 18px;border-radius:22px;font-size:14px;font-weight:700;
+    background:#fff;border:1.5px solid #E5E0F0;color:#555;
+  }
+  .t10 .mc-chip{padding:12px 24px;font-size:17px}
+  .mc-chip.sel{
+    background:linear-gradient(90deg,#9E00FF,#FF6B00);color:#fff;border-color:transparent;
+  }
+
+  /* Menu items */
+  .mi{
+    display:flex;gap:16px;padding:18px 20px;align-items:flex-start;
+    border-bottom:1px solid #f5f0fa;background:#fff;
+  }
+  .t10 .mi{padding:24px 28px;gap:22px}
+  .mi-img{
+    width:100px;height:100px;border-radius:16px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:44px;
+    background:#f5f0fa;
+  }
+  .t10 .mi-img{width:130px;height:130px;border-radius:20px;font-size:56px}
+  .mi-body{flex:1}
+  .mi-name{font-size:17px;font-weight:800;color:#1A0033}
+  .t10 .mi-name{font-size:21px}
+  .mi-desc{font-size:14px;color:#9CA3AF;margin:4px 0;line-height:1.4}
+  .t10 .mi-desc{font-size:16px}
+  .mi-price{font-size:20px;font-weight:900;color:#FF6B00}
+  .t10 .mi-price{font-size:24px}
+  .add{
+    width:40px;height:40px;border-radius:50%;background:#FF6B00;color:#fff;
+    border:none;font-size:24px;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;margin-top:6px;line-height:1;
+  }
+  .t10 .add{width:52px;height:52px;font-size:30px}
+
+  /* Cart items */
+  .cr{
+    display:flex;align-items:center;gap:14px;padding:16px 20px;
+    border-bottom:1px solid #f5f0fa;background:#fff;
+  }
+  .t10 .cr{padding:22px 28px;gap:18px}
+  .cr-emoji{font-size:36px;flex-shrink:0}
+  .t10 .cr-emoji{font-size:44px}
+  .cr-info{flex:1}
+  .cr-name{font-size:15px;font-weight:800;color:#1A0033}
+  .t10 .cr-name{font-size:18px}
+  .cr-det{font-size:13px;color:#9CA3AF}
+  .t10 .cr-det{font-size:15px}
+  .qty{display:flex;align-items:center;gap:12px}
+  .qty-b{
+    width:32px;height:32px;border-radius:50%;border:none;font-size:18px;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .t10 .qty-b{width:40px;height:40px;font-size:22px}
+  .qty-m{background:#f0ecf5;color:#333}
+  .qty-p{background:#FF6B00;color:#fff}
+  .qty-n{font-size:16px;font-weight:800;min-width:22px;text-align:center}
+  .t10 .qty-n{font-size:20px}
+  .cr-price{font-weight:900;color:#FF6B00;font-size:16px;margin-left:8px}
+  .t10 .cr-price{font-size:20px}
+
+  /* Checkout */
+  .ck{background:#fff;margin:0 20px 12px;border-radius:16px;padding:18px}
+  .t10 .ck{margin:0 28px 16px;border-radius:20px;padding:24px}
+  .ck h4{font-size:13px;color:#9CA3AF;font-weight:800;margin-bottom:5px}
+  .t10 .ck h4{font-size:15px;margin-bottom:7px}
+  .ck .v{font-size:16px;font-weight:800;color:#1A0033}
+  .t10 .ck .v{font-size:19px}
+  .po{
+    display:flex;align-items:center;gap:12px;padding:12px 0;
+    border-top:1px solid #f5f0fa;font-size:15px;
+  }
+  .t10 .po{padding:16px 0;font-size:18px;gap:16px}
+  .po:first-child{border-top:none}
+  .po .pb{
+    padding:4px 10px;border-radius:5px;font-size:12px;font-weight:900;
+    background:#ede9fe;color:#7c3aed;
+  }
+  .t10 .po .pb{padding:6px 14px;font-size:15px}
+
+  .dt-toggle{display:flex;margin:14px 20px;background:#fff;border-radius:16px;overflow:hidden}
+  .t10 .dt-toggle{margin:20px 28px;border-radius:20px}
+  .dt-o{flex:1;padding:16px;text-align:center;font-size:15px;font-weight:800}
+  .t10 .dt-o{padding:22px;font-size:18px}
+  .dt-o.on{background:#FF6B00;color:#fff}
+  .dt-o.off{color:#9CA3AF}
+
+  /* Tracking */
+  .ts{background:#fff;margin:0 20px;border-radius:18px;padding:22px}
+  .t10 .ts{margin:0 28px;border-radius:22px;padding:28px}
+  .t-step{display:flex;gap:14px;align-items:flex-start;padding:10px 0}
+  .t10 .t-step{padding:14px 0;gap:18px}
+  .td{
+    width:36px;height:36px;border-radius:50%;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:1px;
+  }
+  .t10 .td{width:44px;height:44px;font-size:17px}
+  .td.done{background:#9E00FF;color:#fff}
+  .td.cur{background:#FF6B00;color:#fff;box-shadow:0 0 0 6px rgba(255,107,0,0.2)}
+  .td.pend{background:#f0ecf5;color:#9CA3AF}
+  .tl{flex:1;font-size:14px}
+  .t10 .tl{font-size:17px}
+  .t-title{font-weight:800}
+  .t-time{font-size:11px;color:#9CA3AF;margin-top:2px}
+  .t10 .t-time{font-size:13px}
+
+  /* Pedidos */
+  .tabs{display:flex;background:#fff;margin:14px 20px;border-radius:16px;overflow:hidden}
+  .t10 .tabs{margin:20px 28px;border-radius:20px}
+  .tab{
+    flex:1;padding:16px;text-align:center;font-size:15px;font-weight:800;
+    color:#9CA3AF;border-bottom:3px solid transparent;
+  }
+  .t10 .tab{padding:22px;font-size:18px}
+  .tab.sel{color:#FF6B00;border-bottom-color:#FF6B00}
+
+  .oc{background:#fff;margin:0 20px 12px;border-radius:18px;padding:20px;box-shadow:0 1px 5px rgba(0,0,0,0.03)}
+  .t10 .oc{margin:0 28px 16px;border-radius:22px;padding:26px}
+
+  /* Progress bar */
+  .oprog{display:flex;gap:0;margin:14px 0;position:relative}
+  .t10 .oprog{margin:18px 0}
+  .os{flex:1;text-align:center;position:relative}
+  .os::before{content:'';position:absolute;top:14px;left:50%;right:-50%;height:3px;background:#E5E0F0;z-index:0}
+  .t10 .os::before{top:18px;height:4px}
+  .os:last-child::before{display:none}
+  .os .osd{
+    width:28px;height:28px;border-radius:50%;margin:0 auto 5px;
+    background:#E5E0F0;position:relative;z-index:1;display:flex;
+    align-items:center;justify-content:center;font-size:12px;color:#fff;
+  }
+  .t10 .os .osd{width:36px;height:36px;font-size:15px;margin-bottom:7px}
+  .os.done .osd{background:#9E00FF}
+  .os.done::before{background:#9E00FF}
+  .os.cur .osd{background:#FF6B00;box-shadow:0 0 0 5px rgba(255,107,0,0.2)}
+  .os .osl{font-size:11px;font-weight:700;color:#9CA3AF}
+  .t10 .os .osl{font-size:14px}
+  .os.done .osl,.os.cur .osl{color:#1A0033}
+
+  /* Profile */
+  .ph{
+    background:linear-gradient(135deg,#9E00FF,#FF6B00);
+    padding:24px 24px 28px;color:#fff;text-align:center;
+  }
+  .t10 .ph{padding:34px 34px 38px}
+  .pav{
+    width:88px;height:88px;border-radius:50%;
+    background:linear-gradient(135deg,#FF6B00,#9E00FF);
+    display:flex;align-items:center;justify-content:center;font-size:36px;
+    margin:0 auto 10px;
+  }
+  .t10 .pav{width:110px;height:110px;font-size:44px;margin-bottom:14px}
+  .pn{font-size:22px;font-weight:900}
+  .t10 .pn{font-size:28px}
+  .pe{font-size:14px;opacity:0.75}
+  .t10 .pe{font-size:17px}
+  .ps{font-size:12px;opacity:0.6;margin-top:3px}
+  .t10 .ps{font-size:14px}
+  .pstats{display:flex;gap:28px;justify-content:center;margin-top:14px}
+  .t10 .pstats{gap:36px;margin-top:18px}
+  .pstats .psv{font-size:22px;font-weight:900}
+  .t10 .pstats .psv{font-size:28px}
+  .pstats .psl{font-size:12px;opacity:0.7}
+  .t10 .pstats .psl{font-size:15px}
+
+  .ps-group{padding:0 20px 6px}
+  .t10 .ps-group{padding:0 28px 8px}
+  .lbl{font-size:12px;color:#9CA3AF;font-weight:800;padding:18px 0 8px;text-transform:uppercase;letter-spacing:.5px}
+  .t10 .lbl{font-size:15px;padding:24px 0 10px}
+  .mt{
+    background:#fff;border-radius:14px;padding:16px 18px;margin-bottom:8px;
+    display:flex;align-items:center;gap:12px;font-size:15px;font-weight:700;color:#1A0033;
+  }
+  .t10 .mt{padding:20px 24px;font-size:18px;gap:16px;border-radius:18px;margin-bottom:10px}
+  .mt .mico{font-size:22px}
+  .t10 .mt .mico{font-size:28px}
+  .mt .mar{margin-left:auto;color:#9CA3AF;font-size:14px}
+  .t10 .mt .mar{font-size:16px}
+
+  .btn-or{
+    background:#FF6B00;color:#fff;padding:18px;border-radius:16px;text-align:center;
+    font-weight:800;font-size:17px;margin:10px 20px;
+  }
+  .t10 .btn-or{padding:24px;font-size:21px;margin:14px 28px}
+
+  .promo{
+    margin:6px 20px;background:linear-gradient(135deg,#9E00FF,#7B00CC);
+    border-radius:18px;padding:22px;color:#fff;display:flex;align-items:center;gap:16px;
+  }
+  .t10 .promo{margin:8px 28px;border-radius:22px;padding:28px;gap:22px}
+  .promo .pe{font-size:48px}
+  .t10 .promo .pe{font-size:60px}
+  .promo h3{font-size:19px;font-weight:900}
+  .t10 .promo h3{font-size:24px}
+  .promo p{font-size:14px;opacity:0.85}
+  .t10 .promo p{font-size:17px}
+
+  /* Toggle */
+  .tgl{width:52px;height:30px;border-radius:15px;display:flex;align-items:center;padding:3px}
+  .t10 .tgl{width:64px;height:36px;border-radius:18px}
+  .tgl.on{background:#9E00FF}
+  .tgl.on .tgl-k{margin-left:auto}
+  .tgl.off{background:#E5E0F0}
+  .tgl-k{width:24px;height:24px;border-radius:50%;background:#fff}
+  .t10 .tgl-k{width:30px;height:30px}
 </style>
 </head>
 <body>
 
-<!-- ============================================================ -->
-<!-- TABLET 7" — DASHBOARD                                         -->
-<!-- ============================================================ -->
-<div class="tablet7">
-  <div class="statusbar"><span>14:15</span><span>📶 🔋 72%</span></div>
-  <div class="appbar">
-    <div class="avatar">C</div>
-    <div>
-      <div class="title">Hola, Cuenta!</div>
-      <div class="subtitle">En línea · Ancud</div>
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TABLET 7": SCREEN 1 — HOME                                   -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="t7">
+  <div class="sb"><span>9:41</span><span>📶 ▂▄▆█ 🔋 85%</span></div>
+  <div class="gh">
+    <span style="font-size:20px;color:#FF6B00;">📍</span>
+    <div style="flex:1;">
+      <div style="font-size:11px;opacity:0.7;">Enviar a</div>
+      <div style="font-size:15px;font-weight:800;">Calle Pudeto 123, Ancud ▾</div>
     </div>
-    <div style="margin-left:auto;display:flex;gap:16px;align-items:center;">
-      <span style="font-size:22px;">🔔</span>
-      <div class="toggle"><div class="toggle-knob"></div></div>
-    </div>
+    <span style="position:relative;font-size:20px;">🔔<span style="position:absolute;top:-8px;right:-10px;background:#FF6B00;border-radius:50%;width:18px;height:18px;font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:900;">2</span></span>
+    <span style="position:relative;font-size:20px;margin-left:8px;">🛍️<span style="position:absolute;top:-8px;right:-10px;background:#9E00FF;border-radius:50%;width:18px;height:18px;font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:900;">2</span></span>
   </div>
-  <div class="body">
-    <div class="section-title" style="margin-top:0;">Resumen de hoy</div>
-    <div class="kpi-row">
-      <div class="kpi"><div class="icon">🛵</div><div class="value" style="color:#FF6B35;">12</div><div class="label">Pedidos</div></div>
-      <div class="kpi"><div class="icon">💰</div><div class="value" style="color:#22C55E;">$38.700</div><div class="label">Ganado</div></div>
-      <div class="kpi"><div class="icon">⭐</div><div class="value" style="color:#F59E0B;">4.9</div><div class="label">Calificación</div></div>
-    </div>
-    <div class="kpi-row">
-      <div class="kpi"><div class="icon">🏦</div><div class="value" style="color:#3B82F6;">$31.200</div><div class="label">A recibir</div></div>
-      <div class="kpi"><div class="icon">🔄</div><div class="value" style="color:#F59E0B;">$7.500</div><div class="label">A rendir</div></div>
-      <div class="kpi"><div class="icon">📦</div><div class="value" style="color:#22C55E;">100%</div><div class="label">Entregas</div></div>
-    </div>
-
-    <div class="section-title">Pedidos activos</div>
-    <div class="order-card" style="border-color:rgba(59,130,246,0.4);">
-      <div class="row">
-        <div class="store-avatar">🍕</div>
-        <div style="flex:1;"><div style="font-weight:800;font-size:15px;">Pizza Napoli</div><div style="font-size:12px;color:#9CA3AF;">Av. Los Carrera 456, Ancud</div></div>
-        <span class="status-badge" style="background:rgba(59,130,246,0.12);color:#3B82F6;">🕒 En cola</span>
-      </div>
-      <div class="row" style="margin-top:10px;font-size:13px;color:#9CA3AF;">
-        <span>📍</span><span style="flex:1;">Calle Pudeto 123, Ancud</span>
-        <span style="font-weight:900;font-size:18px;color:#FF6B35;">$18.900</span>
-      </div>
-      <div style="margin-top:12px;"><div style="background:#3B82F6;color:#fff;text-align:center;padding:14px;border-radius:12px;font-weight:800;font-size:14px;">Ver detalles</div></div>
-    </div>
-    <div class="order-card" style="border-color:rgba(255,107,53,0.4);">
-      <div class="row">
-        <div class="store-avatar">🥪</div>
-        <div style="flex:1;"><div style="font-weight:800;font-size:15px;">Sandwich Club</div><div style="font-size:12px;color:#9CA3AF;">Av. Costanera 890, Ancud</div></div>
-        <span class="status-badge" style="background:rgba(255,107,53,0.12);color:#FF6B35;">🚀 En camino</span>
-      </div>
-      <div class="row" style="margin-top:10px;font-size:13px;color:#9CA3AF;">
-        <span>📍</span><span style="flex:1;">Plaza de Armas 45, Ancud</span>
-        <span style="font-weight:900;font-size:18px;color:#FF6B35;">$12.300</span>
-      </div>
-      <div style="margin-top:12px;"><div style="background:#FF6B35;color:#fff;text-align:center;padding:14px;border-radius:12px;font-weight:800;font-size:14px;">Ver detalles</div></div>
-    </div>
+  <div style="background:linear-gradient(135deg,#9E00FF,#FF6B00);padding:0 20px 14px;">
+    <div class="sbox">🔍 Buscar tiendas o productos...</div>
   </div>
-  <div class="bottomnav">
-    <div class="nav-item active"><span class="nav-icon">🏠</span>Inicio</div>
-    <div class="nav-item"><span class="nav-icon">📋</span>Pedidos</div>
-    <div class="nav-item"><span class="nav-icon">💵</span>Ganancias</div>
-    <div class="nav-item"><span class="nav-icon">👤</span>Perfil</div>
-  </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- TABLET 7" — OFERTAS                                           -->
-<!-- ============================================================ -->
-<div class="tablet7">
-  <div style="background:#1A1A2E;color:#fff;padding:12px 22px;display:flex;align-items:center;gap:14px;font-weight:800;font-size:16px;">
-    <span>←</span> <span>Ofertas de pedidos</span>
-    <span style="margin-left:auto;font-size:22px;">🔄</span>
-  </div>
-  <div class="body">
-    <div class="offer-card">
-      <div class="offer-header">
-        <span style="font-size:28px;">🛵</span>
-        <div style="flex:1;"><div style="font-weight:800;font-size:16px;">Nuevo pedido</div><div style="font-size:12px;color:#9CA3AF;">Hace 3 segundos</div></div>
-        <div style="text-align:right;">
-          <div style="font-weight:900;font-size:20px;color:#FF6B35;">$22.500</div>
-          <div style="background:rgba(34,197,94,0.12);color:#22C55E;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:800;">🛵 $3.200 para ti</div>
+  <div class="bd">
+    <div class="ct-row">
+      <div class="ct-chip sel"><div class="ct-ico">🏪</div><div class="lbl">Todas</div></div>
+      <div class="ct-chip"><div class="ct-ico">🍔</div><div class="lbl">Comida</div></div>
+      <div class="ct-chip"><div class="ct-ico">🛒</div><div class="lbl">Mercado</div></div>
+      <div class="ct-chip"><div class="ct-ico">💊</div><div class="lbl">Farmacia</div></div>
+      <div class="ct-chip"><div class="ct-ico">🔧</div><div class="lbl">Servicios</div></div>
+      <div class="ct-chip"><div class="ct-ico">🥗</div><div class="lbl">Saludable</div></div>
+      <div class="ct-chip"><div class="ct-ico">🍰</div><div class="lbl">Postres</div></div>
+    </div>
+    <div class="banner">
+      <div class="slide" style="background:linear-gradient(135deg,#FF6B00,#FF8C5A);">
+        <div><div style="font-size:24px;font-weight:900;">🎉 ¡Delivery gratis!</div><div style="font-size:14px;opacity:0.9;font-weight:600;">Usa el código BIENVENIDO en tu primer pedido</div></div>
+      </div>
+      <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
+    </div>
+    <div class="sec">🍕 Restaurantes</div>
+    <div class="store-grid">
+      <div class="sc">
+        <div class="sc-cover g1">🍕</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">🍕</div><div class="sc-name">Pizza Napoli</div><span style="color:#FF6B00;font-size:15px;">★</span><span style="font-size:13px;font-weight:700;">4.8</span></div>
+          <div class="sc-meta">🕐 20-35 min · 🛵 $2.500</div>
         </div>
       </div>
-      <div class="timer-bar">
-        <div class="timer-row"><span style="color:#F59E0B;font-weight:700;">Tiempo para responder</span><span style="font-weight:900;color:#F59E0B;">18s</span></div>
-        <div class="progress-bar"><div class="progress-fill" style="width:40%;background:#F59E0B;"></div></div>
-      </div>
-      <div class="offer-details">
-        <div class="detail-line"><span>🍕</span> Pizza Napoli</div>
-        <div class="detail-line"><span>📍</span> Calle Pudeto 123, Ancud</div>
-        <div class="detail-line"><span>🛍️</span> 3 productos · 2.4 km</div>
-        <div class="detail-line"><span style="color:#FF6B35;">🗺️</span><span style="color:#FF6B35;">Toca para ver la ruta en el mapa</span></div>
-      </div>
-      <div class="btn-row"><div class="btn btn-reject">✕ Rechazar</div><div class="btn btn-accept">✓ Aceptar</div></div>
-    </div>
-    <div class="offer-card">
-      <div class="offer-header">
-        <span style="font-size:28px;">🛵</span>
-        <div style="flex:1;"><div style="font-weight:800;font-size:16px;">Nuevo pedido</div><div style="font-size:12px;color:#9CA3AF;">Hace 10 segundos</div></div>
-        <div style="text-align:right;">
-          <div style="font-weight:900;font-size:20px;color:#FF6B35;">$15.800</div>
-          <div style="background:rgba(34,197,94,0.12);color:#22C55E;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:800;">🛵 $2.800 para ti</div>
-          <div style="background:rgba(245,158,11,0.12);color:#F59E0B;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;margin-top:3px;">Efectivo</div>
+      <div class="sc">
+        <div class="sc-cover g2">🥗</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">🥗</div><div class="sc-name">Green Bowl</div><span style="color:#FF6B00;font-size:15px;">★</span><span style="font-size:13px;font-weight:700;">4.6</span></div>
+          <div class="sc-meta">🕐 15-25 min · 🛵 $1.800</div>
+          <div class="sc-badges"><span class="badge feat">Destacado</span></div>
         </div>
       </div>
-      <div class="timer-bar">
-        <div class="timer-row"><span style="color:#22C55E;font-weight:700;">Tiempo para responder</span><span style="font-weight:900;color:#22C55E;">33s</span></div>
-        <div class="progress-bar"><div class="progress-fill" style="width:73%;background:#22C55E;"></div></div>
+    </div>
+    <div class="sec">📍 Cerca de ti</div>
+    <div class="store-grid">
+      <div class="sc">
+        <div class="sc-cover g3">🥪</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">🥪</div><div class="sc-name">Sandwich Club</div><span style="color:#FF6B00;font-size:15px;">★</span><span style="font-size:13px;font-weight:700;">4.9</span></div>
+          <div class="sc-meta">🕐 10-20 min · 🛵 Gratis</div>
+        </div>
       </div>
-      <div class="offer-details">
-        <div class="detail-line"><span>🥪</span> Sandwich Club</div>
-        <div class="detail-line"><span>📍</span> Av. Costanera 890, Ancud</div>
-        <div class="detail-line"><span>🛍️</span> 2 productos · 1.8 km</div>
-        <div class="detail-line"><span style="color:#FF6B35;">🗺️</span><span style="color:#FF6B35;">Toca para ver la ruta en el mapa</span></div>
+      <div class="sc">
+        <div class="sc-cover" style="background:linear-gradient(135deg,#3B82F6,#2563EB);">💊</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">💊</div><div class="sc-name">Farmacia Cruz Verde</div><span style="color:#FF6B00;font-size:15px;">★</span><span style="font-size:13px;font-weight:700;">4.7</span></div>
+          <div class="sc-meta">🕐 25-40 min · 🛵 $2.000</div>
+        </div>
       </div>
-      <div class="btn-row"><div class="btn btn-reject">✕ Rechazar</div><div class="btn btn-accept">✓ Aceptar</div></div>
+    </div>
+    <div style="height:16px"></div>
+  </div>
+  <div class="bn">
+    <div class="bn-i sel"><div class="ind"></div><div class="ic">🏠</div>Inicio</div>
+    <div class="bn-i"><div class="ind"></div><div class="ic">🏪</div>Mercados</div>
+    <div class="bn-i"><div class="ind"></div><div class="ic">🔧</div>Servicios</div>
+    <div class="bn-i"><div class="ind"></div><div class="ic">📋</div>Pedidos</div>
+    <div class="bn-i"><div class="ind"></div><div class="ic">👤</div>Perfil</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TABLET 7": SCREEN 2 — MENÚ TIENDA                            -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="t7">
+  <div class="sb"><span>9:46</span><span>📶 ▂▄▆█ 🔋 82%</span></div>
+  <div class="sh-cover g1">
+    <div class="back">←</div>
+    <div class="acts">
+      <div class="act">❤️</div>
+      <div class="act">🛒<span style="position:absolute;top:-6px;right:-8px;background:#9E00FF;border-radius:50%;width:16px;height:16px;font-size:8px;display:flex;align-items:center;justify-content:center;">3</span></div>
+    </div>
+    <div class="sh-logo" style="background:linear-gradient(135deg,#EF4444,#F97316);color:#fff;">🍕</div>
+  </div>
+  <div class="si-bar">
+    <div class="si-name">Pizza Napoli</div>
+    <div class="si-desc">Pizzas artesanales al horno de leña</div>
+    <div class="si-meta"><span>★ 4.8</span><span>🕐 20-35 min</span><span>🛵 $2.500</span></div>
+  </div>
+  <div class="mc-row">
+    <span class="mc-chip sel">🍕 Pizzas</span>
+    <span class="mc-chip">🥗 Ensaladas</span>
+    <span class="mc-chip">🥤 Bebidas</span>
+    <span class="mc-chip">🍰 Postres</span>
+    <span class="mc-chip">🍝 Pastas</span>
+  </div>
+  <div class="bd">
+    <div class="mi">
+      <div class="mi-img">🍕</div>
+      <div class="mi-body"><div class="mi-name">Pizza Margherita</div><div class="mi-desc">Salsa de tomate, mozzarella fresca, albahaca</div><div class="mi-price">$8.900</div></div>
+      <div class="add">+</div>
+    </div>
+    <div class="mi">
+      <div class="mi-img">🍖</div>
+      <div class="mi-body"><div class="mi-name">Pizza Pepperoni</div><div class="mi-desc">Pepperoni americano, mozzarella, orégano</div><div class="mi-price">$10.500</div></div>
+      <div class="add">+</div>
+    </div>
+    <div class="mi">
+      <div class="mi-img">🧀</div>
+      <div class="mi-body"><div class="mi-name">Pizza 4 Quesos</div><div class="mi-desc">Mozzarella, gorgonzola, parmesano, ricotta</div><div class="mi-price">$12.900</div></div>
+      <div class="add">+</div>
+    </div>
+    <div class="mi">
+      <div class="mi-img">🌿</div>
+      <div class="mi-body"><div class="mi-name">Pizza Vegetariana</div><div class="mi-desc">Pimientos, champiñones, aceitunas, cebolla</div><div class="mi-price">$9.900</div></div>
+      <div class="add">+</div>
+    </div>
+    <div class="mi">
+      <div class="mi-img">🍍</div>
+      <div class="mi-body"><div class="mi-name">Pizza Hawaiana</div><div class="mi-desc">Jamón, piña, mozzarella</div><div class="mi-price">$10.900</div></div>
+      <div class="add">+</div>
+    </div>
+    <!-- Bottom bar -->
+    <div style="position:sticky;bottom:0;background:#fff;padding:14px 20px;box-shadow:0 -3px 12px rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:space-between;">
+      <div><span style="font-weight:800;font-size:16px;">3 items</span><span style="color:#9CA3AF;font-size:13px;margin-left:8px;">$31.300</span></div>
+      <div style="background:linear-gradient(90deg,#9E00FF,#FF6B00);color:#fff;padding:14px 28px;border-radius:14px;font-weight:800;font-size:16px;">Ver carrito →</div>
     </div>
   </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- TABLET 10" — RUTA DE OFERTA                                   -->
-<!-- ============================================================ -->
-<div class="tablet10">
-  <div style="background:#1A1A2E;color:#fff;padding:14px 26px;display:flex;align-items:center;gap:16px;font-weight:800;font-size:18px;">
-    <span>←</span> <span>Nueva oferta de pedido</span>
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TABLET 7": SCREEN 3 — CHECKOUT                               -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="t7">
+  <div class="sb"><span>10:03</span><span>📶 ▂▄▆█ 🔋 77%</span></div>
+  <div class="gh">
+    <span style="font-size:20px;">←</span>
+    <span class="gh-title">Confirmar pedido</span>
   </div>
-  <div class="map-area">
-    <div class="map-street" style="top:15%;left:0;right:0;height:10px;"></div>
-    <div class="map-street" style="top:30%;left:0;right:0;height:12px;"></div>
-    <div class="map-street" style="top:46%;left:0;right:0;height:8px;"></div>
-    <div class="map-street" style="top:60%;left:0;right:0;height:11px;"></div>
-    <div class="map-street" style="top:76%;left:0;right:0;height:9px;"></div>
-    <div class="map-street" style="left:20%;top:0;bottom:0;width:9px;"></div>
-    <div class="map-street" style="left:45%;top:0;bottom:0;width:10px;"></div>
-    <div class="map-street" style="left:68%;top:0;bottom:0;width:11px;"></div>
-    <div class="map-street" style="left:82%;top:0;bottom:0;width:8px;"></div>
-    <div class="map-building" style="top:8%;left:5%;width:14%;height:14%;"></div>
-    <div class="map-building" style="top:5%;left:23%;width:20%;height:18%;"></div>
-    <div class="map-building" style="top:10%;left:70%;width:12%;height:16%;"></div>
-    <div class="map-building" style="top:35%;left:2%;width:16%;height:12%;"></div>
-    <div class="map-building" style="top:32%;left:48%;width:18%;height:15%;"></div>
-    <div class="map-building" style="top:37%;left:84%;width:14%;height:13%;"></div>
-    <div class="map-building" style="top:52%;left:22%;width:20%;height:10%;"></div>
-    <div class="map-building" style="top:50%;left:72%;width:20%;height:14%;"></div>
-    <div class="map-building" style="top:65%;left:5%;width:15%;height:11%;"></div>
-    <div class="map-building" style="top:67%;left:48%;width:22%;height:12%;"></div>
-    <div class="map-building" style="top:80%;left:22%;width:18%;height:12%;"></div>
-    <div class="map-building" style="top:82%;left:64%;width:20%;height:10%;"></div>
-    <div class="map-park" style="top:26%;left:24%;width:18%;height:14%;"></div>
-    <div class="map-park" style="top:63%;left:68%;width:16%;height:10%;"></div>
-    <div class="map-water" style="top:0;right:0;width:10%;height:38%;"></div>
-    <div class="map-route" style="top:20%;left:12%;width:58%;transform:rotate(16deg);transform-origin:left top;"></div>
-    <div class="map-pin store" style="top:16%;left:8%;"><span>P</span></div>
-    <div class="map-label" style="top:8%;left:5%;font-size:12px;">Pizza Napoli</div>
-    <div class="map-pin client" style="top:34%;left:62%;"><span>D</span></div>
-    <div class="map-label" style="top:26%;left:58%;font-size:12px;">Cliente</div>
-  </div>
-  <div class="bottom-sheet">
-    <div style="width:50px;height:5px;background:#E5E7EB;border-radius:3px;margin:0 auto 16px;"></div>
-    <div class="meta-row">
-      <div class="meta" style="background:rgba(34,197,94,0.1);color:#22C55E;font-size:15px;">🛵 Ganarás<div style="font-size:24px;font-weight:900;">$3.200</div></div>
-      <div class="meta" style="background:rgba(59,130,246,0.1);color:#3B82F6;font-size:15px;">📍 Distancia<div style="font-size:24px;font-weight:900;">2.4 km</div></div>
-      <div class="meta" style="background:rgba(245,158,11,0.1);color:#F59E0B;font-size:15px;">⏱️ Est.<div style="font-size:24px;font-weight:900;">8 min</div></div>
+  <div class="bd">
+    <div class="dt-toggle">
+      <div class="dt-o on">🛵 Delivery</div>
+      <div class="dt-o off">🏪 Retiro</div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><span style="font-size:24px;">🍕</span><div><div style="font-size:12px;color:#9CA3AF;font-weight:700;">Recoger en</div><div style="font-weight:800;font-size:16px;">Pizza Napoli</div></div></div>
-    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;"><span style="color:#FF6B35;font-size:18px;">📍</span><div><div style="font-size:12px;color:#9CA3AF;font-weight:700;">Entregar en</div><div style="font-weight:700;font-size:15px;">Calle Pudeto 123, Ancud</div></div></div>
-    <div class="info-badge" style="margin-bottom:12px;"><span>ℹ️</span> Depto 3B, color azul. Tocar el timbre.</div>
-    <div class="btn-row" style="padding:0;"><div class="btn btn-reject">✕ Rechazar</div><div class="btn btn-accept">✓ Aceptar</div></div>
+    <div class="ck">
+      <h4>📍 Dirección de entrega</h4>
+      <div class="v">Calle Pudeto 123, Depto 3B</div>
+      <div style="font-size:13px;color:#9CA3AF;margin-top:2px;">Ancud, Los Lagos</div>
+    </div>
+    <div class="ck">
+      <h4>📌 Referencia (opcional)</h4>
+      <div class="v" style="color:#666;font-weight:600;">Depto 3B, portón azul. Tocar timbre #3.</div>
+    </div>
+    <div class="ck">
+      <h4>📞 Teléfono de contacto *</h4>
+      <div class="v">+56 9 1234 5678</div>
+    </div>
+    <div class="ck">
+      <h4>💳 Método de pago</h4>
+      <div class="po">
+        <span style="font-size:22px;">💵</span>
+        <span style="font-weight:700;">Efectivo</span>
+        <span style="font-size:12px;color:#9CA3AF;">Paga al recibir</span>
+        <span style="margin-left:auto;color:#22C55E;font-size:22px;">✓</span>
+      </div>
+      <div class="po">
+        <span class="pb" style="background:#E0E7FF;color:#4F46E5;">WP</span>
+        <span style="color:#666;">Webpay — Débito/Crédito</span>
+      </div>
+      <div class="po">
+        <span class="pb">KH</span>
+        <span style="color:#666;">Khipu — Transferencia</span>
+      </div>
+      <div class="po">
+        <span class="pb">MP</span>
+        <span style="color:#666;">Mercado Pago</span>
+      </div>
+    </div>
+    <div class="ck">
+      <h4>🎫 Cupón de descuento</h4>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;background:#faf8ff;border:1px solid #E5E0F0;border-radius:12px;padding:14px;font-size:15px;color:#9CA3AF;">Ingresa código</div>
+        <div style="background:#9E00FF;color:#fff;padding:14px 22px;border-radius:12px;font-size:15px;font-weight:800;">Aplicar</div>
+      </div>
+    </div>
+    <div class="ck">
+      <div style="display:flex;justify-content:space-between;font-size:14px;color:#666;margin-bottom:6px;"><span>Subtotal (3 items)</span><span>$32.900</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;color:#666;margin-bottom:6px;"><span>Delivery</span><span>$2.500</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;color:#666;margin-bottom:6px;"><span>Tarifa de servicio Go Deli</span><span>$990</span></div>
+      <div style="border-top:1px solid #f5f0fa;padding-top:10px;margin-top:6px;display:flex;justify-content:space-between;font-size:20px;font-weight:900;"><span>Total</span><span style="color:#FF6B00;">$36.390</span></div>
+    </div>
+    <div class="btn-or">💵 Confirmar pedido · $36.390</div>
+    <div style="text-align:center;padding:10px;font-size:12px;color:#9CA3AF;">No se cobrará hasta que el pedido sea aceptado</div>
   </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- TABLET 10" — PEDIDO ACTIVO                                    -->
-<!-- ============================================================ -->
-<div class="tablet10">
-  <div style="background:#1A1A2E;color:#fff;padding:14px 26px;display:flex;align-items:center;gap:16px;font-weight:800;font-size:18px;">
-    <span>←</span> <span>Pedido #4821</span>
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TABLET 7": SCREEN 4 — TRACKING                               -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="t7">
+  <div class="sb"><span>10:15</span><span>📶 ▂▄▆█ 🔋 74%</span></div>
+  <div class="gh">
+    <span style="font-size:20px;">←</span>
+    <span class="gh-title">Seguimiento del pedido</span>
   </div>
-  <div class="map-area">
-    <div class="map-street" style="top:15%;left:0;right:0;height:10px;"></div>
-    <div class="map-street" style="top:30%;left:0;right:0;height:12px;"></div>
-    <div class="map-street" style="top:46%;left:0;right:0;height:8px;"></div>
-    <div class="map-street" style="top:60%;left:0;right:0;height:11px;"></div>
-    <div class="map-street" style="top:76%;left:0;right:0;height:9px;"></div>
-    <div class="map-street" style="left:20%;top:0;bottom:0;width:9px;"></div>
-    <div class="map-street" style="left:45%;top:0;bottom:0;width:10px;"></div>
-    <div class="map-street" style="left:68%;top:0;bottom:0;width:11px;"></div>
-    <div class="map-street" style="left:82%;top:0;bottom:0;width:8px;"></div>
-    <div class="map-building" style="top:8%;left:5%;width:14%;height:14%;"></div>
-    <div class="map-building" style="top:5%;left:23%;width:20%;height:18%;"></div>
-    <div class="map-building" style="top:10%;left:70%;width:12%;height:16%;"></div>
-    <div class="map-building" style="top:35%;left:2%;width:16%;height:12%;"></div>
-    <div class="map-building" style="top:32%;left:48%;width:18%;height:15%;"></div>
-    <div class="map-building" style="top:37%;left:84%;width:14%;height:13%;"></div>
-    <div class="map-building" style="top:52%;left:22%;width:20%;height:10%;"></div>
-    <div class="map-building" style="top:50%;left:72%;width:20%;height:14%;"></div>
-    <div class="map-building" style="top:65%;left:5%;width:15%;height:11%;"></div>
-    <div class="map-building" style="top:67%;left:48%;width:22%;height:12%;"></div>
-    <div class="map-building" style="top:80%;left:22%;width:18%;height:12%;"></div>
-    <div class="map-building" style="top:82%;left:64%;width:20%;height:10%;"></div>
-    <div class="map-park" style="top:26%;left:24%;width:18%;height:14%;"></div>
-    <div class="map-park" style="top:63%;left:68%;width:16%;height:10%;"></div>
-    <div class="map-water" style="top:0;right:0;width:10%;height:38%;"></div>
-    <div class="map-route active" style="top:20%;left:12%;width:58%;transform:rotate(16deg);transform-origin:left top;"></div>
-    <div class="map-pin store" style="top:16%;left:8%;"><span>P</span></div>
-    <div class="map-pin rider" style="top:24%;left:40%;"><span>R</span></div>
-    <div class="map-pin client" style="top:34%;left:62%;"><span>D</span></div>
-    <div class="map-label" style="top:8%;left:5%;font-size:12px;">Pickup</div>
-    <div class="map-label" style="top:16%;left:44%;font-size:12px;">En ruta</div>
-    <div class="map-label" style="top:28%;left:58%;font-size:12px;">Cliente</div>
-  </div>
-  <div class="bottom-sheet">
-    <div style="width:50px;height:5px;background:#E5E7EB;border-radius:3px;margin:0 auto 16px;"></div>
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
-      <span style="font-size:34px;">🍕</span>
-      <div style="flex:1;"><div style="font-weight:800;font-size:18px;">Pizza Napoli</div><div style="font-size:13px;color:#9CA3AF;">Av. Los Carrera 456</div></div>
-      <div style="background:rgba(255,107,53,0.12);color:#FF6B35;padding:6px 14px;border-radius:10px;font-size:12px;font-weight:800;">🚀 En camino</div>
+  <div class="bd">
+    <div style="background:linear-gradient(135deg,#9E00FF,#FF6B00);margin:12px 20px;border-radius:20px;padding:24px;color:#fff;text-align:center;">
+      <div style="font-size:52px;">🚀</div>
+      <div style="font-weight:800;font-size:21px;margin:8px 0 3px;">Tu pedido está en camino</div>
+      <div style="font-size:15px;opacity:0.8;">🍕 Pizza Napoli</div>
     </div>
-    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">
-      <span style="color:#EF4444;font-size:18px;">📍</span>
-      <div><div style="font-size:12px;color:#9CA3AF;font-weight:700;">Entregar a</div><div style="font-weight:700;font-size:16px;">Calle Pudeto 123, Ancud</div><div style="font-size:12px;color:#9CA3AF;">Depto 3B, color azul</div></div>
-      <div style="margin-left:auto;font-weight:900;color:#FF6B35;font-size:22px;">$22.500</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-bottom:14px;">
-      <div style="flex:1;background:rgba(59,130,246,0.08);border-radius:12px;padding:14px;">
-        <div style="font-size:10px;color:#9CA3AF;font-weight:700;">Cliente</div>
-        <div style="font-weight:800;font-size:16px;">María González</div>
-        <div style="font-size:13px;color:#3B82F6;font-weight:700;">📞 +56 9 1234 5678</div>
+    <div class="ts">
+      <div class="t-step">
+        <div class="td done">✓</div>
+        <div class="tl"><div class="t-title">Esperando confirmación</div><div class="t-time">12:15 · ⏳</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td done">✓</div>
+        <div class="tl"><div class="t-title">Restaurante confirmó tu pedido</div><div class="t-time">12:16 · ✅</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td done">✓</div>
+        <div class="tl"><div class="t-title">Preparando tu pedido</div><div class="t-time">12:22 · 👨‍🍳</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td done">✓</div>
+        <div class="tl"><div class="t-title">¡Listo! Esperando repartidor</div><div class="t-time">12:27 · 🎉</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td cur">R</div>
+        <div class="tl"><div class="t-title" style="color:#FF6B00;">Repartidor recogió tu pedido</div><div class="t-time">12:30 · 📦</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td pend">—</div>
+        <div class="tl"><div class="t-title" style="color:#9CA3AF;">Tu pedido está en camino</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td pend">—</div>
+        <div class="tl"><div class="t-title" style="color:#9CA3AF;">¡Entregado! Buen provecho 🎉</div></div>
       </div>
     </div>
-    <div style="display:flex;gap:14px;">
-      <div style="flex:1;background:#22C55E;color:#fff;text-align:center;padding:16px;border-radius:14px;font-weight:800;font-size:16px;">✓ Entregado</div>
-      <div style="background:#fff;color:#3B82F6;border:2px solid #3B82F6;text-align:center;padding:16px;border-radius:14px;font-weight:800;font-size:14px;width:56px;">💬</div>
+    <div style="background:#fff;margin:14px 20px;border-radius:18px;padding:18px;display:flex;align-items:center;gap:14px;">
+      <div style="width:52px;height:52px;border-radius:50%;background:#E5E0F0;display:flex;align-items:center;justify-content:center;font-size:26px;">🛵</div>
+      <div style="flex:1;">
+        <div style="font-weight:800;font-size:16px;color:#1A0033;">Carlos R.</div>
+        <div style="font-size:13px;color:#9CA3AF;">Tu repartidor</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="width:42px;height:42px;border-radius:50%;background:#22C55E;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;">📞</div>
+        <div style="width:42px;height:42px;border-radius:50%;background:#9E00FF;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;">💬</div>
+      </div>
     </div>
-    <div class="info-badge" style="text-align:center;margin-top:10px;">💵 Cobrar $22.500 en efectivo al entregar</div>
+    <div style="background:#fff;margin:0 20px;border-radius:18px;padding:18px;">
+      <div style="font-size:13px;color:#9CA3AF;font-weight:800;">📍 Entregar en</div>
+      <div style="font-weight:800;font-size:15px;color:#1A0033;">Calle Pudeto 123, Depto 3B, Ancud</div>
+      <div style="border-top:1px solid #f5f0fa;margin-top:12px;padding-top:12px;display:flex;justify-content:space-between;">
+        <span style="font-size:15px;color:#666;">Total pedido</span>
+        <span style="font-weight:900;font-size:22px;color:#FF6B00;">$36.390</span>
+      </div>
+    </div>
+    <div style="text-align:center;padding:20px;">
+      <span style="color:#EF4444;font-size:14px;font-weight:700;">Cancelar pedido</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TABLET 10": SCREEN 1 — HOME (2-col layout with more content) -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="t10">
+  <div class="sb"><span>9:41</span><span>📶 ▂▄▆█ 🔋 85%</span></div>
+  <div class="gh">
+    <span style="font-size:24px;color:#FF6B00;">📍</span>
+    <div style="flex:1;">
+      <div style="font-size:13px;opacity:0.7;">Enviar a</div>
+      <div style="font-size:18px;font-weight:800;">Calle Pudeto 123, Ancud ▾</div>
+    </div>
+    <span style="position:relative;font-size:24px;">🔔<span style="position:absolute;top:-10px;right:-12px;background:#FF6B00;border-radius:50%;width:22px;height:22px;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:900;">2</span></span>
+    <span style="position:relative;font-size:24px;margin-left:10px;">🛍️<span style="position:absolute;top:-10px;right:-12px;background:#9E00FF;border-radius:50%;width:22px;height:22px;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:900;">2</span></span>
+  </div>
+  <div style="background:linear-gradient(135deg,#9E00FF,#FF6B00);padding:0 28px 18px;">
+    <div class="sbox">🔍 Buscar tiendas o productos...</div>
+  </div>
+  <div class="bd">
+    <div class="ct-row">
+      <div class="ct-chip sel"><div class="ct-ico">🏪</div><div class="lbl">Todas</div></div>
+      <div class="ct-chip"><div class="ct-ico">🍔</div><div class="lbl">Comida</div></div>
+      <div class="ct-chip"><div class="ct-ico">🛒</div><div class="lbl">Mercado</div></div>
+      <div class="ct-chip"><div class="ct-ico">💊</div><div class="lbl">Farmacia</div></div>
+      <div class="ct-chip"><div class="ct-ico">🔧</div><div class="lbl">Servicios</div></div>
+      <div class="ct-chip"><div class="ct-ico">🥗</div><div class="lbl">Saludable</div></div>
+      <div class="ct-chip"><div class="ct-ico">🍰</div><div class="lbl">Postres</div></div>
+      <div class="ct-chip"><div class="ct-ico">🥩</div><div class="lbl">Carnes</div></div>
+    </div>
+    <div class="banner">
+      <div class="slide" style="background:linear-gradient(135deg,#FF6B00,#FF8C5A);">
+        <div><div style="font-size:32px;font-weight:900;">🎉 ¡Delivery gratis!</div><div style="font-size:18px;opacity:0.9;font-weight:600;">Usa el código BIENVENIDO en tu primer pedido</div></div>
+      </div>
+      <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
+    </div>
+    <div class="sec">🍕 Restaurantes</div>
+    <div class="store-grid">
+      <div class="sc">
+        <div class="sc-cover g1">🍕</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">🍕</div><div class="sc-name">Pizza Napoli</div><span style="color:#FF6B00;font-size:18px;">★</span><span style="font-size:16px;font-weight:700;">4.8</span></div>
+          <div class="sc-meta">🕐 20-35 min · 🛵 $2.500</div>
+        </div>
+      </div>
+      <div class="sc">
+        <div class="sc-cover g2">🥗</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">🥗</div><div class="sc-name">Green Bowl</div><span style="color:#FF6B00;font-size:18px;">★</span><span style="font-size:16px;font-weight:700;">4.6</span></div>
+          <div class="sc-meta">🕐 15-25 min · 🛵 $1.800</div>
+          <div class="sc-badges"><span class="badge feat">Destacado</span></div>
+        </div>
+      </div>
+      <div class="sc">
+        <div class="sc-cover g3">🥪</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">🥪</div><div class="sc-name">Sandwich Club</div><span style="color:#FF6B00;font-size:18px;">★</span><span style="font-size:16px;font-weight:700;">4.9</span></div>
+          <div class="sc-meta">🕐 10-20 min · 🛵 Gratis</div>
+        </div>
+      </div>
+    </div>
+    <div class="sec">📍 Cerca de ti</div>
+    <div class="store-grid">
+      <div class="sc">
+        <div class="sc-cover" style="background:linear-gradient(135deg,#3B82F6,#2563EB);">💊</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">💊</div><div class="sc-name">Farmacia Cruz Verde</div><span style="color:#FF6B00;font-size:18px;">★</span><span style="font-size:16px;font-weight:700;">4.7</span></div>
+          <div class="sc-meta">🕐 25-40 min · 🛵 $2.000</div>
+        </div>
+      </div>
+      <div class="sc">
+        <div class="sc-cover" style="background:linear-gradient(135deg,#8B5CF6,#7C3AED);">🛒</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">🛒</div><div class="sc-name">SuperMayorista</div><span style="color:#FF6B00;font-size:18px;">★</span><span style="font-size:16px;font-weight:700;">4.4</span></div>
+          <div class="sc-meta">🕐 30-50 min · 🛵 $3.000</div>
+        </div>
+      </div>
+      <div class="sc">
+        <div class="sc-cover" style="background:linear-gradient(135deg,#EC4899,#DB2777);">🍰</div>
+        <div class="sc-info">
+          <div class="sc-row"><div class="sc-av">🍰</div><div class="sc-name">Dulce Pecado</div><span style="color:#FF6B00;font-size:18px;">★</span><span style="font-size:16px;font-weight:700;">4.9</span></div>
+          <div class="sc-meta">🕐 15-25 min · 🛵 $1.500</div>
+        </div>
+      </div>
+    </div>
+    <div style="height:20px"></div>
+  </div>
+  <div class="bn">
+    <div class="bn-i sel"><div class="ind"></div><div class="ic">🏠</div>Inicio</div>
+    <div class="bn-i"><div class="ind"></div><div class="ic">🏪</div>Mercados</div>
+    <div class="bn-i"><div class="ind"></div><div class="ic">🔧</div>Servicios</div>
+    <div class="bn-i"><div class="ind"></div><div class="ic">📋</div>Pedidos</div>
+    <div class="bn-i"><div class="ind"></div><div class="ic">👤</div>Perfil</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TABLET 10": SCREEN 2 — TRACKING                              -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="t10">
+  <div class="sb"><span>10:15</span><span>📶 ▂▄▆█ 🔋 74%</span></div>
+  <div class="gh">
+    <span style="font-size:24px;">←</span>
+    <span class="gh-title">Seguimiento del pedido</span>
+  </div>
+  <div class="bd">
+    <div style="background:linear-gradient(135deg,#9E00FF,#FF6B00);margin:16px 28px;border-radius:24px;padding:32px;color:#fff;text-align:center;">
+      <div style="font-size:64px;">🚀</div>
+      <div style="font-weight:800;font-size:26px;margin:10px 0 4px;">Tu pedido está en camino</div>
+      <div style="font-size:18px;opacity:0.8;">🍕 Pizza Napoli</div>
+    </div>
+    <div class="ts">
+      <div class="t-step">
+        <div class="td done">✓</div>
+        <div class="tl"><div class="t-title">Esperando confirmación</div><div class="t-time">12:15 · ⏳</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td done">✓</div>
+        <div class="tl"><div class="t-title">Restaurante confirmó tu pedido</div><div class="t-time">12:16 · ✅</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td done">✓</div>
+        <div class="tl"><div class="t-title">Preparando tu pedido</div><div class="t-time">12:22 · 👨‍🍳</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td cur">R</div>
+        <div class="tl"><div class="t-title" style="color:#FF6B00;">Repartidor recogió tu pedido</div><div class="t-time">12:30 · 📦</div></div>
+      </div>
+      <div class="t-step">
+        <div class="td pend">—</div>
+        <div class="tl"><div class="t-title" style="color:#9CA3AF;">¡Entregado! Buen provecho 🎉</div></div>
+      </div>
+    </div>
+    <!-- Repartidor + Mapa -->
+    <div style="display:flex;gap:16px;margin:16px 28px;">
+      <div style="flex:1;background:#fff;border-radius:22px;padding:22px;">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+          <div style="width:60px;height:60px;border-radius:50%;background:#E5E0F0;display:flex;align-items:center;justify-content:center;font-size:30px;">🛵</div>
+          <div>
+            <div style="font-weight:800;font-size:20px;color:#1A0033;">Carlos R.</div>
+            <div style="font-size:15px;color:#9CA3AF;">Tu repartidor</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <div style="flex:1;background:#22C55E;color:#fff;text-align:center;padding:16px;border-radius:14px;font-weight:800;font-size:18px;">📞 Llamar</div>
+          <div style="flex:1;background:#9E00FF;color:#fff;text-align:center;padding:16px;border-radius:14px;font-weight:800;font-size:18px;">💬 Chat</div>
+        </div>
+        <div style="margin-top:16px;">
+          <div style="font-size:14px;color:#9CA3AF;font-weight:800;">📍 Entregar en</div>
+          <div style="font-weight:800;font-size:17px;color:#1A0033;margin-top:2px;">Calle Pudeto 123, Depto 3B, Ancud</div>
+        </div>
+        <div style="border-top:1px solid #f5f0fa;margin-top:14px;padding-top:14px;display:flex;justify-content:space-between;">
+          <span style="font-size:17px;color:#666;">Total</span>
+          <span style="font-weight:900;font-size:26px;color:#FF6B00;">$36.390</span>
+        </div>
+      </div>
+      <!-- Mini mapa simulado -->
+      <div style="flex:1;background:#e8e4df;border-radius:22px;overflow:hidden;position:relative;min-height:280px;">
+        <div style="position:absolute;top:20%;left:10%;right:10%;height:8px;background:rgba(255,255,255,0.7);"></div>
+        <div style="position:absolute;top:38%;left:5%;right:5%;height:10px;background:rgba(255,255,255,0.7);"></div>
+        <div style="position:absolute;top:55%;left:8%;right:8%;height:7px;background:rgba(255,255,255,0.7);"></div>
+        <div style="position:absolute;top:72%;left:5%;right:10%;height:9px;background:rgba(255,255,255,0.7);"></div>
+        <div style="position:absolute;left:25%;top:5%;bottom:5%;width:8px;background:rgba(255,255,255,0.7);"></div>
+        <div style="position:absolute;left:55%;top:8%;bottom:8%;width:10px;background:rgba(255,255,255,0.7);"></div>
+        <div style="position:absolute;border-top:3px dashed #FF6B00;top:30%;left:15%;width:45%;transform:rotate(15deg);"></div>
+        <div style="position:absolute;top:24%;left:12%;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#FF6B00;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;box-shadow:0 3px 8px rgba(0,0,0,0.3);"><span style="transform:rotate(45deg);">P</span></div>
+        <div style="position:absolute;top:20%;left:6%;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;">Pizza Napoli</div>
+        <div style="position:absolute;top:38%;left:42%;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#3B82F6;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;box-shadow:0 3px 8px rgba(0,0,0,0.3);"><span style="transform:rotate(45deg);">R</span></div>
+        <div style="position:absolute;top:34%;left:48%;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;">Carlos 🛵</div>
+        <div style="position:absolute;top:50%;left:62%;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#EF4444;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;box-shadow:0 3px 8px rgba(0,0,0,0.3);"><span style="transform:rotate(45deg);">T</span></div>
+        <div style="position:absolute;top:46%;left:55%;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;">Tú</div>
+      </div>
+    </div>
   </div>
 </div>
 

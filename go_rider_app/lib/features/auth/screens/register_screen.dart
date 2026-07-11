@@ -123,7 +123,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       signerName: signerName, signerRut: signerRut,
       signatureImage: sigBase64,
     );
-    if (err != null) {
+    if (err == "revisa_tu_correo") {
+      setState(() => _error = "Revisa tu correo y confirma tu cuenta. Luego inicia sesión.");
+      // Limpiar el formulario para que no intenten de nuevo con los mismos datos
+      _nameCtrl.clear(); _emailCtrl.clear(); _passCtrl.clear(); _phoneCtrl.clear();
+    } else if (err != null) {
       setState(() => _error = "Error: $err");
     } else if (mounted) {
       context.go("/pending");

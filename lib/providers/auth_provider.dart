@@ -107,8 +107,25 @@ class AuthProvider extends ChangeNotifier {
           .maybeSingle();
       if (existing != null) return "duplicate_national_id";
 
-      final res = await _sb.auth.signUp(email: email, password: password);
+      final res = await _sb.auth.signUp(
+        email: email,
+        password: password,
+        data: {
+          "name": name,
+          "phone": phone,
+          "nationality": nationality,
+          "national_id": nationalId,
+          "national_id_type": nationalIdType,
+          "region": region,
+          "city": city,
+          "role": "client",
+        },
+      );
       if (res.user != null) {
+        if (res.session == null) {
+          // Email sin confirmar: el trigger BD creará el perfil automáticamente
+          return "revisa_tu_correo";
+        }
         try {
           await _sb.from("users").insert({
             "auth_id": res.user!.id,
@@ -123,16 +140,8 @@ class AuthProvider extends ChangeNotifier {
             "role": "client",
           });
         } catch (profileError) {
-          // Si falla el INSERT en users, borrar auth user con Admin API
-          // para no dejar un usuario huérfano que no puede loguearse.
-          try {
-            final uid = _sb.auth.currentUser?.id;
-            if (uid != null) {
-              await _sb.functions.invoke('admin-delete-user', body: {'user_id': uid});
-            }
-          } catch (_) { /* best-effort: si la Edge Function no existe, el cleanup lo hará un cron */ }
-          await _sb.auth.signOut();
-          return "Error al crear perfil. Intenta de nuevo.";
+          // Si falla el INSERT (RLS, concurrencia con trigger, etc.), el
+          // trigger handle_new_auth_user() lo crea. No hacemos rollback.
         }
       }
       return null;
