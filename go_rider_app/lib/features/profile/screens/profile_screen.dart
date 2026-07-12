@@ -137,7 +137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
         ),
         const SizedBox(height: 32),
-        const Text("Go Rider v1.0.0", textAlign: TextAlign.center, style: TextStyle(color: AppColors.textLight, fontSize: 12)),
+        const Text("Go Rider v1.0.1", textAlign: TextAlign.center, style: TextStyle(color: AppColors.textLight, fontSize: 12)),
       ]),
       ),
     );
