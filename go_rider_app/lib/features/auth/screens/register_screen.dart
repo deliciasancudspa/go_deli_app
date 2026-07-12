@@ -87,9 +87,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       signatureImage: sigBase64,
     );
     if (err == "revisa_tu_correo") {
-      setState(() => _error = "Revisa tu correo y confirma tu cuenta. Luego inicia sesión.");
-      // Limpiar el formulario para que no intenten de nuevo con los mismos datos
-      _nameCtrl.clear(); _emailCtrl.clear(); _passCtrl.clear(); _phoneCtrl.clear();
+      // Mostrar diálogo informativo y redirigir al login
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.mark_email_read, color: AppColors.accent, size: 48),
+            title: const Text("✅ Solicitud enviada"),
+            content: const Text("Tu cuenta ha sido creada. Revisa tu correo electrónico y confirma tu cuenta. Luego inicia sesión en GoRider."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text("Aceptar"),
+              ),
+            ],
+          ),
+        );
+        if (mounted) context.go("/login");
+      }
     } else if (err != null) {
       setState(() => _error = "Error: $err");
     } else if (mounted) {
