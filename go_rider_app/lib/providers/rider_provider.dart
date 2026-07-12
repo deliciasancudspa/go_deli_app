@@ -84,7 +84,7 @@ class RiderProvider extends ChangeNotifier {
     try {
       _loading = true; notifyListeners();
       // Mismo sufijo +gorider que en register — transparente para el usuario
-      final riderEmail = email.replaceFirst("@", "+gorider@");
+      final riderEmail = email.contains("+gorider@") ? email : email.replaceFirst("@", "+gorider@");
       final res = await _sb.auth.signInWithPassword(email: riderEmail, password: password);
       await _loadProfile(res.user!.id);
       return null;
@@ -120,7 +120,7 @@ class RiderProvider extends ChangeNotifier {
       // Sufijo +gorider: separa el auth de GoDeli. ana@gmail.com y
       // ana+gorider@gmail.com son usuarios distintos en Supabase Auth,
       // pero los correos llegan al mismo inbox (Gmail, Outlook, Yahoo, etc.)
-      final riderEmail = email.replaceFirst("@", "+gorider@");
+      final riderEmail = email.contains("+gorider@") ? email : email.replaceFirst("@", "+gorider@");
       final res = await _sb.auth.signUp(
         email: riderEmail,
         password: password,
@@ -129,14 +129,36 @@ class RiderProvider extends ChangeNotifier {
           "name": name,
           "phone": phone,
           "role": "deliverer",
+          "rut": rut,
+          "vehicle": vehicle,
+          "plate": plate,
+          "bank_name": bankName,
+          "account_type": accountType,
+          "account_number": accountNumber,
+          "account_holder": accountHolder,
+          "account_rut": accountRut,
+          "commune_id": communeId,
+          "signer_name": signerName,
+          "signer_rut": signerRut,
+          "signed_at": DateTime.now().toIso8601String(),
+          // La firma NO viaja en metadata (puede pesar 200KB+ y GoTrue la rechaza).
+          // Se envía por separado vía RPC submit_rider_signature después del signUp.
         },
       );
       if (res.user == null) throw Exception("Error al crear cuenta");
       authUid = res.user!.id;
 
       // Si no hay sesión (email sin confirmar), el trigger BD crea el perfil.
-      // El repartidor deberá confirmar su email y luego iniciar sesión.
+      // Enviamos la firma por separado para no saturar raw_user_meta_data.
       if (res.session == null) {
+        if (signatureImage != null && signatureImage.isNotEmpty) {
+          try {
+            await _sb.rpc('submit_rider_signature', params: {
+              'p_email': email,
+              'p_signature': signatureImage,
+            });
+          } catch (_) { /* non-blocking: el admin puede pedir la firma después */ }
+        }
         return "revisa_tu_correo";
       }
 
@@ -183,7 +205,7 @@ class RiderProvider extends ChangeNotifier {
     } on AuthApiException catch (e) {
       return translateAuthError(e);
     } catch (e) {
-      return translateAuthError(e);
+      return "Error al registrarte. Intenta de nuevo o contacta a soporte.";
     } finally {
       _loading = false; notifyListeners();
     }
@@ -259,7 +281,8 @@ class RiderProvider extends ChangeNotifier {
       await _loadProfile(authUid);
       return null;
     } catch (e) {
-      return translateAuthError(e);
+      if (e is AuthApiException) return translateAuthError(e);
+      return "Error al completar tu perfil. Intenta de nuevo o contacta a soporte.";
     } finally {
       _loading = false; notifyListeners();
     }
@@ -457,5 +480,35 @@ class RiderProvider extends ChangeNotifier {
     _user = null; _rider = null; _isOnline = false;
     _activeOrders = []; _orderHistory = [];
     notifyListeners();
+  }
+
+  /// Cambia la contraseña del rider autenticado.
+  /// Retorna null si fue exitoso, o un mensaje de error en español.
+  Future<String?> changePassword(String newPassword) async {
+    try {
+      await _sb.auth.updateUser(UserAttributes(password: newPassword));
+      return null;
+    } on AuthApiException catch (e) {
+      return translateAuthError(e);
+    } catch (e) {
+      return "Error al cambiar la contraseña. Intenta de nuevo.";
+    }
+  }
+
+  /// Envía un enlace de restablecimiento de contraseña al email del rider.
+  /// El enlace redirige a la página de reset en godeli.cl.
+  Future<String?> resetPassword(String email) async {
+    try {
+      final riderEmail = email.contains("+gorider@") ? email : email.replaceFirst("@", "+gorider@");
+      await _sb.auth.resetPasswordForEmail(
+        riderEmail,
+        redirectTo: "https://godeli.cl/gorider-reset",
+      );
+      return null;
+    } on AuthApiException catch (e) {
+      return translateAuthError(e);
+    } catch (e) {
+      return "Error al enviar el enlace. Intenta de nuevo.";
+    }
   }
 }

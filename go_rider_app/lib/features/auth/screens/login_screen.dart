@@ -22,8 +22,52 @@ class _LoginScreenState extends State<LoginScreen> {
     if (err != null) {
       setState(() => _error = "Email o contrasena incorrectos");
     } else if (mounted) {
-      if (rider.isApproved) { context.go("/dashboard"); } else { context.go("/pending"); }
+      if (rider.riderId.isEmpty) { context.go("/register"); }
+      else if (rider.isApproved) { context.go("/dashboard"); }
+      else { context.go("/pending"); }
     }
+  }
+
+  Future<void> _forgotPassword(BuildContext context) async {
+    final emailCtrl = TextEditingController();
+    await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Recuperar contraseña"),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text("Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.",
+              style: TextStyle(fontSize: 14, color: AppColors.textMedium)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: emailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(hintText: "Correo electrónico"),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () async {
+              final email = emailCtrl.text.trim();
+              if (email.isEmpty) return;
+              final rider = context.read<RiderProvider>();
+              final err = await rider.resetPassword(email);
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx, true);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(err != null
+                      ? err
+                      : "Te enviamos un enlace para restablecer tu contraseña. Revisa tu correo."),
+                  backgroundColor: err != null ? AppColors.error : AppColors.success,
+                ),
+              );
+            },
+            child: const Text("Enviar enlace"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -73,6 +117,13 @@ class _LoginScreenState extends State<LoginScreen> {
           const Text("No tienes cuenta? ", style: TextStyle(color: AppColors.textMedium)),
           GestureDetector(onTap: () => context.go("/register"), child: const Text("Registrate", style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800))),
         ]),
+        const SizedBox(height: 12),
+        Center(
+          child: TextButton(
+            onPressed: () => _forgotPassword(context),
+            child: const Text("¿Olvidaste tu contraseña?", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+          ),
+        ),
       ]))),
       ])),
     );

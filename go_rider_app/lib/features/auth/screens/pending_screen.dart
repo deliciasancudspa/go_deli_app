@@ -91,7 +91,7 @@ class _PendingScreenState extends State<PendingScreen> {
             ]),
           ),
           const SizedBox(height: 32),
-          TextButton(onPressed: () => rider.signOut(), child: const Text("Cerrar sesion", style: TextStyle(color: Colors.white60))),
+          TextButton(onPressed: () async { await rider.signOut(); if (mounted) context.go("/login"); }, child: const Text("Cerrar sesion", style: TextStyle(color: Colors.white60))),
         ]),
       ))),
     );

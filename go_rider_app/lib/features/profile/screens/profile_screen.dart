@@ -122,6 +122,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
         ]),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => _changePassword(context, rider),
+          icon: const Icon(Icons.lock_outline),
+          label: const Text("Cambiar contraseña"),
+          style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent),
+        ),
         const SizedBox(height: 24),
         ElevatedButton.icon(
           onPressed: () async { await rider.signOut(); if (context.mounted) context.go("/login"); },
@@ -133,6 +140,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const Text("Go Rider v1.0.0", textAlign: TextAlign.center, style: TextStyle(color: AppColors.textLight, fontSize: 12)),
       ]),
       ),
+    );
+  }
+
+  void _changePassword(BuildContext context, RiderProvider rider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _ChangePasswordDialog(rider: rider),
     );
   }
 
@@ -419,6 +433,104 @@ class _EditBankSheetState extends State<_EditBankSheet> {
           ),
         ])),
       ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Diálogo de cambio de contraseña
+// ════════════════════════════════════════════════════════════════════════════
+class _ChangePasswordDialog extends StatefulWidget {
+  final RiderProvider rider;
+  const _ChangePasswordDialog({required this.rider});
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _newPassCtrl = TextEditingController();
+  final _confirmPassCtrl = TextEditingController();
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+  String? _error;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _newPassCtrl.dispose();
+    _confirmPassCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final pwd = _newPassCtrl.text;
+    if (pwd.length < 8) {
+      setState(() => _error = "Mínimo 8 caracteres");
+      return;
+    }
+    if (pwd != _confirmPassCtrl.text) {
+      setState(() => _error = "Las contraseñas no coinciden");
+      return;
+    }
+    setState(() { _saving = true; _error = null; });
+    final err = await widget.rider.changePassword(pwd);
+    if (!mounted) return;
+    if (err != null) {
+      setState(() { _saving = false; _error = err; });
+    } else {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Contraseña actualizada correctamente")),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Cambiar contraseña"),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(
+          controller: _newPassCtrl,
+          obscureText: _obscureNew,
+          decoration: InputDecoration(
+            hintText: "Nueva contraseña",
+            suffixIcon: IconButton(
+              icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility),
+              onPressed: () => setState(() => _obscureNew = !_obscureNew),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _confirmPassCtrl,
+          obscureText: _obscureConfirm,
+          decoration: InputDecoration(
+            hintText: "Confirmar contraseña",
+            suffixIcon: IconButton(
+              icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
+              onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+            ),
+          ),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+        ],
+      ]),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cancelar"),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Text("Guardar"),
+        ),
+      ],
     );
   }
 }

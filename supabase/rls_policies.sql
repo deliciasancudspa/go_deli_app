@@ -381,9 +381,12 @@ with check (
   -- Restricción: el target debe ser el usuario, su rider, su tienda, o admin.
   -- Permitido que cualquier usuario autenticado notifique al admin
   -- (riders registrándose, aliados, clientes haciendo pedidos, etc.)
+  -- También permitido que riders notifiquen a tiendas donde tienen pedidos activos
+  -- (ej. devolución de pedido)
   target = public.app_user_id()::text
   or target = public.my_rider_id()::text
   or target in (select id::text from stores where owner_id = public.app_user_id())
+  or target in (select store_id::text from orders where deliverer_id = public.my_rider_id() and status in ('assigned','picked_up','on_the_way'))
   or target = 'admin'
   or public.is_admin()
 );
