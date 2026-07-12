@@ -28,8 +28,54 @@
             "package_name": "com.godeli.go_deli",
             "certificate_hash": "99B21BE4EBB0AFE27D334F02BABF0F856F310E29"
           }
+        },
+        {
+          "client_id": "453209088911-dav1dtijb3ot1iac9m0ab034brpnr8hk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.godeli.go_deli",
+            "certificate_hash": "7928DEBDA104F6E20547F283B1D4C0178D438508"
+          }
         }
       ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHobf_56sLNTnxqP-J5naqni-bU0LWhq0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:127745236552:android:d97b0551afbdf6d06c027d",
+        "android_client_info": {
+          "package_name": "com.godeli.go_rider"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHobf_56sLNTnxqP-J5naqni-bU0LWhq0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:127745236552:android:c8a8bce7002f4ef76c027d",
+        "android_client_info": {
+          "package_name": "com.mycompany.godeli"
+        }
+      },
+      "oauth_client": [],
       "api_key": [
         {
           "current_key": "AIzaSyCHobf_56sLNTnxqP-J5naqni-bU0LWhq0"

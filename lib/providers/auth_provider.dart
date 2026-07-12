@@ -164,15 +164,17 @@ class AuthProvider extends ChangeNotifier {
   Future<String?> signInWithGoogle() async {
     try {
       _loading = true; notifyListeners();
-      // En Android el clientId NO se pasa: el plugin lo toma de google-services.json
-      // automáticamente según el SHA-1 del APK. Pasarlo causa conflicto porque el
-      // clientId explícito no coincide con el SHA-1 del APK instalado.
+      // Usamos el Web Client ID tanto para clientId como serverClientId.
+      // El Web Client ID NO requiere validación SHA-1 (a diferencia del Android
+      // Client ID de google-services.json). Esto evita el problema de tener que
+      // registrar múltiples SHA-1 (debug, upload, app signing) en GCP Console.
+      // Supabase Auth ya tiene este mismo Web Client ID configurado como provider.
+      const webClientId = '453209088911-kl6ktv1lo8tiug32g9rfj9rbfhkpen6s.apps.googleusercontent.com';
       final googleSignIn = GoogleSignIn(
         clientId: Platform.isIOS
             ? '453209088911-j7jbj8i4hs3mhiumhp6279412gj7sgu6.apps.googleusercontent.com'
-            : null,
-        // Web Client ID — necesario para obtener idToken (requerido por Supabase Auth)
-        serverClientId: '453209088911-kl6ktv1lo8tiug32g9rfj9rbfhkpen6s.apps.googleusercontent.com',
+            : webClientId,
+        serverClientId: webClientId,
       );
       final account = await googleSignIn.signIn();
       if (account == null) return "cancelled";
