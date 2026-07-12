@@ -164,16 +164,14 @@ class AuthProvider extends ChangeNotifier {
   Future<String?> signInWithGoogle() async {
     try {
       _loading = true; notifyListeners();
-      // Android usa el Android OAuth client ID (tipo 1) de google-services.json.
-      // iOS usa el iOS client ID. Ambos usan el Web Client ID como serverClientId
-      // para obtener idToken que Supabase Auth valida.
+      // Android: sin clientId explícito — el plugin usa el de google-services.json.
+      // Solo se pasa serverClientId (Web Client ID) para obtener idToken → Supabase.
+      // iOS: requiere clientId explícito + serverClientId.
       const webClientId = '453209088911-kl6ktv1lo8tiug32g9rfj9rbfhkpen6s.apps.googleusercontent.com';
-      const androidClientId = '453209088911-dav1dtijb3ot1iac9m0ab034brpnr8hk.apps.googleusercontent.com';
       const iosClientId = '453209088911-j7jbj8i4hs3mhiumhp6279412gj7sgu6.apps.googleusercontent.com';
-      final googleSignIn = GoogleSignIn(
-        clientId: Platform.isIOS ? iosClientId : androidClientId,
-        serverClientId: webClientId,
-      );
+      final googleSignIn = Platform.isIOS
+          ? GoogleSignIn(clientId: iosClientId, serverClientId: webClientId)
+          : GoogleSignIn(serverClientId: webClientId);
       final account = await googleSignIn.signIn();
       if (account == null) return "cancelled";
 
