@@ -1,4 +1,5 @@
 import "dart:async";
+import "dart:io" show Platform;
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/material.dart";
 import "package:google_sign_in/google_sign_in.dart";
@@ -163,10 +164,14 @@ class AuthProvider extends ChangeNotifier {
   Future<String?> signInWithGoogle() async {
     try {
       _loading = true; notifyListeners();
+      // En Android el clientId NO se pasa: el plugin lo toma de google-services.json
+      // automáticamente según el SHA-1 del APK. Pasarlo causa conflicto porque el
+      // clientId explícito no coincide con el SHA-1 del APK instalado.
       final googleSignIn = GoogleSignIn(
-        // iOS: client ID registrado en Google Cloud Console
-        clientId: '453209088911-j7jbj8i4hs3mhiumhp6279412gj7sgu6.apps.googleusercontent.com',
-        // Web Client ID — configurado en Supabase Dashboard → Authentication → Providers → Google
+        clientId: Platform.isIOS
+            ? '453209088911-j7jbj8i4hs3mhiumhp6279412gj7sgu6.apps.googleusercontent.com'
+            : null,
+        // Web Client ID — necesario para obtener idToken (requerido por Supabase Auth)
         serverClientId: '453209088911-kl6ktv1lo8tiug32g9rfj9rbfhkpen6s.apps.googleusercontent.com',
       );
       final account = await googleSignIn.signIn();
