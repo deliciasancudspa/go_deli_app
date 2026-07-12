@@ -157,11 +157,12 @@ class RiderProvider extends ChangeNotifier {
       // ── Guardar contrato y consentimientos en notificación admin ──
       final signedAt = DateTime.now().toIso8601String();
       try {
-        await _sb.from("notifications").insert({
-          "type": "alert", "emoji": "🛵", "target": "admin", "is_read": false,
-          "title": "🛵 Nuevo repartidor registrado",
-          "message": "$name · $vehicle · $email",
-          "data": {
+        await _sb.rpc('notify_admin', params: {
+          'p_title': '🛵 Nuevo repartidor registrado',
+          'p_message': '$name · $vehicle · $email',
+          'p_type': 'alert',
+          'p_emoji': '🛵',
+          'p_data': {
             "name": name, "rut": rut, "phone": phone, "email": email,
             "vehicle": vehicle, "plate": plate,
             "contract_accepted": true,
@@ -173,7 +174,7 @@ class RiderProvider extends ChangeNotifier {
             "signer_rut": signerRut,
             "signed_at": signedAt,
             "signature_image": signatureImage,
-          }
+          },
         });
       } catch (_) { /* non-blocking */ }
 
@@ -235,11 +236,12 @@ class RiderProvider extends ChangeNotifier {
       // Notificar al admin
       final signedAt = DateTime.now().toIso8601String();
       try {
-        await _sb.from("notifications").insert({
-          "type": "alert", "emoji": "🛵", "target": "admin", "is_read": false,
-          "title": "🛵 Nuevo repartidor (confirmó email)",
-          "message": "$name · $vehicle · $email",
-          "data": {
+        await _sb.rpc('notify_admin', params: {
+          'p_title': '🛵 Nuevo repartidor (confirmó email)',
+          'p_message': '$name · $vehicle · $email',
+          'p_type': 'alert',
+          'p_emoji': '🛵',
+          'p_data': {
             "name": name, "rut": rut, "phone": phone, "email": email,
             "vehicle": vehicle, "plate": plate,
             "contract_accepted": true,
@@ -252,7 +254,7 @@ class RiderProvider extends ChangeNotifier {
             "signed_at": signedAt,
             "signature_image": signatureImage,
             "post_confirmation": true,
-          }
+          },
         });
       } catch (_) { /* non-blocking */ }
 
