@@ -379,10 +379,12 @@ with check (
   -- Solo el propio usuario puede insertar notificaciones dirigidas a sí mismo,
   -- o el sistema (security definer) inserta notificaciones cruzadas.
   -- Restricción: el target debe ser el usuario, su rider, su tienda, o admin.
+  -- Permitido que cualquier usuario autenticado notifique al admin
+  -- (riders registrándose, aliados, clientes haciendo pedidos, etc.)
   target = public.app_user_id()::text
   or target = public.my_rider_id()::text
   or target in (select id::text from stores where owner_id = public.app_user_id())
-  or (target = 'admin' and public.is_admin())
+  or target = 'admin'
   or public.is_admin()
 );
 
