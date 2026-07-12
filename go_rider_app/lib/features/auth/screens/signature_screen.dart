@@ -39,7 +39,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
               final sigBase64 = await _signatureKey.currentState!.capture();
               if (mounted) Navigator.pop(context, sigBase64);
             },
-            child: const Text("Confirmar", style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text("Confirmar", style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
           ),
         ],
       ),
