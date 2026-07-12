@@ -20,6 +20,14 @@
             "package_name": "com.godeli.go_deli",
             "certificate_hash": "BCB16566A35C0E62062BCD102DCE47B38D8A235F"
           }
+        },
+        {
+          "client_id": "453209088911-dav1dtijb3ot1iac9m0ab034brpnr8hk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.godeli.go_deli",
+            "certificate_hash": "99B21BE4EBB0AFE27D334F02BABF0F856F310E29"
+          }
         }
       ],
       "api_key": [
