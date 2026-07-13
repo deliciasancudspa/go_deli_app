@@ -89,11 +89,12 @@ begin
 
   -- FASE 1: riders LIBRES (0 pedidos activos), sin oferta pendiente, no
   -- intentados esta ronda, MISMA COMUNA, dentro de 10km, ordenados por CERCANÍA.
-  -- Si la tienda no tiene commune_id, se permite cualquier rider (backward compat).
+  -- Si la tienda no tiene commune_id, o el rider no tiene commune_id asignado,
+  -- se permite el matching (backward compat + riders sin ubicación previa).
   select d.id into v_rider
   from deliverers d
   where d.status = 'approved' and d.is_online = true
-    and (v_order.commune_id is null or d.commune_id = v_order.commune_id)
+    and (v_order.commune_id is null or d.commune_id is null or d.commune_id = v_order.commune_id)
     and (v_store_lat is null or v_store_lng is null
          or d.current_lat is null or d.current_lng is null
          or haversine_m(v_store_lat, v_store_lng, d.current_lat, d.current_lng) <= 10000)
@@ -114,7 +115,7 @@ begin
     select d.id into v_rider
     from deliverers d
     where d.status = 'approved' and d.is_online = true
-      and (v_order.commune_id is null or d.commune_id = v_order.commune_id)
+      and (v_order.commune_id is null or d.commune_id is null or d.commune_id = v_order.commune_id)
       and (v_store_lat is null or v_store_lng is null
            or d.current_lat is null or d.current_lng is null
            or haversine_m(v_store_lat, v_store_lng, d.current_lat, d.current_lng) <= 10000)
