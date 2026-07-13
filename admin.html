@@ -1247,7 +1247,7 @@ async function loadDashboard(){
   if((pendingRiders||[]).length>0){document.getElementById('nb-riders').textContent=(pendingRiders||[]).length;document.getElementById('nb-riders').style.display='inline';}
 
   // Pedidos sin rider
-  const sinRider=activeOrders.filter(o=>o.rider_search_status==='searching'&&o.rider_search_started_at);
+  const sinRider=activeOrders.filter(o=>(o.rider_search_status==='searching'||o.rider_search_status==='needs_manual')&&o.rider_search_started_at);
   const sinRiderAlert=sinRider.filter(o=>{
     const timeout = parseInt(document.getElementById('cfg-rider-timeout')?.value) || 3;
     const mins=(Date.now()-new Date(o.rider_search_started_at))/60000;
@@ -1274,7 +1274,7 @@ async function loadDashboard(){
     recent.map(o=>`<tr style="cursor:pointer" onclick="verPedido('${o.id}')">
       <td style="font-family:monospace;font-size:11px;color:var(--muted)">#${o.id.slice(0,8)}</td>
       <td style="font-weight:600">${o.stores?.name||'-'}</td>
-      <td><span class="badge ${statusBadge[o.status]||'b-gray'}">${statusLabel[o.status]||o.status}</span>${o.rider_search_status==='searching'?'<span class="badge b-red" style="margin-left:4px">Sin rider</span>':''}</td>
+      <td><span class="badge ${statusBadge[o.status]||'b-gray'}">${statusLabel[o.status]||o.status}</span>${(o.rider_search_status==='searching'||o.rider_search_status==='needs_manual')?'<span class="badge b-red" style="margin-left:4px">Sin rider</span>':''}</td>
       <td>${fmtCLP(o.total)}</td>
       <td style="color:var(--muted);font-size:11px">${fmtDate(o.created_at)}</td>
     </tr>`).join('')+'</tbody></table>';
@@ -1356,7 +1356,7 @@ function filterPedidos(f,btn){
 
 function renderPedidos(){
   const filtered=pedidoFilter==='all'?allPedidos:
-    pedidoFilter==='searching'?allPedidos.filter(o=>o.rider_search_status==='searching'):
+    pedidoFilter==='searching'?allPedidos.filter(o=>o.rider_search_status==='searching'||o.rider_search_status==='needs_manual'):
     allPedidos.filter(o=>o.status===pedidoFilter);
   const statusLabel={pending:'⏳ Nuevo',accepted:'✅ Aceptado',preparing:'👨‍🍳 Preparando',ready:'🎉 Listo',assigned:'🛵 Asignado',picked_up:'📍 Recogido',on_the_way:'🚀 En camino',delivered:'🎊 Entregado',cancelled:'❌ Cancelado',returned:'↩️ Devuelto',pending_rider:'🔍 Buscando rider'};
   const statusBadge={pending:'b-yellow',accepted:'b-blue',preparing:'b-orange',ready:'b-green',on_the_way:'b-purple',delivered:'b-green',cancelled:'b-red',returned:'b-gray',pending_rider:'b-red',searching:'b-red'};
@@ -1368,18 +1368,18 @@ function renderPedidos(){
       <td style="font-weight:600;font-size:12px">${o.stores?.name||'-'}</td>
       <td style="font-size:12px">${o.users?.name||o.users?.email||'-'}</td>
       <td style="font-size:12px">${o.deliverers?.users?.name||
-        (o.rider_search_status==='searching'?`<div class="searching-anim">🔍 Buscando<div class="dot-anim"><span>.</span><span>.</span><span>.</span></div></div>`:'Sin asignar')
+        (o.rider_search_status==='searching'?`<div class="searching-anim">🔍 Buscando<div class="dot-anim"><span>.</span><span>.</span><span>.</span></div></div>`:o.rider_search_status==='needs_manual'?`<span style="color:#EF4444;font-weight:600;font-size:11px">⚠️ Sin rider<br><span style="font-size:9px;color:var(--muted)">Requiere gestión</span></span>`:'Sin asignar')
       }</td>
       <td>
         <span class="badge ${statusBadge[o.status]||'b-gray'}">${statusLabel[o.status]||o.status}</span>
-        ${o.rider_search_status==='searching'?'<br><span class="badge b-red" style="margin-top:3px;font-size:9px">⚠️ Sin rider</span>':''}
+        ${(o.rider_search_status==='searching'||o.rider_search_status==='needs_manual')?'<br><span class="badge b-red" style="margin-top:3px;font-size:9px">⚠️ Sin rider</span>':''}
         ${o.is_external_delivery?'<br><span class="badge b-purple" style="margin-top:3px;font-size:9px">Externo</span>':''}
       </td>
       <td style="font-weight:600">${fmtCLP(o.total)}${o.payment_method==='webpay'&&o.payment_status==='paid'?' 💳':o.payment_method==='webpay'&&o.payment_status==='pending'?' 💳⏳':o.payment_method==='khipu'?' 🏦':''}${o.refund_status==='full'?'<br><span style="font-size:10px;color:#991B1B">💰 Reembolsado</span>':o.refund_status==='partial'?'<br><span style="font-size:10px;color:#92400E">💰 Parcial</span>':''}</td>
       <td style="color:var(--muted);font-size:11px">${fmtDate(o.created_at)}</td>
       <td style="display:flex;gap:5px;flex-wrap:wrap">
         <button class="btn btn-outline btn-sm" onclick="verPedido('${o.id}')">Ver</button>
-        ${o.rider_search_status==='searching'?`<button class="btn btn-danger btn-sm" onclick="abrirGestionRiderExterno('${o.id}')">⚠️ Gestionar</button>`:''}
+        ${(o.rider_search_status==='searching'||o.rider_search_status==='needs_manual')?`<button class="btn btn-danger btn-sm" onclick="abrirGestionRiderExterno('${o.id}')">⚠️ Gestionar</button>`:''}
         ${o.status==='pending'?`<button class="btn btn-success btn-sm" onclick="updateOrderStatus('${o.id}','accepted')">Aceptar</button>`:''}
         ${o.status==='returned'&&o.return_note?`<button class="btn btn-outline btn-sm" onclick="verNota('${o.id}')">📋 Nota</button>`:''}
         ${!['delivered','cancelled','returned'].includes(o.status)?`<button class="btn btn-danger btn-sm" onclick="cancelarPedido('${o.id}')" title="Cancelar pedido">❌</button>`:''}
@@ -1423,7 +1423,7 @@ async function verPedido(id){
       <p style="font-size:13px;color:#7F1D1D">${esc(o.return_note)}</p>
     </div>`:''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      ${o.rider_search_status==='searching'?`<button class="btn btn-danger" onclick="closeModal('modal-pedido');abrirGestionRiderExterno('${o.id}')">⚠️ Gestionar rider manualmente</button>`:''}
+      ${(o.rider_search_status==='searching'||o.rider_search_status==='needs_manual')?`<button class="btn btn-danger" onclick="closeModal('modal-pedido');abrirGestionRiderExterno('${o.id}')">⚠️ Gestionar rider manualmente</button>`:''}
       ${o.status==='pending'?`<button class="btn btn-success" onclick="updateOrderStatus('${o.id}','accepted');closeModal('modal-pedido')">✅ Aceptar pedido</button>`:''}
       ${o.is_external_delivery && o.status==='on_the_way'?`
       <div style="width:100%;margin-top:8px;background:#F5F0FF;border-radius:14px;padding:16px;border:2px solid #7C3AED">
