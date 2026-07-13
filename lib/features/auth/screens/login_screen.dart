@@ -25,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } else if (err == "needs_profile_completion") {
       context.go("/complete-profile");
     } else if (err != "cancelled") {
-      setState(() => _error = err);
+      setState(() => _error = "No se pudo iniciar sesión con Google. Intenta con email.");
     }
   }
 
