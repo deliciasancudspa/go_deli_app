@@ -159,11 +159,11 @@ using (public.is_admin());
 drop policy if exists deliverers_select on public.deliverers;
 create policy deliverers_select on public.deliverers for select to authenticated
 using (
+  -- Solo admins ven todos los riders. Los demás solo ven riders asignados a sus pedidos.
   public.is_admin()
   or id in (select deliverer_id from orders where client_id = public.app_user_id())
   or id in (select deliverer_id from orders where store_id in (select public.my_store_ids()))
-  or user_id = public.app_user_id()   -- el propio rider se ve a sí mismo
-  or true                             -- cualquier usuario autenticado puede ver riders
+  or user_id = public.app_user_id()  -- el propio rider se ve a sí mismo
 );
 
 drop policy if exists deliverers_insert on public.deliverers;

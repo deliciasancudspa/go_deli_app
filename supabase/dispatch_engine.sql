@@ -21,7 +21,11 @@
 -- ============================================================================
 
 -- 1. Columnas de estado de despacho ------------------------------------------
-alter table public.orders add column if not exists current_offer_rider_id  uuid references public.deliverers(id);
+-- NOTA: current_offer_rider_id NO tiene FK constraint hacia deliverers.
+-- Si tuviera FK, PostgREST fallaría con PGRST201 al embedear "deliverers"
+-- porque habría 2 FK entre orders y deliverers (deliverer_id + esta).
+-- Ver migración 20260713000002_fix_double_fk_tracking.sql.
+alter table public.orders add column if not exists current_offer_rider_id  uuid;
 alter table public.orders add column if not exists current_offer_expires_at timestamptz;
 alter table public.orders add column if not exists dispatch_phase           text;      -- 'free' | 'in_route'
 alter table public.orders add column if not exists dispatch_round           int not null default 0;
