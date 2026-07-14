@@ -1307,6 +1307,8 @@ window.sb = sb;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const jsq = s => String(s ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\x22').replace(/</g,'\\x3c').replace(/\n/g,'\\n').replace(/\r/g,'');
 
+// ── Hora chilena (America/Santiago, UTC-4 estándar / UTC-3 verano) ──
+const ChileTime={s:()=>new Date(new Date().toLocaleString('en-US',{timeZone:'America/Santiago'})),today(){const d=this.s();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');},hours(){return this.s().getHours();},nowISO(){return new Date().toISOString();}};
 
 // STATE
 let currentUser = null, userProfile = null;
@@ -1384,7 +1386,7 @@ function showPage(name) {
 function updateGreeting() {
   const greetEl = document.getElementById('home-greeting');
   if (!greetEl) return;
-  const hour = new Date().getHours();
+  const hour = ChileTime.hours();
   const emoji = hour < 12 ? '☀️' : hour < 19 ? '👋' : '🌙';
   const time  = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
   const name  = userProfile?.name?.split(' ')[0] || '';
@@ -1750,7 +1752,7 @@ async function loadHomeBanners() {
 
 async function loadScreenBanners(bannerType, containerId) {
   try {
-    const now = new Date().toISOString();
+    const now = ChileTime.nowISO();
     const { data } = await sb.from('banners').select('*')
       .eq('is_active', true).eq('banner_type', bannerType)
       .or(`start_date.is.null,start_date.lte.${now}`)
@@ -2349,7 +2351,7 @@ async function applyCoupon() {
   }
 
   // Validar vigencia
-  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+  if (coupon.expires_at && new Date(coupon.expires_at) < ChileTime.s()) {
     msg.style.color = 'var(--error)';
     msg.textContent = '❌ Cupón expirado';
     return;
@@ -3323,7 +3325,7 @@ async function submitRiderForm() {
 
   const firmaImg = riderFirmaCanvas ? riderFirmaCanvas.toDataURL('image/png') : null;
   const ip = await getRiderPublicIP();
-  const signedAt = new Date().toISOString();
+  const signedAt = ChileTime.nowISO();
 
   try {
     await sb.rpc('notify_admin', {

@@ -1056,6 +1056,8 @@ window.sb=sb;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const jsq = s => String(s ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\x22').replace(/</g,'\\x3c').replace(/\n/g,'\\n').replace(/\r/g,'');
 
+// ── Hora chilena (America/Santiago, UTC-4 estándar / UTC-3 verano) ──
+const ChileTime={s:()=>new Date(new Date().toLocaleString('en-US',{timeZone:'America/Santiago'})),today(){const d=this.s();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');},hours(){return this.s().getHours();},firstDayMonth(){const d=this.s();d.setDate(1);d.setHours(0,0,0,0);return d.toISOString();},lunes(){const d=this.s();const day=d.getDay(),diff=day===0?-6:1-day;d.setDate(d.getDate()+diff);d.setHours(0,0,0,0);return d;},nowISO(){return new Date().toISOString();}};
 
 let userData=null, allPedidos=[], allAliados=[], allRiders=[], currentChatId=null;
 let pedidoFilter='all', aliadoFilter='all', riderFilter='all', bannerFilter='all';
@@ -1207,7 +1209,7 @@ async function initAdmin(){
 
 // DASHBOARD
 async function loadDashboard(){
-  const today=new Date().toISOString().split('T')[0];
+  const today=ChileTime.today();
   let orderQ=sb.from('orders').select('*,stores(name)').gte('created_at',today).order('created_at',{ascending:false});
   let riderQ=sb.from('deliverers').select('id,is_online,status,users(name,phone)').eq('status','approved');
   let storeQ=sb.from('stores').select('id,name,is_open,status').eq('status','approved');
@@ -1303,7 +1305,7 @@ async function loadDashboard(){
     </div>`).join('');
 
   // Monthly summary
-  const firstDay=new Date();firstDay.setDate(1);firstDay.setHours(0,0,0,0);
+  const firstDay=new Date(ChileTime.firstDayMonth());
   let mq=sb.from('orders').select('total,platform_fee,fixed_fee,status').eq('status','delivered').gte('created_at',firstDay.toISOString());
   mq=withCommune(mq);
   const {data:monthOrders}=await mq;
@@ -2709,7 +2711,7 @@ async function deleteCupon(id){
 // REPORTES
 async function loadReportes(period,btn){
   if(btn){document.querySelectorAll('#section-reportes .filter-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
-  let from=new Date();
+  let from=ChileTime.s();
   if(period==='week')from.setDate(from.getDate()-7);
   else if(period==='month')from.setDate(from.getDate()-30);
   else from.setHours(0,0,0,0);
@@ -2763,7 +2765,7 @@ function exportReportes(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'reporte_ventas_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download = 'reporte_ventas_'+ChileTime.today()+'.csv';
   a.click();
   URL.revokeObjectURL(url);
   showToast('CSV exportado','success');
@@ -2783,7 +2785,7 @@ function getLunes(date){
 }
 
 function initSemana(){
-  currentSemanaStart=getLunes(new Date());
+  currentSemanaStart=ChileTime.lunes();
   updateSemanaLabel();
 }
 
@@ -3207,7 +3209,7 @@ async function liquidarRiderConfirm(){
       reference: ref||null,
       notes: nota||null,
       period: period,
-      created_at: fecha?new Date(fecha).toISOString():new Date().toISOString(),
+      created_at: fecha?new Date(fecha).toISOString():ChileTime.nowISO(),
     };
     if(currentCommuneId) payload.commune_id=currentCommuneId;
     const {error}=await sb.from('rider_payments').insert(payload);

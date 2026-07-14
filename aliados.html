@@ -1946,6 +1946,8 @@ window.sb = sb;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const jsq = s => String(s ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\x22').replace(/</g,'\\x3c').replace(/\n/g,'\\n').replace(/\r/g,'');
 
+// ── Hora chilena (America/Santiago, UTC-4 estándar / UTC-3 verano) ──
+const ChileTime={s:()=>new Date(new Date().toLocaleString('en-US',{timeZone:'America/Santiago'})),today(){const d=this.s();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');},hours(){return this.s().getHours();},nowISO(){return new Date().toISOString();}};
 
 let storeData = null, userData = null, authUserId = null, allOrders = [], currentOrderFilter = 'all';
 let pendingOrderId = null, timerInterval = null, audioCtx = null, _riderPollInterval = null;
@@ -2688,7 +2690,7 @@ function showSection(name, el) {
       window.GoBusiness.modules.marketing.render();
     } else {
       loadAdPrices(); updateAdTotal(); loadMyCampaigns();
-      document.getElementById('ad-start-date').min = new Date().toISOString().split('T')[0];
+      document.getElementById('ad-start-date').min = ChileTime.today();
     }
   }
   if (name==='horarios') {
@@ -2741,7 +2743,7 @@ async function toggleOnline() {
 // ── DASHBOARD ─────────────────────────────────────────────
 async function loadDashboard() {
   if (!storeData) return;
-  const todayLocal = new Date(); todayLocal.setHours(0,0,0,0);
+  const todayLocal = ChileTime.s(); todayLocal.setHours(0,0,0,0);
   const { data: orders } = await sb.from('orders').select('*,order_items(item_name,quantity)').eq('store_id', storeData.id).gte('created_at', todayLocal.toISOString()).order('created_at',{ascending:false});
   // Excluir órdenes con pago pendiente (Webpay/Khipu/MercadoPago no pagadas) y canceladas/devueltas
   const list = (orders || []).filter(o => ((o.payment_method !== 'webpay' && o.payment_method !== 'khipu' && o.payment_method !== 'mercadopago' && o.payment_method !== 'pending') || o.payment_status === 'paid') && o.status !== 'cancelled' && o.status !== 'returned');
@@ -3302,7 +3304,7 @@ async function loadVentas(period, btn) {
   // debug: cargando ventas
   document.getElementById('ventas-table').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   if (btn) { document.querySelectorAll('.period-tabs .period-tab').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
-  let from = new Date();
+  let from = ChileTime.s();
   if (period==='week') from.setDate(from.getDate()-7);
   else if (period==='month') from.setDate(from.getDate()-30);
   else from.setHours(0,0,0,0);
@@ -3652,7 +3654,7 @@ function startNotifPolling() {
 // UTILIDADES de reportes
 // ======================================================================
 function _periodFrom(period) {
-  const from = new Date();
+  const from = ChileTime.s();
   if (period==='week') from.setDate(from.getDate()-7);
   else if (period==='month') from.setDate(from.getDate()-30);
   else from.setHours(0,0,0,0);
@@ -3681,7 +3683,7 @@ function exportTableCSV(tableId, prefix) {
   const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = prefix+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.href = url; a.download = prefix+'_'+ChileTime.today()+'.csv';
   a.click(); URL.revokeObjectURL(url);
   showToast('CSV exportado','success');
 }
@@ -4419,7 +4421,7 @@ function saveRegData(firmaImg) {
     firma_nombre: document.getElementById('firma-nombre')?.value.trim() || '',
     firma_rut: document.getElementById('firma-rut')?.value.trim() || '',
     firma_img: firmaImg || null,
-    firma_dt: new Date().toISOString(),
+    firma_dt: ChileTime.nowISO(),
   };
   localStorage.setItem('godeli_pending_reg', JSON.stringify(data));
 }
@@ -4608,7 +4610,7 @@ async function completePendingRegistration(data) {
       rep_doc_number: data.rep_doc_num,
       rep_legal_doc_num: data.rep_doc_num,
       terms_accepted: true,
-      terms_accepted_at: new Date().toISOString(),
+      terms_accepted_at: ChileTime.nowISO(),
     });
     if (legalErr) throw new Error('Error guardando datos legales: ' + legalErr.message);
 
@@ -4632,7 +4634,7 @@ async function completePendingRegistration(data) {
       store_id: storeInsert.id,
       signer_name: data.firma_nombre,
       signer_rut: data.firma_rut,
-      signed_at: data.firma_dt || new Date().toISOString(),
+      signed_at: data.firma_dt || ChileTime.nowISO(),
       contract_version: '2.0',
       signature_image: data.firma_img,
       ip_address: ipAddress,

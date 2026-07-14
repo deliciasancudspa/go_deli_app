@@ -632,6 +632,9 @@ window.sb = sb;
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+// ── Hora chilena (America/Santiago, UTC-4 estándar / UTC-3 verano) ──
+const ChileTime={s:()=>new Date(new Date().toLocaleString('en-US',{timeZone:'America/Santiago'})),today(){const d=this.s();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');},nowISO(){return new Date().toISOString();}};
+
 // ── Estado global ──
 let authUserId = null;
 let userData = null;
@@ -1211,7 +1214,7 @@ function saveRegData(firmaImg) {
     privacy_accepted: true,
     geo_authorized: true,
     contract_version: '1.0',
-    firma_dt: new Date().toISOString(),
+    firma_dt: ChileTime.nowISO(),
   };
   localStorage.setItem('godeli_rider_pending_reg', JSON.stringify(data));
 }
@@ -1332,7 +1335,7 @@ async function completePendingRegistration(data) {
 
     // 5. Guardar contrato y consentimientos en notificación admin
     if (!existingRider) {
-      const signedAt = new Date().toISOString();
+      const signedAt = ChileTime.nowISO();
       try {
         await sb.from('notifications').insert({
           type: 'alert', emoji: '🛵', target: 'admin', is_read: false,
