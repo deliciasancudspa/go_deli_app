@@ -8,6 +8,7 @@ import "../features/orders/screens/orders_screen.dart";
 import "../features/orders/screens/order_detail_screen.dart";
 import "../features/earnings/screens/earnings_screen.dart";
 import "../features/profile/screens/profile_screen.dart";
+import "../features/performance/screens/performance_screen.dart";
 import "../features/notifications/screens/notifications_screen.dart";
 import "../features/chat/screens/chat_screen.dart";
 import "../features/profile/screens/admin_chat_screen.dart";
@@ -25,6 +26,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: "/order/:id",          builder: (c,s) => OrderDetailScreen(orderId: s.pathParameters["id"]!)),
     GoRoute(path: "/chat/:orderId",      builder: (c,s) => RiderChatScreen(orderId: s.pathParameters["orderId"]!)),
     GoRoute(path: "/chat-admin/:adminId",builder: (c,s) => AdminChatScreen(adminId: s.pathParameters["adminId"]!)),
+    GoRoute(path: "/performance",  builder: (c,s) => const PerformanceScreen()),
     GoRoute(path: "/notifications",      builder: (c,s) => NotificationsScreen(
       autoOpen: s.uri.queryParameters["open"] == "1",
       directOrderId: s.uri.queryParameters["order_id"],

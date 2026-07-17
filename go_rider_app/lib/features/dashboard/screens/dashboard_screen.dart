@@ -38,6 +38,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   List<Map<String, dynamic>> _heatmapData = [];
   bool _showHeatmap = false;
   Timer? _heatmapTimer;
+  // Challenges
+  List<Map<String, dynamic>> _challenges = [];
+  bool _challengesLoaded = false;
 
   @override
   void initState() {
@@ -52,6 +55,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       _loadUnreadCount();
       _subscribeRealtime();
       rider.loadRatingStats();
+      _loadChallenges();
     });
   }
 
@@ -167,6 +171,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   void _stopHeatmapPolling() {
     _heatmapTimer?.cancel();
     _heatmapTimer = null;
+  }
+
+  Future<void> _loadChallenges() async {
+    final rider = context.read<RiderProvider>();
+    if (rider.riderId.isEmpty) return;
+    try {
+      final data = await _sb.rpc("get_active_challenges", params: {"p_rider_id": rider.riderId});
+      if (mounted) setState(() { _challenges = List<Map<String, dynamic>>.from(data as List); _challengesLoaded = true; });
+    } catch (_) {}
   }
 
   // ── Realtime health check — reconecta canales si se caen ──
@@ -501,15 +514,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const SizedBox(height: 24),
             // ── Mapa de calor: resumen de demanda ──
             if (_heatmapData.isNotEmpty && _showHeatmap) _heatmapCard(),
+            // ── Desafíos activos ──
+            if (_challenges.isNotEmpty) ...[
+              const Text("🏆 Desafíos", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              ..._challenges.take(3).map((c) => _challengeCard(c)),
+              const SizedBox(height: 16),
+            ],
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Row(children: [
               const Text("Pedidos activos", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              const Spacer(),
               TextButton(
                 onPressed: () {
                   setState(() => _showHeatmap = !_showHeatmap);
                   if (_showHeatmap) _loadHeatmap();
                 },
-                child: Text(_showHeatmap ? "Ocultar demanda" : "Ver demanda", style: const TextStyle(fontSize: 12)),
+                child: Text(_showHeatmap ? "Ocultar" : "Demanda", style: const TextStyle(fontSize: 11)),
               ),
+              TextButton(
+                onPressed: () => context.push("/performance"),
+                child: const Text("Desempeño", style: TextStyle(fontSize: 11)),
+              ),
+            ]),
             ]),
             const SizedBox(height: 8),
             if (rider.activeOrders.isEmpty)
@@ -580,6 +607,48 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         ),
         if (hottestCount >= 4)
           const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textLight),
+      ]),
+    );
+  }
+
+  Widget _challengeCard(Map<String, dynamic> c) {
+    final current = (c["current_count"] as num?)?.toInt() ?? 0;
+    final target = (c["target_count"] as num?)?.toInt() ?? 1;
+    final pct = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
+    final completed = c["completed"] == true;
+    final type = c["type"] as String? ?? "mission";
+    final emoji = type == "streak" ? "🔥" : type == "badge" ? (c["badge_emoji"] as String? ?? "🏅") : "🎯";
+    final color = completed ? AppColors.success : AppColors.accent;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(children: [
+        Text(emoji, style: const TextStyle(fontSize: 22)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(c["title"] as String? ?? "", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: color)),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: pct,
+                backgroundColor: color.withOpacity(0.12),
+                valueColor: AlwaysStoppedAnimation(color),
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text("$current/$target · ${completed ? "✅ Completado" : "+\$${c["bonus_amount"] ?? 0}"}",
+              style: const TextStyle(fontSize: 10, color: AppColors.textLight)),
+          ]),
+        ),
       ]),
     );
   }
