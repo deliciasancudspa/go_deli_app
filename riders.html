@@ -635,6 +635,9 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 // ── Hora chilena (America/Santiago, UTC-4 estándar / UTC-3 verano) ──
 const ChileTime={s:()=>new Date(new Date().toLocaleString('en-US',{timeZone:'America/Santiago'})),today(){const d=this.s();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');},nowISO(){return new Date().toISOString();}};
 
+// ── Email +gorider: igual que la app Flutter GoRider ──
+const riderEmail = email => email.includes('+gorider@') ? email : email.replace('@', '+gorider@');
+
 // ── Estado global ──
 let authUserId = null;
 let userData = null;
@@ -723,7 +726,7 @@ async function doForgot() {
   const msg = document.getElementById('forgot-msg');
   msg.innerHTML = 'Enviando...';
   try {
-    await sb.auth.resetPasswordForEmail(email, {
+    await sb.auth.resetPasswordForEmail(riderEmail(email), {
       redirectTo: 'https://godeli.cl/riders.html'
     });
     msg.innerHTML = '<span style="color:#16a34a">✅ Enlace de recuperación enviado. Revisa tu correo.</span>';
@@ -807,7 +810,7 @@ async function doLogin() {
   const btn = document.querySelector('#login-modal .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Ingresando...'; }
   try {
-    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    const { data, error } = await sb.auth.signInWithPassword({ email: riderEmail(email), password: pass });
     if (error) throw error;
     authUserId = data.user.id;
 
@@ -1180,7 +1183,12 @@ async function submitRegistro() {
     saveRegData(firmaImg);
 
     // Registrar en Supabase Auth (envía email de confirmación)
-    const { data: auth, error: authErr } = await sb.auth.signUp({ email, password: pass });
+    // Usa riderEmail() para igualar la lógica de la app Flutter GoRider
+    const { data: auth, error: authErr } = await sb.auth.signUp({
+      email: riderEmail(email),
+      password: pass,
+      emailRedirectTo: 'https://godeli.cl/gorider-confirm'
+    });
     if (authErr) throw authErr;
 
     // Mostrar pantalla de confirmación de email
@@ -1244,7 +1252,7 @@ async function checkEmailConfirmedAndComplete() {
     const pass = inputPass ? inputPass.value : '';
     if (!pass) { alert('Por favor ingresa tu contraseña.'); if (btn) { btn.disabled = false; btn.textContent = '✅ Ya confirmé mi correo — Continuar'; } return; }
 
-    const { data: authData, error } = await sb.auth.signInWithPassword({ email: data.email, password: pass });
+    const { data: authData, error } = await sb.auth.signInWithPassword({ email: riderEmail(data.email), password: pass });
     if (error) {
       if (error.message && error.message.includes('Email not confirmed')) {
         alert('Aún no has confirmado tu correo. Revisa tu bandeja de entrada y haz clic en el enlace de confirmación.');
@@ -1268,7 +1276,7 @@ async function resendConfirmEmail() {
   let data;
   try { data = JSON.parse(stored); } catch(e) { localStorage.removeItem('godeli_rider_pending_reg'); alert('Datos de registro corruptos.'); return; }
   try {
-    const { error } = await sb.auth.resend({ type: 'signup', email: data.email });
+    const { error } = await sb.auth.resend({ type: 'signup', email: riderEmail(data.email) });
     if (error) throw error;
     alert('Correo de confirmación reenviado. Revisa tu bandeja de entrada.');
   } catch(e) {
