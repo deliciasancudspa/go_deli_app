@@ -93,6 +93,12 @@ class _RouteMapViewState extends State<RouteMapView> {
     _fitCamera();
   }
 
+  void _applyDarkMode(BuildContext context) {
+    if (Theme.of(context).brightness == Brightness.dark && _ctrl != null) {
+      _ctrl!.setMapStyle(AppColors.mapDarkStyle);
+    }
+  }
+
   void _fitCamera() {
     if (_ctrl == null) return;
     final pts = <LatLng>[
@@ -174,6 +180,7 @@ class _RouteMapViewState extends State<RouteMapView> {
           onMapCreated: (c) {
             _ctrl = c;
             _fitCamera();
+            _applyDarkMode(context);
           },
           gestureRecognizers: widget.embedded
               ? <Factory<OneSequenceGestureRecognizer>>{

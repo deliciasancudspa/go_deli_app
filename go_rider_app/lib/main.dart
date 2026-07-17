@@ -55,12 +55,16 @@ class GoRiderApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => RiderProvider(),
-      child: MaterialApp.router(
-        title: "Go Rider",
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.theme,
-        routerConfig: appRouter,
+      create: (_) => RiderProvider()..loadThemeMode(),
+      child: Consumer<RiderProvider>(
+        builder: (_, rider, __) => MaterialApp.router(
+          title: "Go Rider",
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.theme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: rider.themeMode,
+          routerConfig: appRouter,
+        ),
       ),
     );
   }

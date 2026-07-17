@@ -4,6 +4,7 @@ import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:geolocator/geolocator.dart";
+import "package:shared_preferences/shared_preferences.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:http/http.dart" as http;
 import "../config/app_config.dart";
@@ -21,6 +22,7 @@ class RiderProvider extends ChangeNotifier {
   StreamSubscription<String>? _fcmTokenSub;
   List<Map<String, dynamic>> _orderHistory = [];
   DateTime? _lastCommuneUpdate;
+  ThemeMode _themeMode = ThemeMode.system;
 
   Map<String, dynamic>? get user => _user;
   Map<String, dynamic>? get rider => _rider;
@@ -34,6 +36,33 @@ class RiderProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get orderHistory => _orderHistory;
   String get riderName => _user?["name"] ?? "Repartidor";
   String get riderId => _rider?["id"] ?? "";
+  ThemeMode get themeMode => _themeMode;
+
+  /// Carga el tema guardado de SharedPreferences. Debe llamarse al iniciar.
+  Future<void> loadThemeMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString("theme_mode");
+      if (saved == "dark") {
+        _themeMode = ThemeMode.dark;
+      } else if (saved == "light") {
+        _themeMode = ThemeMode.light;
+      } else {
+        _themeMode = ThemeMode.system;
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// Cambia el tema y persiste la preferencia.
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("theme_mode", mode == ThemeMode.dark ? "dark" : mode == ThemeMode.light ? "light" : "system");
+    } catch (_) {}
+  }
 
   RiderProvider() {
     _sb.auth.onAuthStateChange.listen((data) {

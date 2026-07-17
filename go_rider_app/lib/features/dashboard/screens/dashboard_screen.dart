@@ -29,6 +29,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   int _unreadNotifCount = 0;
   Timer? _bgGpsTimer;
   Timer? _realtimeHealthTimer;
+  // Live earnings counter
+  double? _prevEarned;
+  double? _lastDiff;
+  DateTime? _lastDiffTime;
+  Timer? _diffTimer;
 
   @override
   void initState() {
@@ -84,6 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     _riderRef?.removeListener(_onRiderUpdate);
     _stopBackgroundGps();
     _stopRealtimeHealthCheck();
+    _diffTimer?.cancel();
     if (_subscribedRiderId.isNotEmpty) {
       _sb.channel("rider-orders-$_subscribedRiderId").unsubscribe();
       _sb.channel("rider-notifs-$_subscribedRiderId").unsubscribe();
@@ -208,15 +214,27 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       // Lo que el rider debe rendir a la plataforma del efectivo cobrado
       final toRemit = cashHandled - cashEarnings;
 
-      if (mounted) setState(() {
-        _stats = {
-          "orders": delivered.length,
-          "earned": totalEarned,
-          "toDeposit": toDeposit,
-          "toRemit": toRemit,
-          "cashEarnings": cashEarnings,
-        };
-      });
+      if (mounted) {
+        // Live earnings: detect new earnings
+        if (_prevEarned != null && totalEarned > _prevEarned!) {
+          _lastDiff = totalEarned - _prevEarned!;
+          _lastDiffTime = DateTime.now();
+          _diffTimer?.cancel();
+          _diffTimer = Timer(const Duration(seconds: 5), () {
+            if (mounted) setState(() { _lastDiff = null; _lastDiffTime = null; });
+          });
+        }
+        _prevEarned = totalEarned;
+        setState(() {
+          _stats = {
+            "orders": delivered.length,
+            "earned": totalEarned,
+            "toDeposit": toDeposit,
+            "toRemit": toRemit,
+            "cashEarnings": cashEarnings,
+          };
+        });
+      }
     } catch (_) {}
   }
 
@@ -416,7 +434,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             Row(children: [
               Expanded(child: _kpi("Pedidos", "${_stats["orders"] ?? 0}", Icons.delivery_dining, AppColors.accent)),
               const SizedBox(width: 12),
-              Expanded(child: _kpi("Ganado", _fmt((_stats["earned"] ?? 0).toDouble()), Icons.attach_money, AppColors.success)),
+              Expanded(child: Stack(clipBehavior: Clip.none, children: [
+                _kpi("Ganado", _fmt((_stats["earned"] ?? 0).toDouble()), Icons.attach_money, AppColors.success),
+                if (_lastDiff != null)
+                  Positioned(top: -6, right: -4, child: AnimatedOpacity(
+                    opacity: _lastDiff != null ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 400),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.success,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [BoxShadow(color: AppColors.success.withOpacity(0.4), blurRadius: 8)],
+                      ),
+                      child: Text("+${_fmt(_lastDiff!)}", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                    ),
+                  )),
+              ])),
             ]),
             const SizedBox(height: 12),
             Row(children: [

@@ -129,6 +129,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: const Text("Cambiar contraseña"),
           style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent),
         ),
+        const SizedBox(height: 12),
+        // 🌙 Toggle tema claro / oscuro
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(children: [
+            Icon(
+              rider.themeMode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode,
+              color: AppColors.accent,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text("Tema", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                Text(
+                  rider.themeMode == ThemeMode.dark ? "Oscuro" : rider.themeMode == ThemeMode.light ? "Claro" : "Sistema",
+                  style: const TextStyle(color: AppColors.textLight, fontSize: 12),
+                ),
+              ]),
+            ),
+            SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode, size: 16)),
+                ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.settings, size: 16)),
+                ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode, size: 16)),
+              ],
+              selected: {rider.themeMode},
+              onSelectionChanged: (sel) => rider.setThemeMode(sel.first),
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ]),
+        ),
         const SizedBox(height: 24),
         ElevatedButton.icon(
           onPressed: () async { await rider.signOut(); if (context.mounted) context.go("/login"); },
