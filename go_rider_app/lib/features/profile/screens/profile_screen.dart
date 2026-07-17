@@ -24,6 +24,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadSupportPhone();
+    Future.microtask(() {
+      if (mounted) context.read<RiderProvider>().loadRatingStats();
+    });
   }
 
   Future<void> _loadSupportPhone() async {
@@ -88,6 +91,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ] : [const Padding(padding: EdgeInsets.all(8), child: Text("Sin datos bancarios", style: TextStyle(color: AppColors.textLight)))],
           onEdit: () => _editBank(context, rider, bank)),
         const SizedBox(height: 12),
+        // ── Rating ──
+        if (rider.ratingStats != null) ...[
+          _card("Mis calificaciones", [
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.star, color: Colors.amber, size: 28),
+              const SizedBox(width: 6),
+              Text("${rider.ratingStats!["avg_rating"]}",
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+              const SizedBox(width: 6),
+              Text("(${rider.ratingStats!["total_ratings"]} calificaciones)",
+                  style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
+            ]),
+            if (rider.recentRatings.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(),
+              const SizedBox(height: 8),
+              ...rider.recentRatings.take(5).map((r) {
+                final name = r["users"]?["name"] as String? ?? "Cliente";
+                final rating = r["rating"] as int? ?? 0;
+                final comment = r["comment"] as String?;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(children: [
+                    Text("⭐" * rating, style: const TextStyle(fontSize: 12)),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(comment ?? name, style: const TextStyle(fontSize: 12, color: AppColors.textLight), overflow: TextOverflow.ellipsis)),
+                  ]),
+                );
+              }),
+            ],
+          ]),
+          const SizedBox(height: 12),
+        ],
+
         _card("Contactar Admin", [
           _rowButton(
             label: "Mensaje directo",

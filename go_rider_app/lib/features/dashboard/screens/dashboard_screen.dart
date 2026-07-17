@@ -47,6 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       _loadStats();
       _loadUnreadCount();
       _subscribeRealtime();
+      rider.loadRatingStats();
     });
   }
 
@@ -191,12 +192,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (rider.riderId.isEmpty) return;
     final today = ChileTime.todayString();
     try {
-      final orders = await _sb.from("orders").select("total, rider_fee, payment_method, status").eq("deliverer_id", rider.riderId).gte("created_at", today);
+      final orders = await _sb.from("orders").select("total, rider_fee, tip_amount, payment_method, status").eq("deliverer_id", rider.riderId).gte("created_at", today);
       final list = List<Map<String, dynamic>>.from(orders);
       final delivered = list.where((o) => o["status"] == "delivered").toList();
 
-      // Total ganado = suma de rider_fee de todos los pedidos entregados
-      final totalEarned = delivered.fold(0.0, (s, o) => s + _riderFeeForOrder(o));
+      // Total ganado = suma de rider_fee + propinas de todos los pedidos entregados
+      final totalEarned = delivered.fold(0.0, (s, o) => s + _riderFeeForOrder(o) + ((o["tip_amount"] as num?)?.toDouble() ?? 0));
 
       // Ganancias por pedidos en efectivo (el rider ya tiene este dinero en su bolsillo)
       final cashEarnings = delivered
@@ -380,7 +381,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text("Hola, ${rider.riderName.split(" ")[0]}!", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-              Text(rider.isOnline ? "En línea" : "Desconectado", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+              Row(children: [
+                Text(rider.isOnline ? "En línea" : "Desconectado", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                if (rider.ratingStats != null) ...[
+                  const SizedBox(width: 10),
+                  Icon(Icons.star, color: Colors.amber.shade300, size: 14),
+                  const SizedBox(width: 3),
+                  Text("${rider.ratingStats!["avg_rating"]}", style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.w700)),
+                  Text(" (${rider.ratingStats!["total_ratings"]})", style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                ],
+              ]),
             ])),
             GestureDetector(
               onTap: () async {

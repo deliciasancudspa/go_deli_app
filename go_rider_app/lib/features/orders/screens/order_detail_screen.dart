@@ -518,6 +518,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Text("\$${riderFee.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.success)),
               ]),
             ],
+            final tipAmount = (_order!["tip_amount"] as num?)?.toDouble() ?? 0;
+            if (tipAmount > 0) ...[
+              const SizedBox(height: 4),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Row(children: [
+                  Icon(Icons.card_giftcard, size: 16, color: AppColors.warning),
+                  SizedBox(width: 4),
+                  Text("🎁 Propina", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                ]),
+                Text("+\$${tipAmount.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.warning)),
+              ]),
+            ],
             if (payMethod == "cash") ...[
               const SizedBox(height: 8),
               Container(

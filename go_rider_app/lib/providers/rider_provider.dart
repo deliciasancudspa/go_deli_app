@@ -516,6 +516,65 @@ class RiderProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  // ── Rating ────────────────────────────────────────────────────────────────
+  Map<String, dynamic>? _ratingStats;
+  List<Map<String, dynamic>> _recentRatings = [];
+  Map<String, dynamic>? get ratingStats => _ratingStats;
+  List<Map<String, dynamic>> get recentRatings => _recentRatings;
+
+  Future<void> loadRatingStats() async {
+    if (_rider == null) return;
+    try {
+      final data = await _sb.from("rider_rating_stats")
+          .select("*").eq("rider_id", _rider!["id"]).maybeSingle();
+      _ratingStats = data;
+
+      final recent = await _sb.from("rider_ratings")
+          .select("rating, comment, created_at, users!client_id(name)")
+          .eq("rider_id", _rider!["id"])
+          .order("created_at", ascending: false)
+          .limit(10);
+      _recentRatings = List<Map<String, dynamic>>.from(recent);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  // ── Pago instantáneo ──────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _paymentRequests = [];
+  bool _hasRequestedToday = false;
+  List<Map<String, dynamic>> get paymentRequests => _paymentRequests;
+  bool get hasRequestedToday => _hasRequestedToday;
+
+  Future<void> loadPaymentRequests() async {
+    if (_rider == null) return;
+    try {
+      final data = await _sb.from("rider_payment_requests")
+          .select("*").eq("rider_id", _rider!["id"])
+          .order("requested_at", ascending: false).limit(20);
+      _paymentRequests = List<Map<String, dynamic>>.from(data);
+      _hasRequestedToday = _paymentRequests.any((r) =>
+        (r["requested_at"] as String?)?.startsWith(DateTime.now().toIso8601String().substring(0,10)) == true
+        && r["status"] != "rejected");
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<String?> requestPayment(int amount) async {
+    if (amount < 2000) return "El monto mínimo es $2.000";
+    try {
+      final result = await _sb.rpc("request_payment", params: {"p_amount": amount});
+      if (result == "ok") {
+        await loadPaymentRequests();
+        return null;
+      }
+      if (result == "already_requested_today") return "Ya retiraste hoy. Disponible mañana.";
+      if (result == "amount_too_low") return "El monto mínimo es $2.000";
+      return result?.toString();
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   @override
   void dispose() {
     _fcmTokenSub?.cancel();

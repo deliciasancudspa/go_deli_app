@@ -17,6 +17,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
   List<Map<String, dynamic>> _orders = [];
   String? _semanaStatus; // null=pendiente, "depositada", "rendida"
   bool _loading = true;
+  bool _requestingPayment = false;
   final _sb = Supabase.instance.client;
 
   @override
@@ -24,6 +25,12 @@ class _EarningsScreenState extends State<EarningsScreen> {
     super.initState();
     _semanaStart = _getLunes(ChileTime.now());
     _load();
+    _loadPaymentInfo();
+  }
+
+  Future<void> _loadPaymentInfo() async {
+    final rider = context.read<RiderProvider>();
+    await rider.loadPaymentRequests();
   }
 
   // ── Lógica de semana (lunes→domingo, igual que admin.html getLunes) ──
@@ -116,7 +123,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalEarned = _orders.fold(0.0, (s, o) => s + _orderEarning(o));
+    final totalEarned = _orders.fold(0.0, (s, o) => s + _orderEarning(o) + ((o["tip_amount"] as num?)?.toDouble() ?? 0));
+
+    // Propinas totales
+    final totalTips = _orders.fold(0.0, (s, o) => s + ((o["tip_amount"] as num?)?.toDouble() ?? 0));
 
     // Ganancias de pedidos en efectivo: el rider ya las tiene en su bolsillo
     final cashEarnings = _orders
@@ -124,7 +134,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         .fold(0.0, (s, o) => s + _orderEarning(o));
 
     // Ganancias de pedidos con tarjeta (plataforma debe transferir)
-    final cardEarnings = totalEarned - cashEarnings;
+    final cardEarnings = totalEarned - cashEarnings - totalTips;
 
     // Total de efectivo que el rider cobró a clientes
     final cashHandled = _orders
@@ -196,6 +206,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
                     // ── Balance neto: A recibir o A rendir ──
                     _balanceCard(netBalance),
+                    const SizedBox(height: 16),
+
+                    // ── Pago instantáneo ──
+                    if (totalEarned > 0) _paymentRequestSection(rider, totalEarned),
                     const SizedBox(height: 24),
 
                     // ── Pedidos entregados ──
@@ -412,6 +426,156 @@ class _EarningsScreenState extends State<EarningsScreen> {
                 color: AppColors.success)),
       ]),
     );
+  }
+
+  // ── Sección de pago instantáneo ──
+  Widget _paymentRequestSection(RiderProvider rider, double totalEarned) {
+    final canRequest = !rider.hasRequestedToday && (totalEarned > 2000);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.accent.withOpacity(0.2)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.payments_outlined, color: AppColors.accent, size: 22),
+          SizedBox(width: 8),
+          Text("Retirar ganancias", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.accent)),
+        ]),
+        const SizedBox(height: 8),
+        Text(
+          canRequest ? "1 retiro disponible hoy" : "Ya retiraste hoy — disponible mañana",
+          style: TextStyle(color: canRequest ? AppColors.textMedium : AppColors.textLight, fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        if (canRequest) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _requestingPayment ? null : () => _showPaymentDialog(rider, totalEarned),
+              icon: const Icon(Icons.account_balance_wallet, size: 18),
+              label: const Text("Retirar ahora", style: TextStyle(fontWeight: FontWeight.w700)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.accent,
+                side: const BorderSide(color: AppColors.accent),
+                minimumSize: const Size(0, 46),
+              ),
+            ),
+          ),
+        ],
+        // Historial de retiros
+        if (rider.paymentRequests.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          const Divider(),
+          const SizedBox(height: 8),
+          const Text("Historial de retiros", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+          const SizedBox(height: 8),
+          ...rider.paymentRequests.take(5).map((r) {
+            final status = r["status"] as String? ?? "pending";
+            final statusColors = {"pending": AppColors.warning, "approved": AppColors.info, "completed": AppColors.success, "rejected": AppColors.error};
+            final statusLabels = {"pending": "Pendiente", "approved": "Aprobado", "completed": "Transferido", "rejected": "Rechazado"};
+            final date = DateTime.tryParse(r["requested_at"] as String? ?? "");
+            final dateLabel = date != null ? "${date.day}/${date.month}" : "";
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(children: [
+                Text(dateLabel, style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
+                const SizedBox(width: 8),
+                Text("\$${((r["net_amount"] as num?) ?? 0).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: (statusColors[status] ?? AppColors.textLight).withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                  child: Text(statusLabels[status] ?? status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: statusColors[status])),
+                ),
+              ]),
+            );
+          }),
+        ],
+      ]),
+    );
+  }
+
+  Future<void> _showPaymentDialog(RiderProvider rider, double totalEarned) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(children: [
+          Icon(Icons.payments_outlined, color: AppColors.accent, size: 24),
+          SizedBox(width: 10),
+          Text("Retirar ganancias", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        ]),
+        content: Form(
+          key: formKey,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text("Ingresa el monto que deseas retirar:", style: TextStyle(color: AppColors.textMedium, fontSize: 13)),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: const InputDecoration(
+                prefixText: "\$ ",
+                hintText: "Ej: 15000",
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) {
+                final n = int.tryParse(v ?? "");
+                if (n == null || n < 2000) return "Mínimo \$2.000";
+                if (n > totalEarned.toInt()) return "No puedes retirar más de lo ganado (\$${totalEarned.toStringAsFixed(0)})";
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: const Row(children: [
+                Icon(Icons.info_outline, size: 16, color: AppColors.warning),
+                SizedBox(width: 8),
+                Expanded(child: Text("Comisión: \$990 por retiro. La transferencia la realiza el administrador.", style: TextStyle(fontSize: 11, color: AppColors.warning, fontWeight: FontWeight.w600))),
+              ]),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.pop(ctx, true);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            child: const Text("Solicitar retiro"),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && mounted) {
+      final amount = int.tryParse(controller.text.trim()) ?? 0;
+      if (amount < 2000) return;
+      setState(() => _requestingPayment = true);
+      final err = await rider.requestPayment(amount);
+      if (mounted) {
+        setState(() => _requestingPayment = false);
+        if (err != null) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: AppColors.error));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Solicitud enviada. El administrador revisará tu retiro."), backgroundColor: AppColors.success));
+        }
+      }
+    }
+
+    controller.dispose();
   }
 
   // ── Avatar de tienda: logo_url con fallback a emoji ──
