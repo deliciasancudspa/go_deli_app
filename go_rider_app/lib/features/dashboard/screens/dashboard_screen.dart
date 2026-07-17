@@ -139,11 +139,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       if (!mounted) return;
       final rider = context.read<RiderProvider>();
       if (!rider.isOnline) return;
-      // Verificar que los canales sigan suscritos; si no, reconectar
-      final ordersSub = _sb.channel("rider-orders-$_subscribedRiderId").isSubscribed;
-      final notifsSub = _sb.channel("rider-notifs-$_subscribedRiderId").isSubscribed;
-      if (!ordersSub || !notifsSub) {
-        debugPrint('[GoRider] Realtime channel caído — reconectando...');
+      // Verificar que los canales sigan vivos haciendo un ping ligero a la BD.
+      // Si falla, significa que la conexión se perdió y hay que reconectar.
+      try {
+        _sb.from("orders").select("id").limit(1).then((_) {
+          // Canal vivo, no hacer nada
+        }).catchError((_) {
+          debugPrint('[GoRider] Realtime ping falló — reconectando...');
+          _resubscribeAll();
+        });
+      } catch (_) {
         _resubscribeAll();
       }
     });

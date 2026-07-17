@@ -24,6 +24,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
   bool _loading = true;
   bool _dialogShown = false;
   final Set<String> _processing = {};
+  RealtimeChannel? _notifChannel;
 
   @override
   void initState() {
@@ -34,11 +35,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
     NotificationService.stopOfferAlarm();
     NotificationService.dismissOfferNotifications();
     _load();
+    _subscribeRealtime();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _notifChannel?.unsubscribe();
     _restartAlarmIfNeeded();
     super.dispose();
   }
@@ -112,6 +115,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
         });
       }
     } catch (_) { if (mounted) setState(() => _loading = false); }
+  }
+
+  /// Se suscribe a Realtime para recibir nuevas ofertas en tiempo real.
+  /// Si el _load() inicial no atrapó la notificación (cold start, timing), la
+  /// suscripción la empuja apenas llega, sin necesidad de refresh manual.
+  void _subscribeRealtime() {
+    final rider = context.read<RiderProvider>();
+    if (rider.riderId.isEmpty) return;
+
+    _notifChannel = _sb.channel("notif-screen-${rider.riderId}")
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: "public",
+        table: "notifications",
+        callback: (payload) {
+          if (!mounted) return;
+          final rec = payload.newRecord;
+          // Solo order_offer para este rider
+          if (rec["type"] != "order_offer") return;
+          if (rec["target"] != rider.riderId) return;
+          // Evitar duplicados
+          final exists = _notifications.any((n) => n["id"] == rec["id"]);
+          if (exists) return;
+          setState(() {
+            _notifications.insert(0, Map<String, dynamic>.from(rec));
+          });
+        },
+      ).subscribe();
   }
 
   Future<void> _openOffer(Map<String, dynamic> notif) async {
