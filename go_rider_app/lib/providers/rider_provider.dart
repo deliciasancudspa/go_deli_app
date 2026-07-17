@@ -1,11 +1,14 @@
 import "dart:async";
 import "dart:convert";
 import "package:firebase_messaging/firebase_messaging.dart";
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:geolocator/geolocator.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:http/http.dart" as http;
 import "../config/app_config.dart";
 import "../core/utils/auth_error_translator.dart";
+import "../core/utils/chile_time.dart";
 
 class RiderProvider extends ChangeNotifier {
   final _sb = Supabase.instance.client;
@@ -140,7 +143,7 @@ class RiderProvider extends ChangeNotifier {
           "commune_id": communeId,
           "signer_name": signerName,
           "signer_rut": signerRut,
-          "signed_at": DateTime.now().toIso8601String(),
+          "signed_at": ChileTime.now().toIso8601String(),
           // La firma NO viaja en metadata (puede pesar 200KB+ y GoTrue la rechaza).
           // Se envía por separado vía RPC submit_rider_signature después del signUp.
         },
@@ -294,6 +297,19 @@ class RiderProvider extends ChangeNotifier {
     await _sb.from("deliverers").update({"is_online": newVal, "is_available": newVal}).eq("id", _rider!["id"]);
     _isOnline = newVal;
     notifyListeners();
+
+    // ── Al activarse, enviar ubicación GPS inmediatamente ──
+    // Así el dispatch engine sabe dónde está el rider desde el momento en que se conecta.
+    if (newVal) {
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        ).timeout(const Duration(seconds: 5));
+        await sendLocation(pos.latitude, pos.longitude);
+      } catch (e) {
+        debugPrint('[GoRider] toggleOnline GPS: $e');
+      }
+    }
   }
 
   Future<void> loadActiveOrders() async {
@@ -332,7 +348,9 @@ class RiderProvider extends ChangeNotifier {
 
       // Detectar comuna si el rider aún no tiene una o cambió su ubicación
       await _maybeUpdateCommune(lat, lng);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[GoRider] sendLocation error: $e');
+    }
   }
 
   /// Detecta la comuna desde coordenadas y actualiza el registro del rider
@@ -395,7 +413,9 @@ class RiderProvider extends ChangeNotifier {
       _rider!['commune_id'] = newCommuneId;
       _lastCommuneUpdate = DateTime.now();
       notifyListeners();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[GoRider] _maybeUpdateCommune error: $e');
+    }
   }
 
   Future<void> reloadProfile() async {

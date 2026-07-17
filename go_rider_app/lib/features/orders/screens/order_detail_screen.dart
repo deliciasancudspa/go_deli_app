@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "dart:async";
+import "package:flutter/foundation.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -7,6 +8,7 @@ import "package:supabase_flutter/supabase_flutter.dart";
 import "package:geolocator/geolocator.dart";
 import "package:google_maps_flutter/google_maps_flutter.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/utils/chile_time.dart";
 import "../../../providers/rider_provider.dart";
 import "../../map/widgets/route_map_view.dart";
 
@@ -107,7 +109,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       setState(() => _gpsActive = true);
       await _sendGps();
       _gpsTimer = Timer.periodic(const Duration(seconds: 8), (_) => _sendGps());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[GoRider] OrderDetail _startGps error: $e');
+    }
   }
 
   Future<void> _sendGps() async {
@@ -119,7 +123,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         setState(() { _riderLat = pos.latitude; _riderLng = pos.longitude; });
         await context.read<RiderProvider>().sendLocation(pos.latitude, pos.longitude);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[GoRider] OrderDetail _sendGps error: $e');
+    }
   }
 
   void _stopGps() {
@@ -186,7 +192,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         "status": "returned",
         "return_reason": reason,
         "return_note": note.isEmpty ? null : note,
-        "returned_at": DateTime.now().toIso8601String(),
+        "returned_at": ChileTime.now().toIso8601String(),
       }).eq("id", widget.orderId);
 
       if (storeId != null) {

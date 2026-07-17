@@ -3,6 +3,7 @@ import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/utils/chile_time.dart";
 import "../../../providers/rider_provider.dart";
 
 class EarningsScreen extends StatefulWidget {
@@ -21,7 +22,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
   @override
   void initState() {
     super.initState();
-    _semanaStart = _getLunes(DateTime.now());
+    _semanaStart = _getLunes(ChileTime.now());
     _load();
   }
 
@@ -43,7 +44,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
     return "${fmt(_semanaStart)} – ${fmt(_semanaEnd)}";
   }
 
-  bool get _isCurrentWeek => _getLunes(DateTime.now()) == _semanaStart;
+  bool get _isCurrentWeek => _getLunes(ChileTime.now()) == _semanaStart;
 
   Future<void> _load() async {
     final rider = context.read<RiderProvider>();
@@ -245,7 +246,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
           child: GestureDetector(
             onTap: () {
               // Volver a la semana actual
-              final current = _getLunes(DateTime.now());
+              final current = _getLunes(ChileTime.now());
               if (_semanaStart != current) {
                 setState(() => _semanaStart = current);
                 _load();

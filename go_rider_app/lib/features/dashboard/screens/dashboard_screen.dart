@@ -1,10 +1,14 @@
+import "dart:async";
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "package:geolocator/geolocator.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/services/notification_service.dart";
+import "../../../core/utils/chile_time.dart";
 import "../../../providers/rider_provider.dart";
 
 class DashboardScreen extends StatefulWidget {
@@ -22,6 +26,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String _subscribedUserId = "";
   RiderProvider? _riderRef;
   int _unreadNotifCount = 0;
+  Timer? _bgGpsTimer;
+  Timer? _realtimeHealthTimer;
 
   @override
   void initState() {
@@ -48,6 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   void _resubscribeAll() {
+    _stopRealtimeHealthCheck();
     if (_subscribedRiderId.isNotEmpty) {
       _sb.channel("rider-orders-$_subscribedRiderId").unsubscribe();
       _sb.channel("rider-notifs-$_subscribedRiderId").unsubscribe();
@@ -67,18 +74,84 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     _loadStats();
     _loadUnreadCount();
     _subscribeRealtime();
+    _syncBackgroundGps();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _riderRef?.removeListener(_onRiderUpdate);
+    _stopBackgroundGps();
+    _stopRealtimeHealthCheck();
     if (_subscribedRiderId.isNotEmpty) {
       _sb.channel("rider-orders-$_subscribedRiderId").unsubscribe();
       _sb.channel("rider-notifs-$_subscribedRiderId").unsubscribe();
     }
     if (_subscribedUserId.isNotEmpty) _sb.channel("rider-chat-$_subscribedUserId").unsubscribe();
     super.dispose();
+  }
+
+  // ── GPS en background mientras el rider está online esperando pedidos ──
+
+  void _syncBackgroundGps() {
+    final rider = context.read<RiderProvider>();
+    if (rider.isOnline && _bgGpsTimer == null) {
+      _startBackgroundGps();
+    } else if (!rider.isOnline && _bgGpsTimer != null) {
+      _stopBackgroundGps();
+    }
+  }
+
+  void _startBackgroundGps() {
+    _stopBackgroundGps();
+    debugPrint('[GoRider] Dashboard GPS tracking iniciado (cada 45s)');
+    _bgGpsTimer = Timer.periodic(const Duration(seconds: 45), (_) async {
+      if (!mounted) return;
+      final rider = context.read<RiderProvider>();
+      if (!rider.isOnline) {
+        _stopBackgroundGps();
+        return;
+      }
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+        ).timeout(const Duration(seconds: 5));
+        await rider.sendLocation(pos.latitude, pos.longitude);
+      } catch (e) {
+        debugPrint('[GoRider] Dashboard bg GPS: $e');
+      }
+    });
+  }
+
+  void _stopBackgroundGps() {
+    if (_bgGpsTimer != null) {
+      _bgGpsTimer!.cancel();
+      _bgGpsTimer = null;
+      debugPrint('[GoRider] Dashboard GPS tracking detenido');
+    }
+  }
+
+  // ── Realtime health check — reconecta canales si se caen ──
+
+  void _startRealtimeHealthCheck() {
+    _stopRealtimeHealthCheck();
+    _realtimeHealthTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (!mounted) return;
+      final rider = context.read<RiderProvider>();
+      if (!rider.isOnline) return;
+      // Verificar que los canales sigan suscritos; si no, reconectar
+      final ordersSub = _sb.channel("rider-orders-$_subscribedRiderId").isSubscribed;
+      final notifsSub = _sb.channel("rider-notifs-$_subscribedRiderId").isSubscribed;
+      if (!ordersSub || !notifsSub) {
+        debugPrint('[GoRider] Realtime channel caído — reconectando...');
+        _resubscribeAll();
+      }
+    });
+  }
+
+  void _stopRealtimeHealthCheck() {
+    _realtimeHealthTimer?.cancel();
+    _realtimeHealthTimer = null;
   }
 
   Future<void> _loadUnreadCount() async {
@@ -104,7 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Future<void> _loadStats() async {
     final rider = context.read<RiderProvider>();
     if (rider.riderId.isEmpty) return;
-    final today = DateTime.now().toIso8601String().split("T")[0];
+    final today = ChileTime.todayString();
     try {
       final orders = await _sb.from("orders").select("total, rider_fee, payment_method, status").eq("deliverer_id", rider.riderId).gte("created_at", today);
       final list = List<Map<String, dynamic>>.from(orders);
@@ -199,6 +272,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           },
         ).subscribe();
       } catch (_) { _ordersSubscribed = false; _subscribedRiderId = ""; }
+      // Iniciar health check de Realtime una vez suscritos los canales
+      _startRealtimeHealthCheck();
     }
 
     // Chat: receiver_id stores users.id — set up separately when user loads
