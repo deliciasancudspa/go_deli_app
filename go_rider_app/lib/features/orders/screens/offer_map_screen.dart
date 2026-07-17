@@ -43,11 +43,35 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
     }
   }
 
-  LatLng? get _storePos {
+  bool get _isRescue => widget.offerData["is_rescue"] == true;
+
+  LatLng? get _pickupPos {
+    // Pedido de rescate: el pickup es la ubicación del incidente, no la tienda
+    if (_isRescue) {
+      final lat = (widget.offerData["pickup_lat"] as num?)?.toDouble();
+      final lng = (widget.offerData["pickup_lng"] as num?)?.toDouble();
+      if (lat != null && lng != null) return LatLng(lat, lng);
+    }
+    // Pedido normal: pickup en la tienda
     final s = _order?["stores"] as Map?;
     final lat = (s?["lat"] as num?)?.toDouble();
     final lng = (s?["lng"] as num?)?.toDouble();
     return (lat != null && lng != null) ? LatLng(lat, lng) : null;
+  }
+
+  String get _pickupLabel {
+    if (_isRescue) {
+      final reason = widget.offerData["incident_reason"] as String? ?? "";
+      final label = {
+        "vehicle_breakdown": "🚗 Ubicación de la avería",
+        "traffic_accident": "💥 Ubicación del accidente",
+        "medical_emergency": "🏥 Ubicación del incidente",
+        "damaged_order": "📦 Recoger pedido",
+        "other": "📍 Punto de recogida",
+      }[reason] ?? "📍 Punto de recogida (rescate)";
+      return label;
+    }
+    return _order?["stores"]?["name"] as String? ?? "Tienda";
   }
 
   LatLng? get _clientPos {
@@ -85,9 +109,9 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
     final payMethod = _order?["payment_method"] as String?;
     final total = (_order?["total"] as num?)?.toDouble() ?? (widget.offerData["total"] as num?)?.toDouble() ?? 0;
 
-    final storePos = _storePos;
+    final pickupPos = _pickupPos;
     final clientPos = _clientPos;
-    final canShowMap = storePos != null && clientPos != null;
+    final canShowMap = pickupPos != null && clientPos != null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -102,9 +126,9 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
               Positioned.fill(
                 child: canShowMap
                     ? RouteMapView(
-                        origin: storePos,
+                        origin: pickupPos,
                         destination: clientPos,
-                        originLabel: storeName,
+                        originLabel: _pickupLabel,
                         destinationLabel: "Cliente",
                         originHue: BitmapDescriptor.hueOrange,
                         destinationHue: BitmapDescriptor.hueViolet,
@@ -148,15 +172,36 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
                     ]),
                     const SizedBox(height: 14),
 
-                    // Tienda
-                    Row(children: [
-                      _storeAvatar(storeLogo, storeEmoji, size: 36),
-                      const SizedBox(width: 10),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text("Recoger en", style: TextStyle(fontSize: 11, color: AppColors.textLight, fontWeight: FontWeight.w700)),
-                        Text(storeName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                      ])),
-                    ]),
+                    // Pickup (tienda o ubicación del incidente)
+                    if (_isRescue) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDC2626).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFDC2626).withOpacity(0.3)),
+                        ),
+                        child: Row(children: [
+                          const Text("🆘", style: TextStyle(fontSize: 22)),
+                          const SizedBox(width: 10),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text("Pedido de rescate", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFDC2626))),
+                            const SizedBox(height: 2),
+                            Text("Recoger en: $_pickupLabel", style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+                            Text("Tienda: $storeName", style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textDark)),
+                          ])),
+                        ]),
+                      ),
+                    ] else ...[
+                      Row(children: [
+                        _storeAvatar(storeLogo, storeEmoji, size: 36),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Text("Recoger en", style: TextStyle(fontSize: 11, color: AppColors.textLight, fontWeight: FontWeight.w700)),
+                          Text(storeName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        ])),
+                      ]),
+                    ],
                     if (delivAddr.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

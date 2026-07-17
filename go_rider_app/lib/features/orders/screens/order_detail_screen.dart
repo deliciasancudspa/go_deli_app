@@ -180,6 +180,79 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
+  // ── Reporte de incidente ─────────────────────────────────────────────────
+
+  Future<void> _showIncidentDialog() async {
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => const _IncidentSheet(),
+    );
+    if (result != null && mounted) {
+      await _processIncident(result["reason"]!, result["note"] ?? "");
+    }
+  }
+
+  Future<void> _processIncident(String reason, String note) async {
+    setState(() => _deliveryLoading = true);
+    try {
+      // Intentar obtener ubicación fresca primero (más precisa para el incidente)
+      double? lat, lng;
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        ).timeout(const Duration(seconds: 5));
+        lat = pos.latitude;
+        lng = pos.longitude;
+      } catch (_) {
+        // Fallback: última ubicación conocida del GPS en vivo
+        lat = _riderLat;
+        lng = _riderLng;
+      }
+
+      if (lat == null || lng == null) {
+        if (mounted) {
+          setState(() => _deliveryLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("No se pudo obtener tu ubicación. Intenta de nuevo."), backgroundColor: AppColors.error),
+          );
+        }
+        return;
+      }
+
+      final result = await _sb.rpc("rider_report_incident", params: {
+        "p_order_id": widget.orderId,
+        "p_reason": reason,
+        "p_note": note,
+        "p_lat": lat,
+        "p_lng": lng,
+      });
+
+      if (result == "ok" && mounted) {
+        _stopGps();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Incidente reportado. Soporte te contactará."), backgroundColor: AppColors.warning),
+        );
+        context.go("/dashboard");
+      } else {
+        if (mounted) {
+          setState(() => _deliveryLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Error: $result"), backgroundColor: AppColors.error),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _deliveryLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al reportar: $e"), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
   Future<void> _processReturn(String reason, String note, String reasonLabel) async {
     // Read sync values before any await to avoid context-after-dispose issues
     final riderName = context.read<RiderProvider>().riderName;
@@ -441,6 +514,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             )),
           ]),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showIncidentDialog(),
+              icon: const Icon(Icons.warning_amber_rounded, size: 18),
+              label: const Text("Reportar incidente", style: TextStyle(fontWeight: FontWeight.w700)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFDC2626),
+                side: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
           const SizedBox(height: 10),
         ],
 
@@ -702,6 +790,130 @@ class _ReturnDialogSheetState extends State<_ReturnDialogSheet> {
             onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             child: const Text("Confirmar"),
+          )),
+        ]),
+        const SizedBox(height: 8),
+      ]),
+    );
+  }
+}
+
+// ── Bottom sheet para reporte de incidente ──────────────────────────────────
+class _IncidentSheet extends StatefulWidget {
+  const _IncidentSheet();
+  @override
+  State<_IncidentSheet> createState() => _IncidentSheetState();
+}
+
+class _IncidentSheetState extends State<_IncidentSheet> {
+  final _noteCtrl = TextEditingController();
+  String? _selected;
+
+  static const _reasons = [
+    {"id": "vehicle_breakdown", "emoji": "🚗", "label": "Vehículo averiado", "desc": "Pinchazo, motor, falla mecánica"},
+    {"id": "traffic_accident",  "emoji": "💥", "label": "Accidente de tránsito", "desc": "Choque, colisión, despiste"},
+    {"id": "medical_emergency", "emoji": "🏥", "label": "Emergencia médica", "desc": "Lesión, malestar repentino"},
+    {"id": "damaged_order",     "emoji": "📦", "label": "Pedido dañado", "desc": "Se derramó, rompió o contaminó"},
+    {"id": "other",             "emoji": "📝", "label": "Otro", "desc": "Especificar en la nota"},
+  ];
+
+  @override
+  void dispose() {
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        left: 20, right: 20, top: 20,
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header
+        Row(children: [
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(color: const Color(0xFFDC2626).withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 26),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text("Reportar incidente", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            Text("¿Qué sucedió durante la entrega?", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+          ])),
+        ]),
+        const SizedBox(height: 16),
+
+        // Opciones de incidente
+        ..._reasons.map((r) {
+          final isSelected = _selected == r["id"];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: InkWell(
+              onTap: () => setState(() => _selected = r["id"]),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFFDC2626).withOpacity(0.08) : AppColors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFFDC2626) : AppColors.border,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Row(children: [
+                  Text(r["emoji"]!, style: const TextStyle(fontSize: 26)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(r["label"]!, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: isSelected ? const Color(0xFFDC2626) : AppColors.textDark)),
+                    Text(r["desc"]!, style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
+                  ])),
+                  if (isSelected) const Icon(Icons.check_circle, color: Color(0xFFDC2626), size: 22),
+                ]),
+              ),
+            ),
+          );
+        }),
+
+        const SizedBox(height: 8),
+
+        // Nota adicional
+        TextField(
+          controller: _noteCtrl,
+          maxLines: 2,
+          decoration: InputDecoration(
+            hintText: "Detalles adicionales (opcional)...",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            prefixIcon: const Icon(Icons.edit_note, size: 20),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Acciones
+        Row(children: [
+          Expanded(child: OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+            child: const Text("Cancelar"),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: ElevatedButton.icon(
+            onPressed: _selected == null ? null : () {
+              Navigator.pop(context, {
+                "reason": _selected!,
+                "note": _noteCtrl.text.trim(),
+              });
+            },
+            icon: const Icon(Icons.send, size: 18),
+            label: const Text("Reportar", style: TextStyle(fontWeight: FontWeight.w800)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              disabledBackgroundColor: AppColors.border,
+              minimumSize: const Size(0, 48),
+            ),
           )),
         ]),
         const SizedBox(height: 8),
