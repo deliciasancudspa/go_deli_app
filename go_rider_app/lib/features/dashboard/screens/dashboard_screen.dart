@@ -34,6 +34,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   double? _lastDiff;
   DateTime? _lastDiffTime;
   Timer? _diffTimer;
+  // Heatmap
+  List<Map<String, dynamic>> _heatmapData = [];
+  bool _showHeatmap = false;
+  Timer? _heatmapTimer;
 
   @override
   void initState() {
@@ -91,6 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     _stopBackgroundGps();
     _stopRealtimeHealthCheck();
     _diffTimer?.cancel();
+    _stopHeatmapPolling();
     if (_subscribedRiderId.isNotEmpty) {
       _sb.channel("rider-orders-$_subscribedRiderId").unsubscribe();
       _sb.channel("rider-notifs-$_subscribedRiderId").unsubscribe();
@@ -105,8 +110,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final rider = context.read<RiderProvider>();
     if (rider.isOnline && _bgGpsTimer == null) {
       _startBackgroundGps();
+      _startHeatmapPolling();
     } else if (!rider.isOnline && _bgGpsTimer != null) {
       _stopBackgroundGps();
+      _stopHeatmapPolling();
     }
   }
 
@@ -137,6 +144,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       _bgGpsTimer = null;
       debugPrint('[GoRider] Dashboard GPS tracking detenido');
     }
+  }
+
+  // ── Mapa de calor ─────────────────────────────────────────────────────────
+  Future<void> _loadHeatmap() async {
+    final rider = context.read<RiderProvider>();
+    if (rider.riderId.isEmpty || !rider.isOnline) return;
+    try {
+      final riderData = rider.rider;
+      final communeId = riderData?["commune_id"] as String?;
+      final data = await _sb.rpc("get_heatmap_data", params: {"p_commune_id": communeId});
+      if (mounted) setState(() => _heatmapData = List<Map<String, dynamic>>.from(data as List));
+    } catch (_) {}
+  }
+
+  void _startHeatmapPolling() {
+    _heatmapTimer?.cancel();
+    _heatmapTimer = Timer.periodic(const Duration(seconds: 60), (_) => _loadHeatmap());
+    _loadHeatmap();
+  }
+
+  void _stopHeatmapPolling() {
+    _heatmapTimer?.cancel();
+    _heatmapTimer = null;
   }
 
   // ── Realtime health check — reconecta canales si se caen ──
@@ -469,9 +499,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               Expanded(child: _kpi("A rendir", _fmt((_stats["toRemit"] ?? 0).toDouble()), Icons.swap_horiz, AppColors.warning)),
             ]),
             const SizedBox(height: 24),
+            // ── Mapa de calor: resumen de demanda ──
+            if (_heatmapData.isNotEmpty && _showHeatmap) _heatmapCard(),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text("Pedidos activos", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-              TextButton(onPressed: () => context.go("/orders"), child: const Text("Ver todos")),
+              TextButton(
+                onPressed: () {
+                  setState(() => _showHeatmap = !_showHeatmap);
+                  if (_showHeatmap) _loadHeatmap();
+                },
+                child: Text(_showHeatmap ? "Ocultar demanda" : "Ver demanda", style: const TextStyle(fontSize: 12)),
+              ),
             ]),
             const SizedBox(height: 8),
             if (rider.activeOrders.isEmpty)
@@ -503,6 +541,47 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       );
     }
     return SizedBox(width: size, height: size, child: Center(child: fallback));
+  }
+
+  Widget _heatmapCard() {
+    final totalPending = _heatmapData.fold(0, (s, z) => s + ((z["pending_count"] as num?)?.toInt() ?? 0));
+    final totalEarnings = _heatmapData.fold(0, (s, z) => s + ((z["potential_earnings"] as num?)?.toInt() ?? 0));
+    final hottest = _heatmapData.reduce((a, b) =>
+      ((a["pending_count"] as num?)?.toInt() ?? 0) > ((b["pending_count"] as num?)?.toInt() ?? 0) ? a : b);
+    final hottestCount = (hottest["pending_count"] as num?)?.toInt() ?? 0;
+
+    Color levelColor = AppColors.success;
+    String levelLabel = "Baja";
+    if (hottestCount >= 4) { levelColor = AppColors.error; levelLabel = "Alta"; }
+    else if (hottestCount >= 2) { levelColor = AppColors.warning; levelLabel = "Media"; }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: levelColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: levelColor.withOpacity(0.3)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(color: levelColor.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+          child: Icon(Icons.whatshot, color: levelColor, size: 24),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text("Demanda $levelLabel en tu zona", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: levelColor)),
+            const SizedBox(height: 2),
+            Text("$totalPending pedidos esperando · ~\$${_fmt(totalEarnings.toDouble())} potencial",
+                style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
+          ]),
+        ),
+        if (hottestCount >= 4)
+          const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textLight),
+      ]),
+    );
   }
 
   Widget _kpi(String label, String value, IconData icon, Color color) => Container(
