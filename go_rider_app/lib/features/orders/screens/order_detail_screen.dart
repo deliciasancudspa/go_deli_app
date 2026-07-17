@@ -12,6 +12,9 @@ import "../../../core/services/connectivity_service.dart";
 import "../../../core/utils/chile_time.dart";
 import "../../../providers/rider_provider.dart";
 import "../../map/widgets/route_map_view.dart";
+import "../../../core/services/voice_navigation_service.dart";
+import "../../../core/services/directions_service.dart";
+import "../../../l10n/app_localizations.dart";
 
 class OrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -32,6 +35,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Timer? _gpsTimer;
   int _codeAttempts = 0;        // intentos fallidos de código de entrega
   bool _codeLocked = false;     // 3 intentos fallidos → verificación alternativa
+
+  // Navegación por voz
+  VoiceNavigationService? _voiceNav;
+  bool _voiceNavEnabled = false;
+  List<NavStep>? _voiceSteps;
 
   // Pedido en cola: aceptado mientras el rider aún tiene otro pedido en ruta.
   // No se navega hasta entregar el de adelante.
@@ -67,6 +75,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   @override
   void dispose() {
     _stopGps();
+    _voiceNav?.dispose();
     _deliveryCodeCtrl.dispose();
     _orderChannel?.unsubscribe();
     super.dispose();
@@ -125,6 +134,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (mounted) {
         setState(() { _riderLat = pos.latitude; _riderLng = pos.longitude; });
         await context.read<RiderProvider>().sendLocation(pos.latitude, pos.longitude);
+        // Navegación por voz: monitorear posición vs pasos de ruta
+        if (_voiceNav != null && _voiceNavEnabled) {
+          _voiceNav!.checkPosition(LatLng(pos.latitude, pos.longitude));
+        }
       }
     } catch (e) {
       debugPrint('[GoRider] OrderDetail _sendGps error: $e');
@@ -165,7 +178,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (newStatus == "delivered") _stopGps();
     await _load();
     if (newStatus == "delivered" && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Entrega confirmada!"), backgroundColor: AppColors.success));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.orderDeliveryConfirmed), backgroundColor: AppColors.success));
       context.go("/dashboard");
     }
   }
@@ -362,7 +375,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.accent)));
-    if (_order == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text("Pedido no encontrado")));
+    final l10n = AppLocalizations.of(context)!;
+    if (_order == null) return Scaffold(appBar: AppBar(), body: Center(child: Text(l10n.orderNotFound)));
 
     final status = _order!["status"] as String;
     final items = (_order!["order_items"] as List?) ?? [];
@@ -374,8 +388,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final mapSection = _isQueued ? null : _routeMapSection(status);
 
     final statusEmojis  = {"assigned":"🛵","picked_up":"📦","on_the_way":"🚀","delivered":"✅","cancelled":"❌"};
-    final statusLabels  = {"assigned":"Ve al restaurante","picked_up":"Pedido recogido","on_the_way":"En camino al cliente","delivered":"Entregado","cancelled":"Cancelado"};
-    final statusDescs   = {"assigned":"Dirígete al restaurante y muestra el código de retiro","picked_up":"Lleva el pedido al cliente","on_the_way":"Pide el código de entrega al cliente","delivered":"Entrega completada","cancelled":"Pedido cancelado"};
+    final statusLabels  = {"assigned":l10n.orderPickup,"picked_up":l10n.orderPickedUp,"on_the_way":l10n.orderOnTheWay,"delivered":l10n.orderDelivered,"cancelled":l10n.orderCancelled};
+    final statusDescs   = {"assigned":l10n.orderStatusPickupDesc,"picked_up":l10n.orderStatusPickedUpDesc,"on_the_way":l10n.orderStatusOnWayDesc,"delivered":l10n.orderStatusDeliveredDesc,"cancelled":l10n.orderStatusCancelledDesc};
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -388,7 +402,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
               const SizedBox(width: 5),
-              const Text("GPS", style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w700)),
+              Text(l10n.gps, style: const TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w700)),
             ]),
           ),
         ],
@@ -407,7 +421,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               child: const Row(children: [
                 Icon(Icons.wifi_off, color: Colors.white, size: 18),
                 SizedBox(width: 10),
-                Expanded(child: Text("Sin conexión — el GPS y las notificaciones no funcionarán", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
+                Expanded(child: Text(l10n.dashboardOfflineBanner, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
               ]),
             );
           },
@@ -433,7 +447,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: const Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.location_on, color: AppColors.success, size: 14),
                   SizedBox(width: 6),
-                  Text("Compartiendo ubicación en tiempo real", style: TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.w700)),
+                  Text(l10n.orderSharingLocation, style: const TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.w700)),
                 ]),
               ),
             ],
@@ -609,7 +623,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ElevatedButton.icon(
             onPressed: () => _updateStatus("picked_up"),
             icon: const Icon(Icons.shopping_bag),
-            label: const Text("Recogí el pedido"),
+              label: Text(l10n.orderConfirmPickup),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, minimumSize: const Size(double.infinity, 50)),
           ),
           const SizedBox(height: 10),
@@ -654,13 +668,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.success.withOpacity(0.4), width: 2)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Row(children: [
-                Icon(Icons.lock_outline, color: AppColors.success, size: 18),
-                SizedBox(width: 8),
-                Text("Confirmar entrega", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.success)),
+              Row(children: [
+                const Icon(Icons.lock_outline, color: AppColors.success, size: 18),
+                const SizedBox(width: 8),
+                Text(l10n.orderConfirmDelivery, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.success)),
               ]),
               const SizedBox(height: 4),
-              const Text("Pide al cliente el código de 4 dígitos", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+              Text(l10n.orderCodeHint, style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
               const SizedBox(height: 12),
               if (!_codeLocked) ...[
                 Row(children: [
@@ -689,7 +703,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ]),
                 if (_codeAttempts > 0) ...[
                   const SizedBox(height: 6),
-                  Text("${_codeAttempts}/3 intentos fallidos", style: TextStyle(fontSize: 11, color: AppColors.error.withOpacity(0.8))),
+                  Text(l10n.t(l10n.orderCodeAttempts, {'n': '$_codeAttempts'}), style: TextStyle(fontSize: 11, color: AppColors.error.withOpacity(0.8))),
                 ],
               ] else ...[
                 // Verificación alternativa tras 3 intentos fallidos
@@ -710,7 +724,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       child: ElevatedButton.icon(
                         onPressed: _deliveryLoading ? null : _confirmDeliveryWithoutCode,
                         icon: const Icon(Icons.check_circle_outline, size: 18),
-                        label: const Text("Confirmar entrega sin código"),
+                        label: Text(l10n.orderCodeAlternative),
                         style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning, minimumSize: const Size(0, 46)),
                       ),
                     ),
@@ -783,6 +797,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+          // Toggle navegación por voz
+          if (_voiceNav != null && (_routeKm ?? 0) > 0)
+            IconButton(
+              icon: Icon(_voiceNavEnabled ? Icons.volume_up : Icons.volume_off, size: 20),
+              color: _voiceNavEnabled ? AppColors.accent : AppColors.textLight,
+              tooltip: _voiceNavEnabled ? 'Navegación por voz activada' : 'Activar navegación por voz',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              onPressed: () async {
+                if (_voiceNavEnabled) {
+                  _voiceNav!.stopNavigation();
+                  setState(() => _voiceNavEnabled = false);
+                } else if (_voiceNav != null && _voiceSteps != null && _voiceSteps!.isNotEmpty) {
+                  await _voiceNav!.startNavigation(_voiceSteps!);
+                  setState(() => _voiceNavEnabled = true);
+                }
+              },
+            ),
           if (_routeKm != null)
             Text("${_routeKm!.toStringAsFixed(1)} km${_routeEta != null ? " · $_routeEta" : ""}",
                 style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800, fontSize: 13)),
@@ -798,6 +830,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           embedded: true,
           onRouteReady: (r) {
             if (mounted) setState(() { _routeKm = r.distanceKm; _routeEta = r.durationText; });
+            // Guardar steps para navegación por voz
+            if (r.steps != null && r.steps!.isNotEmpty) {
+              _voiceSteps = r.steps;
+              _voiceNav?.dispose();
+              _voiceNav = VoiceNavigationService();
+              _voiceNav!.initialize();
+            }
           },
         ),
         const SizedBox(height: 10),

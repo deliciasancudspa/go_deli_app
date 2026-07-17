@@ -3,6 +3,7 @@ import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
+import "../../../l10n/app_localizations.dart";
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,11 +42,11 @@ class _LoginScreenState extends State<LoginScreen> {
           TextField(
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(hintText: "Correo electrónico"),
+            decoration: InputDecoration(hintText: AppLocalizations.of(ctx)!.email),
           ),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(ctx)!.cancel)),
           ElevatedButton(
             onPressed: () async {
               final email = emailCtrl.text.trim();
@@ -58,12 +59,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 SnackBar(
                   content: Text(err != null
                       ? err
-                      : "Te enviamos un enlace para restablecer tu contraseña. Revisa tu correo."),
+                      : AppLocalizations.of(context)!.loginResetSent),
                   backgroundColor: err != null ? AppColors.error : AppColors.success,
                 ),
               );
             },
-            child: const Text("Enviar enlace"),
+            child: Text(AppLocalizations.of(ctx)!.loginSendReset),
           ),
         ],
       ),

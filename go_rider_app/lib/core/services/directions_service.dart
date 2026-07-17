@@ -4,18 +4,39 @@ import "package:google_maps_flutter/google_maps_flutter.dart";
 import "package:geolocator/geolocator.dart";
 import "../../config/app_config.dart";
 
+/// Un paso individual de navegación (turn-by-turn).
+class NavStep {
+  final String instruction;      // "Gira a la derecha en Av. Providencia"
+  final double distanceMeters;   // distancia de este paso
+  final String durationText;     // "2 min"
+  final LatLng startLocation;
+  final LatLng endLocation;
+  final String? maneuver;        // "turn-right", "turn-left", "straight", etc.
+
+  NavStep({
+    required this.instruction,
+    required this.distanceMeters,
+    required this.durationText,
+    required this.startLocation,
+    required this.endLocation,
+    this.maneuver,
+  });
+}
+
 /// Resultado de una consulta de ruta entre dos puntos.
 class RouteResult {
   final List<LatLng> points;     // puntos para dibujar la polyline
   final double distanceMeters;   // distancia de la ruta
   final String? durationText;    // ej: "12 min"
   final bool isFallback;         // true si se usó línea recta (sin Directions API)
+  final List<NavStep>? steps;    // pasos de navegación turn-by-turn
 
   RouteResult({
     required this.points,
     required this.distanceMeters,
     this.durationText,
     this.isFallback = false,
+    this.steps,
   });
 
   double get distanceKm => distanceMeters / 1000.0;
@@ -61,17 +82,43 @@ class DirectionsService {
 
       double dist = fallback.distanceMeters;
       String? dur;
+      final List<NavStep> steps = [];
       final legs = route["legs"] as List?;
       if (legs != null && legs.isNotEmpty) {
         final leg = legs.first as Map<String, dynamic>;
         dist = ((leg["distance"] as Map?)?["value"] as num?)?.toDouble() ?? dist;
         dur = (leg["duration"] as Map?)?["text"] as String?;
+
+        // Extraer steps para navegación por voz
+        final stepsList = leg["steps"] as List?;
+        if (stepsList != null) {
+          for (final s in stepsList) {
+            final step = s as Map<String, dynamic>;
+            final start = step["start_location"] as Map?;
+            final end = step["end_location"] as Map?;
+            if (start != null && end != null) {
+              steps.add(NavStep(
+                instruction: _stripHtml(step["html_instructions"] as String? ?? ""),
+                distanceMeters: ((step["distance"] as Map?)?["value"] as num?)?.toDouble() ?? 0,
+                durationText: (step["duration"] as Map?)?["text"] as String? ?? "",
+                startLocation: LatLng((start["lat"] as num).toDouble(), (start["lng"] as num).toDouble()),
+                endLocation: LatLng((end["lat"] as num).toDouble(), (end["lng"] as num).toDouble()),
+                maneuver: step["maneuver"] as String?,
+              ));
+            }
+          }
+        }
       }
 
-      return RouteResult(points: pts, distanceMeters: dist, durationText: dur);
+      return RouteResult(points: pts, distanceMeters: dist, durationText: dur, steps: steps.isNotEmpty ? steps : null);
     } catch (_) {
       return fallback;
     }
+  }
+
+  /// Remueve tags HTML de las instrucciones de navegación.
+  static String _stripHtml(String html) {
+    return html.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   /// Decodifica el formato encoded polyline de Google a una lista de LatLng.

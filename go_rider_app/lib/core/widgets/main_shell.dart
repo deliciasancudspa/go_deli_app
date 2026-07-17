@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "../theme/app_theme.dart";
+import "../../l10n/app_localizations.dart";
 
 class MainShell extends StatelessWidget {
   final Widget child;
@@ -19,28 +20,31 @@ class MainShell extends StatelessWidget {
     final idx = _tabIndex(context);
     return Scaffold(
       body: child,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: idx,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.accent,
-        unselectedItemColor: AppColors.textLight,
-        backgroundColor: AppColors.surface,
-        elevation: 8,
-        onTap: (i) {
-          switch (i) {
-            case 0: context.go("/dashboard");  break;
-            case 1: context.go("/orders");     break;
-            case 2: context.go("/earnings");   break;
-            case 3: context.go("/profile");    break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined),                    activeIcon: Icon(Icons.home),                    label: "Inicio"),
-          BottomNavigationBarItem(icon: Icon(Icons.delivery_dining_outlined),          activeIcon: Icon(Icons.delivery_dining),          label: "Pedidos"),
-          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined),   activeIcon: Icon(Icons.account_balance_wallet),   label: "Ganancias"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline),                    activeIcon: Icon(Icons.person),                  label: "Perfil"),
-        ],
-      ),
+      bottomNavigationBar: Builder(builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx)!;
+        return BottomNavigationBar(
+          currentIndex: idx,
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: AppColors.accent,
+          unselectedItemColor: AppColors.textLight,
+          backgroundColor: AppColors.surface,
+          elevation: 8,
+          onTap: (i) {
+            switch (i) {
+              case 0: context.go("/dashboard");  break;
+              case 1: context.go("/orders");     break;
+              case 2: context.go("/earnings");   break;
+              case 3: context.go("/profile");    break;
+            }
+          },
+          items: [
+            BottomNavigationBarItem(icon: const Icon(Icons.home_outlined),                    activeIcon: const Icon(Icons.home),                    label: l10n.bottomNavHome),
+            BottomNavigationBarItem(icon: const Icon(Icons.delivery_dining_outlined),          activeIcon: const Icon(Icons.delivery_dining),          label: l10n.bottomNavOrders),
+            BottomNavigationBarItem(icon: const Icon(Icons.account_balance_wallet_outlined),   activeIcon: const Icon(Icons.account_balance_wallet),   label: l10n.bottomNavEarnings),
+            BottomNavigationBarItem(icon: const Icon(Icons.person_outline),                    activeIcon: const Icon(Icons.person),                  label: l10n.bottomNavProfile),
+          ],
+        );
+      }),
     );
   }
 }

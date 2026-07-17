@@ -672,6 +672,22 @@ tr:hover td{background:#FAFAFA;}
                   </div>
                   <div class="form-group"><label>📱 Publicidad Redes Sociales</label><input type="number" id="cfg-price-social" value="89990" min="0"></div>
                 </div>
+                <div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px;">
+                  <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:12px;">🛵 GoRider Features</div>
+                  <div class="form-row">
+                    <div class="form-group"><label><input type="checkbox" id="cfg-rider-ratings" checked> ⭐ Ratings de riders</label></div>
+                    <div class="form-group"><label><input type="checkbox" id="cfg-rider-tips" checked> 💸 Propinas</label></div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group"><label><input type="checkbox" id="cfg-rider-challenges" checked> 🎮 Gamificación / desafíos</label></div>
+                    <div class="form-group"><label><input type="checkbox" id="cfg-rider-heatmap" checked> 🗺️ Mapa de calor</label></div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group"><label><input type="checkbox" id="cfg-rider-instantpay" checked> 💵 Pago instantáneo</label></div>
+                    <div class="form-group"><label><input type="checkbox" id="cfg-rider-voice"> 🔊 Navegación por voz</label></div>
+                  </div>
+                  <p style="font-size:11px;color:var(--muted);margin-top:4px;">Activa/desactiva features de la app GoRider. Los cambios se reflejan al reiniciar la app.</p>
+                </div>
                 <button class="btn btn-primary" onclick="saveConfig()">Guardar configuración</button>
                 <p id="cfg-save-note" style="font-size:11px;color:var(--muted);margin-top:8px;"></p>
               </div>
@@ -3923,6 +3939,17 @@ async function saveConfig(){
       }
     }
 
+    // Rider features config
+    const riderFeatures = {
+      ratings_enabled: document.getElementById('cfg-rider-ratings')?.checked ?? true,
+      tips_enabled: document.getElementById('cfg-rider-tips')?.checked ?? true,
+      challenges_enabled: document.getElementById('cfg-rider-challenges')?.checked ?? true,
+      heatmap_enabled: document.getElementById('cfg-rider-heatmap')?.checked ?? true,
+      instant_pay_enabled: document.getElementById('cfg-rider-instantpay')?.checked ?? true,
+      voice_nav_enabled: document.getElementById('cfg-rider-voice')?.checked ?? false,
+    };
+    await upsertConfig('rider_features_config', riderFeatures);
+
   } catch(e){ showToast('Error al guardar: '+(e?.message||e),'error'); return; }
   showToast('Configuración guardada');
 }
@@ -3982,6 +4009,20 @@ async function loadConfig(){
       if(document.getElementById('cfg-phone')) document.getElementById('cfg-phone').value = pc.support_phone || '';
       if(document.getElementById('cfg-email')) document.getElementById('cfg-email').value = pc.support_email || '';
       if(document.getElementById('cfg-rider-timeout')) document.getElementById('cfg-rider-timeout').value = pc.rider_timeout_min ?? 3;
+    } catch(_){}
+  }
+
+  // Rider features config
+  let rfRow=null; try { const r=await sb.from('config').select('value').eq('key','rider_features_config').maybeSingle(); rfRow=r.data; } catch(_){}
+  if(rfRow?.value){
+    try {
+      const rf = JSON.parse(rfRow.value);
+      if(document.getElementById('cfg-rider-ratings')) document.getElementById('cfg-rider-ratings').checked = rf.ratings_enabled ?? true;
+      if(document.getElementById('cfg-rider-tips')) document.getElementById('cfg-rider-tips').checked = rf.tips_enabled ?? true;
+      if(document.getElementById('cfg-rider-challenges')) document.getElementById('cfg-rider-challenges').checked = rf.challenges_enabled ?? true;
+      if(document.getElementById('cfg-rider-heatmap')) document.getElementById('cfg-rider-heatmap').checked = rf.heatmap_enabled ?? true;
+      if(document.getElementById('cfg-rider-instantpay')) document.getElementById('cfg-rider-instantpay').checked = rf.instant_pay_enabled ?? true;
+      if(document.getElementById('cfg-rider-voice')) document.getElementById('cfg-rider-voice').checked = rf.voice_nav_enabled ?? false;
     } catch(_){}
   }
 

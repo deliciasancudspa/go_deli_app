@@ -10,6 +10,9 @@ import "core/theme/app_theme.dart";
 import "core/services/notification_service.dart";
 import "firebase_options.dart";
 import "providers/rider_provider.dart";
+import "providers/language_provider.dart";
+import "l10n/app_localizations.dart";
+import "package:flutter_localizations/flutter_localizations.dart";
 
 // NOTA: no se registra onBackgroundMessage. Los push llevan payload
 // "notification", así que Android los muestra automáticamente cuando la app
@@ -54,16 +57,31 @@ class GoRiderApp extends StatelessWidget {
   const GoRiderApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => RiderProvider()..loadThemeMode(),
-      child: Consumer<RiderProvider>(
-        builder: (_, rider, __) => MaterialApp.router(
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => RiderProvider()..loadThemeMode()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
+      ],
+      child: Consumer2<RiderProvider, LanguageProvider>(
+        builder: (_, rider, lang, __) => MaterialApp.router(
           title: "Go Rider",
           debugShowCheckedModeBanner: false,
           theme: AppTheme.theme,
           darkTheme: AppTheme.darkTheme,
           themeMode: rider.themeMode,
           routerConfig: appRouter,
+          locale: lang.locale,
+          supportedLocales: const [
+            Locale("es"),
+            Locale("en"),
+            Locale("pt"),
+          ],
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
         ),
       ),
     );

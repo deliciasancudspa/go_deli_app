@@ -7,6 +7,8 @@ import "package:url_launcher/url_launcher.dart";
 import "../../../core/constants/banks.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
+import "../../../providers/language_provider.dart";
+import "../../../l10n/app_localizations.dart";
 
 // Admin WhatsApp — configurable en go_rider_app/lib/config/app_config.dart
 import "../../../config/app_config.dart";
@@ -166,6 +168,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: const Text("Cambiar contraseña"),
           style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent),
         ),
+        const SizedBox(height: 12),
+        // 🌐 Selector de idioma
+        Builder(builder: (ctx) {
+          final lang = ctx.watch<LanguageProvider>();
+          final labels = {"es": "🇪🇸 Español", "en": "🇺🇸 English", "pt": "🇧🇷 Português"};
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(children: [
+              const Icon(Icons.language, color: AppColors.accent, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(AppLocalizations.of(context)!.profileLanguage, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  Text(labels[lang.language] ?? "Español", style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
+                ]),
+              ),
+              DropdownButton<String>(
+                value: lang.language,
+                underline: const SizedBox.shrink(),
+                items: labels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13)))).toList(),
+                onChanged: (v) { if (v != null) lang.setLanguage(v); },
+              ),
+            ]),
+          );
+        }),
         const SizedBox(height: 12),
         // 🌙 Toggle tema claro / oscuro
         Container(
