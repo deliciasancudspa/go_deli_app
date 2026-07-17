@@ -477,7 +477,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
           ...rider.paymentRequests.take(5).map((r) {
             final status = r["status"] as String? ?? "pending";
             final statusColors = {"pending": AppColors.warning, "approved": AppColors.info, "completed": AppColors.success, "rejected": AppColors.error};
-            final statusLabels = {"pending": "Pendiente", "approved": "Aprobado", "completed": "Transferido", "rejected": "Rechazado"};
+            final statusLabels = {"pending": AppLocalizations.of(context)!.ordersStatusPending, "approved": "Aprobado", "completed": "Transferido", "rejected": "Rechazado"};
             final date = DateTime.tryParse(r["requested_at"] as String? ?? "");
             final dateLabel = date != null ? "${date.day}/${date.month}" : "";
             return Padding(
@@ -511,7 +511,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         title: const Row(children: [
           Icon(Icons.payments_outlined, color: AppColors.accent, size: 24),
           SizedBox(width: 10),
-          Text("Retirar ganancias", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          Text(AppLocalizations.of(ctx)!.earningsWithdrawTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
         ]),
         content: Form(
           key: formKey,
@@ -547,7 +547,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
           ]),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(ctx)!.cancel)),
           ElevatedButton(
             onPressed: () {
               if (formKey.currentState?.validate() == true) {
@@ -571,7 +571,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         if (err != null) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: AppColors.error));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Solicitud enviada. El administrador revisará tu retiro."), backgroundColor: AppColors.success));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.earningsWithdrawDone), backgroundColor: AppColors.success));
         }
       }
     }

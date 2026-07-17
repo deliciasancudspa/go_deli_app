@@ -4,6 +4,7 @@ import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
+import "../../../l10n/app_localizations.dart";
 
 class PerformanceScreen extends StatefulWidget {
   const PerformanceScreen({super.key});
@@ -65,7 +66,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Mi desempeño"),
+        title: Text(AppLocalizations.of(context)!.perfTitle),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
       ),
       body: _loading
@@ -100,15 +101,15 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                   _kpiCard("Pedidos entregados", "${_data!["total_deliveries"] ?? 0}",
                       "Total histórico", Icons.delivery_dining, AppColors.accent),
                   const SizedBox(width: 10),
-                  _kpiCard("Calificación", "${_data!["avg_rating"] ?? "—"}",
+                  _kpiCard(AppLocalizations.of(context)!.perfRating, "${_data!["avg_rating"] ?? "—"}",
                       "${_data!["rating_count"] ?? 0} calificaciones", Icons.star, Colors.amber),
                 ]),
                 const SizedBox(height: 10),
                 Row(children: [
-                  _kpiCard("Ganancias totales", _fmt(_data!["total_earnings"] ?? 0),
+                  _kpiCard(AppLocalizations.of(context)!.perfEarnings, _fmt(_data!["total_earnings"] ?? 0),
                       "Delivery + propinas", Icons.attach_money, AppColors.success),
                   const SizedBox(width: 10),
-                  _kpiCard("Distancia recorrida", "${(_data!["total_distance_km"] ?? 0).toStringAsFixed(0)} km",
+                  _kpiCard(AppLocalizations.of(context)!.perfDistance, "${(_data!["total_distance_km"] ?? 0).toStringAsFixed(0)} km",
                       "Total histórico", Icons.route_outlined, AppColors.info),
                 ]),
                 const SizedBox(height: 10),
@@ -141,7 +142,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                       const Icon(Icons.card_giftcard, color: AppColors.warning, size: 22),
                       const SizedBox(width: 10),
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text("🎁 Propinas recibidas", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        Text("🎁 ${AppLocalizations.of(context)!.perfTips}", style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                         Text(_fmt(_data!["total_tips"]), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.warning)),
                       ]),
                     ]),

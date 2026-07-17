@@ -7,6 +7,7 @@ import "../../../core/theme/app_theme.dart";
 import "../../../core/services/notification_service.dart";
 import "../../../providers/rider_provider.dart";
 import "../../orders/screens/offer_map_screen.dart";
+import "../../../l10n/app_localizations.dart";
 
 const _kTimeout = 45; // debe coincidir con v_timeout en dispatch_engine.sql
 
@@ -173,7 +174,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
         title: Row(children: [
           const Text("🛵", style: TextStyle(fontSize: 26)),
           const SizedBox(width: 8),
-          Expanded(child: Text(notif["title"] as String? ?? "Nueva oferta de pedido",
+          Expanded(child: Text(notif["title"] as String? ?? AppLocalizations.of(ctx)!.notifNewOffer,
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
         ]),
         content: Text(notif["message"] as String? ?? "Tienes un nuevo pedido disponible.",
@@ -189,7 +190,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
                 minimumSize: const Size(0, 46),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text("Rechazar", style: TextStyle(fontWeight: FontWeight.w800)),
+              child: Text(AppLocalizations.of(ctx)!.notifReject, style: const TextStyle(fontWeight: FontWeight.w800)),
             )),
             const SizedBox(width: 10),
             Expanded(child: ElevatedButton(
@@ -198,7 +199,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
                 backgroundColor: AppColors.success,
                 minimumSize: const Size(0, 46),
               ),
-              child: const Text("✅ Aceptar", style: TextStyle(fontWeight: FontWeight.w800)),
+              child: Text("✅ ${AppLocalizations.of(ctx)!.notifAccept}", style: const TextStyle(fontWeight: FontWeight.w800)),
             )),
           ]),
         ],
@@ -286,7 +287,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Ofertas de pedidos"),
+        title: Text(AppLocalizations.of(context)!.notifOffers),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: () { setState(() => _loading = true); _load(); }),
@@ -298,7 +299,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
               ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   const Text("📭", style: TextStyle(fontSize: 56)),
                   const SizedBox(height: 12),
-                  const Text("Sin ofertas pendientes", style: TextStyle(color: AppColors.textLight, fontSize: 16, fontWeight: FontWeight.w600)),
+                  Text(AppLocalizations.of(context)!.notifEmpty, style: const TextStyle(color: AppColors.textLight, fontSize: 16, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   const Text("Las nuevas ofertas aparecerán aquí", style: TextStyle(color: AppColors.textLight, fontSize: 13), textAlign: TextAlign.center),
                   const SizedBox(height: 20),
@@ -445,7 +446,7 @@ class _OfferCardState extends State<_OfferCard> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
-                  child: const Text("Efectivo", style: TextStyle(color: AppColors.warning, fontSize: 10, fontWeight: FontWeight.w800)),
+                  child: Text(AppLocalizations.of(context)!.notifCash, style: const TextStyle(color: AppColors.warning, fontSize: 10, fontWeight: FontWeight.w800)),
                 ),
             ]),
           ]),
@@ -456,7 +457,7 @@ class _OfferCardState extends State<_OfferCard> {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text("Tiempo para responder",
+              Text(AppLocalizations.of(context)!.notifTimeToRespond,
                   style: TextStyle(fontSize: 11, color: _timerColor, fontWeight: FontWeight.w700)),
               Text("${_remaining}s",
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: _timerColor)),
@@ -497,7 +498,7 @@ class _OfferCardState extends State<_OfferCard> {
             Expanded(child: OutlinedButton.icon(
               onPressed: widget.isProcessing ? null : widget.onExpired,
               icon: const Icon(Icons.close, size: 17),
-              label: const Text("Rechazar"),
+              label: Text(AppLocalizations.of(context)!.notifReject),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
                 side: const BorderSide(color: AppColors.error),
@@ -510,7 +511,7 @@ class _OfferCardState extends State<_OfferCard> {
               icon: widget.isProcessing
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.check, size: 17),
-              label: Text(widget.isProcessing ? "Procesando..." : "Aceptar"),
+              label: Text(widget.isProcessing ? "Procesando..." : AppLocalizations.of(context)!.notifAccept),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success,
                 minimumSize: const Size(0, 46),
