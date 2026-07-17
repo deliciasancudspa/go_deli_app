@@ -11,6 +11,7 @@ import "../../../core/services/connectivity_service.dart";
 import "../../../core/services/notification_service.dart";
 import "../../../core/utils/chile_time.dart";
 import "../../../providers/rider_provider.dart";
+import "../../../l10n/app_localizations.dart";
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -384,7 +385,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         title: const Text("Salir de Go Rider"),
         content: const Text("¿Deseas salir de la aplicación?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text("Cancelar")),
+          TextButton(onPressed: () => Navigator.pop(dCtx, false), child: Text(AppLocalizations.of(ctx)!.cancel)),
           TextButton(onPressed: () => Navigator.pop(dCtx, true),  child: const Text("Salir")),
         ],
       ),
@@ -410,10 +411,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               color: Colors.red.shade700,
-              child: const Row(children: [
-                Icon(Icons.wifi_off, color: Colors.white, size: 18),
-                SizedBox(width: 10),
-                Expanded(child: Text("Sin conexión — el GPS y las notificaciones no funcionarán", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
+              child: Row(children: [
+                const Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(child: Text(AppLocalizations.of(ctx)!.dashboardOfflineBanner, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
               ]),
             );
           },
@@ -423,9 +424,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             CircleAvatar(radius: 24, backgroundColor: AppColors.accent, child: Text(rider.riderName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900))),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text("Hola, ${rider.riderName.split(" ")[0]}!", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+              Text(AppLocalizations.of(context)!.dashboardHello(rider.riderName.split(" ")[0]), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
               Row(children: [
-                Text(rider.isOnline ? "En línea" : "Desconectado", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                Text(rider.isOnline ? AppLocalizations.of(context)!.dashboardOnline : AppLocalizations.of(context)!.dashboardOffline, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
                 if (rider.ratingStats != null) ...[
                   const SizedBox(width: 10),
                   Icon(Icons.star, color: Colors.amber.shade300, size: 14),
@@ -475,20 +476,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ]),
           if (!rider.isOnline) ...[
             const SizedBox(height: 16),
-            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(12)), child: const Row(children: [Icon(Icons.info_outline, color: Colors.white54, size: 18), SizedBox(width: 8), Text("Activa tu modo online para recibir pedidos", style: TextStyle(color: Colors.white70, fontSize: 13))])),
+            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.info_outline, color: Colors.white54, size: 18), const SizedBox(width: 8), Expanded(child: Text(AppLocalizations.of(context)!.dashboardActivateOnline, style: const TextStyle(color: Colors.white70, fontSize: 13)))])),
           ],
         ])),
         Expanded(child: RefreshIndicator(
           onRefresh: () async { await _loadStats(); await rider.loadActiveOrders(); },
           color: AppColors.accent,
           child: ListView(padding: const EdgeInsets.all(16), children: [
-            const Text("Resumen de hoy", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textMedium)),
+            Text(AppLocalizations.of(context)!.dashboardTodaySummary, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textMedium)),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _kpi("Pedidos", "${_stats["orders"] ?? 0}", Icons.delivery_dining, AppColors.accent)),
+              Expanded(child: _kpi(AppLocalizations.of(context)!.dashboardOrders, "${_stats["orders"] ?? 0}", Icons.delivery_dining, AppColors.accent)),
               const SizedBox(width: 12),
               Expanded(child: Stack(clipBehavior: Clip.none, children: [
-                _kpi("Ganado", _fmt((_stats["earned"] ?? 0).toDouble()), Icons.attach_money, AppColors.success),
+                _kpi(AppLocalizations.of(context)!.dashboardEarned, _fmt((_stats["earned"] ?? 0).toDouble()), Icons.attach_money, AppColors.success),
                 if (_lastDiff != null)
                   Positioned(top: -6, right: -4, child: AnimatedOpacity(
                     opacity: _lastDiff != null ? 1.0 : 0.0,
@@ -507,34 +508,34 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _kpi("A recibir", _fmt((_stats["toDeposit"] ?? 0).toDouble()), Icons.account_balance_outlined, AppColors.info)),
+              Expanded(child: _kpi(AppLocalizations.of(context)!.dashboardToReceive, _fmt((_stats["toDeposit"] ?? 0).toDouble()), Icons.account_balance_outlined, AppColors.info)),
               const SizedBox(width: 12),
-              Expanded(child: _kpi("A rendir", _fmt((_stats["toRemit"] ?? 0).toDouble()), Icons.swap_horiz, AppColors.warning)),
+              Expanded(child: _kpi(AppLocalizations.of(context)!.dashboardToRemit, _fmt((_stats["toRemit"] ?? 0).toDouble()), Icons.swap_horiz, AppColors.warning)),
             ]),
             const SizedBox(height: 24),
             // ── Mapa de calor: resumen de demanda ──
             if (_heatmapData.isNotEmpty && _showHeatmap) _heatmapCard(),
             // ── Desafíos activos ──
             if (_challenges.isNotEmpty) ...[
-              const Text("🏆 Desafíos", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              Text(AppLocalizations.of(context)!.challengeActive, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               ..._challenges.take(3).map((c) => _challengeCard(c)),
               const SizedBox(height: 16),
             ],
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Row(children: [
-              const Text("Pedidos activos", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              Text(AppLocalizations.of(context)!.dashboardActiveOrders, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
               const Spacer(),
               TextButton(
                 onPressed: () {
                   setState(() => _showHeatmap = !_showHeatmap);
                   if (_showHeatmap) _loadHeatmap();
                 },
-                child: Text(_showHeatmap ? "Ocultar" : "Demanda", style: const TextStyle(fontSize: 11)),
+                child: Text(_showHeatmap ? "Ocultar" : AppLocalizations.of(context)!.dashboardDemand, style: const TextStyle(fontSize: 11)),
               ),
               TextButton(
                 onPressed: () => context.push("/performance"),
-                child: const Text("Desempeño", style: TextStyle(fontSize: 11)),
+                child: Text(AppLocalizations.of(context)!.dashboardPerformance, style: const TextStyle(fontSize: 11)),
               ),
             ]),
             ]),
@@ -543,7 +544,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               Container(padding: const EdgeInsets.all(32), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)), child: Column(children: [
                 const Text("🛵", style: TextStyle(fontSize: 48)),
                 const SizedBox(height: 12),
-                Text(rider.isOnline ? "Sin pedidos asignados" : "Activa tu modo online", style: const TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w600)),
+                Text(rider.isOnline ? AppLocalizations.of(context)!.dashboardNoOrders : AppLocalizations.of(context)!.dashboardActivateOnline, style: const TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w600)),
               ]))
             else
               ...() {
@@ -577,10 +578,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       ((a["pending_count"] as num?)?.toInt() ?? 0) > ((b["pending_count"] as num?)?.toInt() ?? 0) ? a : b);
     final hottestCount = (hottest["pending_count"] as num?)?.toInt() ?? 0;
 
+    final loc2 = AppLocalizations.of(context)!;
     Color levelColor = AppColors.success;
-    String levelLabel = "Baja";
-    if (hottestCount >= 4) { levelColor = AppColors.error; levelLabel = "Alta"; }
-    else if (hottestCount >= 2) { levelColor = AppColors.warning; levelLabel = "Media"; }
+    String levelLabel = loc2.heatmapLow;
+    if (hottestCount >= 4) { levelColor = AppColors.error; levelLabel = loc2.heatmapHigh; }
+    else if (hottestCount >= 2) { levelColor = AppColors.warning; levelLabel = loc2.heatmapMedium; }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -599,9 +601,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text("Demanda $levelLabel en tu zona", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: levelColor)),
+            Text("${loc2.heatmapDemand} $levelLabel en tu zona", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: levelColor)),
             const SizedBox(height: 2),
-            Text("$totalPending pedidos esperando · ~\$${_fmt(totalEarnings.toDouble())} potencial",
+            Text("${loc2.t(loc2.heatmapPendingOrders, {'n': '$totalPending'})} · ~\$${_fmt(totalEarnings.toDouble())} potencial",
                 style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
           ]),
         ),
@@ -665,7 +667,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   Widget _orderCard(Map<String, dynamic> o, BuildContext context, {bool queued = false}) {
     final statusColors = {"assigned": AppColors.warning, "picked_up": AppColors.info, "on_the_way": AppColors.accent};
-    final statusLabels = {"assigned": "Ve al restaurante", "picked_up": "Lleva al cliente", "on_the_way": "En camino"};
+    final loc = AppLocalizations.of(context)!;
+    final statusLabels = {"assigned": loc.orderPickup, "picked_up": loc.orderDeliver, "on_the_way": loc.orderOnTheWay};
     final color = queued ? AppColors.info : (statusColors[o["status"]] ?? AppColors.textLight);
     return GestureDetector(
       onTap: () => context.push("/order/${o["id"]}"),
@@ -681,7 +684,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               Text(o["stores"]?["name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               Text(o["stores"]?["address"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
             ])),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(queued ? "🕒 En cola" : (statusLabels[o["status"]] ?? o["status"]), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800))),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(queued ? loc.orderQueued : (statusLabels[o["status"]] ?? o["status"]), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800))),
           ]),
           const SizedBox(height: 10),
           Row(children: [
@@ -691,7 +694,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             Text("\$${((o["total"] as num?) ?? 0).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accent)),
           ]),
           const SizedBox(height: 10),
-          SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => context.push("/order/${o["id"]}"), child: const Text("Ver detalles"))),
+          SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => context.push("/order/${o["id"]}"), child: Text(loc.dashboardViewDetails))),
         ]),
       ),
     );

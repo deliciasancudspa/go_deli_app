@@ -5,6 +5,7 @@ import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../core/utils/chile_time.dart";
 import "../../../providers/rider_provider.dart";
+import "../../../l10n/app_localizations.dart";
 
 class EarningsScreen extends StatefulWidget {
   const EarningsScreen({super.key});
@@ -155,7 +156,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text("Mis ganancias"),
+          title: Text(AppLocalizations.of(context)!.earningsTitle),
           leading: IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: () => context.go("/dashboard")),
@@ -184,8 +185,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Column(children: [
-                        const Text("Total ganado",
-                            style: TextStyle(
+                        Text(AppLocalizations.of(context)!.earningsTotal,
+                            style: const TextStyle(
                                 color: Colors.white60,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600)),
@@ -196,7 +197,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                 fontSize: 36,
                                 fontWeight: FontWeight.w900)),
                         const SizedBox(height: 4),
-                        Text("${_orders.length} pedidos completados",
+                        Text("${_orders.length} ${AppLocalizations.of(context)!.earningsCompleted}",
                             style: TextStyle(
                                 color: Colors.white.withOpacity(0.6),
                                 fontSize: 13)),
@@ -291,7 +292,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
   // ── Tarjeta de balance: "A recibir" (verde, positivo) o "A rendir" (naranja, negativo) ──
   Widget _balanceCard(double netBalance) {
     final bool positive = netBalance >= 0;
-    final String label = positive ? "A recibir" : "A rendir";
+    final String label = positive ? AppLocalizations.of(context)!.earningsToReceive : AppLocalizations.of(context)!.earningsToRemit;
     final Color color = positive ? AppColors.success : AppColors.warning;
     final IconData icon =
         positive ? Icons.account_balance_wallet_outlined : Icons.swap_horiz;

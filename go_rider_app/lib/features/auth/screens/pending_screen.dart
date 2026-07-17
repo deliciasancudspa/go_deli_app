@@ -4,6 +4,7 @@ import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
+import "../../../l10n/app_localizations.dart";
 
 class PendingScreen extends StatefulWidget {
   const PendingScreen({super.key});
@@ -76,7 +77,7 @@ class _PendingScreenState extends State<PendingScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Container(width: 100, height: 100, decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.2), shape: BoxShape.circle), child: const Center(child: Text("⏳", style: TextStyle(fontSize: 48)))),
           const SizedBox(height: 24),
-          const Text("Solicitud en revision", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+          Text(AppLocalizations.of(context)!.pendingTitle, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
           const SizedBox(height: 12),
           Text("Hola ${rider.riderName}! Estamos revisando tu solicitud. Te notificaremos cuando sea aprobada.", textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 15, height: 1.6)),
           const SizedBox(height: 32),
@@ -84,14 +85,14 @@ class _PendingScreenState extends State<PendingScreen> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(16)),
             child: Column(children: [
-              _step("✓", "Solicitud enviada", true),
-              _step(rider.isApproved ? "✓" : "⏳", "Revision de documentos", rider.isApproved),
-              _step(rider.isApproved ? "✓" : "○", "Aprobacion", rider.isApproved),
+              _step("✓", AppLocalizations.of(context)!.pendingStep1, true),
+              _step(rider.isApproved ? "✓" : "⏳", AppLocalizations.of(context)!.pendingStep2, rider.isApproved),
+              _step(rider.isApproved ? "✓" : "○", AppLocalizations.of(context)!.pendingStep3, rider.isApproved),
               _step(rider.isApproved ? "✓" : "○", "Listo para trabajar", rider.isApproved),
             ]),
           ),
           const SizedBox(height: 32),
-          TextButton(onPressed: () async { await rider.signOut(); if (mounted) context.go("/login"); }, child: const Text("Cerrar sesion", style: TextStyle(color: Colors.white60))),
+          TextButton(onPressed: () async { await rider.signOut(); if (mounted) context.go("/login"); }, child: Text(AppLocalizations.of(context)!.pendingSignOut, style: const TextStyle(color: Colors.white60))),
         ]),
       ))),
     );

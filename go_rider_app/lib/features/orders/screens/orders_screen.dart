@@ -3,6 +3,7 @@ import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
+import "../../../l10n/app_localizations.dart";
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -30,7 +31,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   Widget build(BuildContext context) {
     final rider = context.watch<RiderProvider>();
-    final STATUS = {"pending":"Pendiente","accepted":"Aceptado","preparing":"Preparando","ready":"Listo","assigned":"Asignado","picked_up":"Recogido","on_the_way":"En camino","delivered":"Entregado","cancelled":"Cancelado","returned":"Devuelto"};
+    final STATUS = {"pending":AppLocalizations.of(context)!.ordersStatusPending,"accepted":AppLocalizations.of(context)!.ordersStatusAccepted,"preparing":AppLocalizations.of(context)!.ordersStatusPreparing,"ready":AppLocalizations.of(context)!.ordersStatusReady,"assigned":AppLocalizations.of(context)!.ordersStatusAssigned,"picked_up":AppLocalizations.of(context)!.orderPickedUp,"on_the_way":AppLocalizations.of(context)!.orderOnTheWay,"delivered":AppLocalizations.of(context)!.orderDelivered,"cancelled":AppLocalizations.of(context)!.orderCancelled,"returned":AppLocalizations.of(context)!.orderReturned};
     final COLORS = {"assigned":AppColors.warning,"picked_up":AppColors.info,"on_the_way":AppColors.accent,"delivered":AppColors.success,"cancelled":AppColors.error,"returned":AppColors.warning};
     return PopScope(
       canPop: false,
@@ -39,12 +40,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
       },
       child: Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text("Mis pedidos"), leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/dashboard"))),
+      appBar: AppBar(title: Text(AppLocalizations.of(context)!.ordersTitle), leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/dashboard"))),
       body: RefreshIndicator(
         onRefresh: rider.loadOrderHistory,
         color: AppColors.accent,
         child: rider.orderHistory.isEmpty
-          ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text("🛵", style: TextStyle(fontSize: 64)), SizedBox(height: 16), Text("Sin pedidos aun", style: TextStyle(fontSize: 16, color: AppColors.textLight, fontWeight: FontWeight.w600))]))
+          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text("🛵", style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text(AppLocalizations.of(context)!.ordersEmpty, style: const TextStyle(fontSize: 16, color: AppColors.textLight, fontWeight: FontWeight.w600))]))
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: rider.orderHistory.length,
