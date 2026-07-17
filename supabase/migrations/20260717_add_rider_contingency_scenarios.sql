@@ -204,6 +204,7 @@ BEGIN
   SELECT * INTO v_order FROM orders WHERE id = p_order_id;
   IF NOT FOUND THEN RETURN 'order_not_found'; END IF;
   IF v_order.deliverer_id != v_rider THEN RETURN 'not_your_order'; END IF;
+  IF v_order.status NOT IN ('picked_up','on_the_way') THEN RETURN 'invalid_status'; END IF;
 
   SELECT u.name, u.phone INTO v_rider_name, v_rider_phone FROM deliverers d JOIN users u ON u.id = d.user_id WHERE d.id = v_rider;
   v_codigo := UPPER(SUBSTR(p_order_id::text, 1, 8));
@@ -274,3 +275,42 @@ BEGIN
   RETURN 'ok';
 END $$;
 GRANT EXECUTE ON FUNCTION public.rider_notify_delay(UUID, INT, TEXT) TO authenticated;
+
+-- 5. Confirmar entrega sin código (verificación alternativa) -------------------
+CREATE OR REPLACE FUNCTION public.rider_confirm_delivery_override(
+  p_order_id UUID
+) RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_rider      UUID;
+  v_order      orders%rowtype;
+  v_rider_name TEXT;
+  v_codigo     TEXT;
+BEGIN
+  PERFORM set_config('dispatch.bypass', '1', true);
+  v_rider := public.my_rider_id();
+  IF v_rider IS NULL THEN RETURN 'not_rider'; END IF;
+
+  SELECT * INTO v_order FROM orders WHERE id = p_order_id;
+  IF NOT FOUND THEN RETURN 'order_not_found'; END IF;
+  IF v_order.deliverer_id != v_rider THEN RETURN 'not_your_order'; END IF;
+  IF v_order.status != 'on_the_way' THEN RETURN 'invalid_status'; END IF;
+
+  SELECT u.name INTO v_rider_name FROM deliverers d JOIN users u ON u.id = d.user_id WHERE d.id = v_rider;
+  v_codigo := UPPER(SUBSTR(p_order_id::text, 1, 8));
+
+  UPDATE orders SET
+    status                = 'delivered',
+    delivery_verified_by  = 'rider_override',
+    delivery_note         = 'Sin código — verificación alternativa'
+  WHERE id = p_order_id;
+
+  INSERT INTO notifications(target, type, emoji, title, message, is_read, data)
+  VALUES ('admin', 'delivery_override', '⚠️',
+          'Entrega sin código',
+          v_rider_name || ' confirmó entrega #' || v_codigo || ' sin código (verificación alternativa). Revisar.',
+          FALSE,
+          jsonb_build_object('order_id', p_order_id));
+
+  RETURN 'ok';
+END $$;
+GRANT EXECUTE ON FUNCTION public.rider_confirm_delivery_override(UUID) TO authenticated;

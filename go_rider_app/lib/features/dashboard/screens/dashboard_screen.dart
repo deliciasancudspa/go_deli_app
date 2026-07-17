@@ -351,7 +351,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               child: const Row(children: [
                 Icon(Icons.wifi_off, color: Colors.white, size: 18),
                 SizedBox(width: 10),
-                Expanded(child: Text("Sin conexion — el GPS y las notificaciones no funcionaran", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
+                Expanded(child: Text("Sin conexión — el GPS y las notificaciones no funcionarán", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
               ]),
             );
           },
@@ -362,7 +362,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text("Hola, ${rider.riderName.split(" ")[0]}!", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-              Text(rider.isOnline ? "En linea" : "Desconectado", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+              Text(rider.isOnline ? "En línea" : "Desconectado", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
             ])),
             GestureDetector(
               onTap: () async {

@@ -335,29 +335,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _confirmDeliveryWithoutCode() async {
     setState(() => _deliveryLoading = true);
     try {
-      final riderName = context.read<RiderProvider>().riderName;
-      final codigo = widget.orderId.substring(0, 8).toUpperCase();
-
-      await _sb.from("orders").update({
-        "status": "delivered",
-        "delivery_verified_by": "rider_override",
-        "delivery_note": "Sin código — verificación alternativa",
-      }).eq("id", widget.orderId);
-
-      // Notificar al admin para revisión
-      await _sb.from("notifications").insert({
-        "target": "admin",
-        "type": "delivery_override",
-        "emoji": "⚠️",
-        "title": "Entrega sin código",
-        "message": "$riderName confirmó entrega #$codigo sin código (verificación alternativa). Revisar.",
-        "data": {"order_id": widget.orderId},
+      final result = await _sb.rpc("rider_confirm_delivery_override", params: {
+        "p_order_id": widget.orderId,
       });
 
-      _stopGps();
-      if (mounted) {
+      if (result == "ok" && mounted) {
+        _stopGps();
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Entrega confirmada (verificación alternativa)"), backgroundColor: AppColors.warning));
         context.go("/dashboard");
+      } else {
+        if (mounted) {
+          setState(() => _deliveryLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Error: $result"), backgroundColor: AppColors.error),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -402,6 +394,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ],
       ),
       body: ListView(padding: const EdgeInsets.all(16), children: [
+        // Banner de desconexión
+        ValueListenableBuilder<bool>(
+          valueListenable: ConnectivityService.instance.isOnline,
+          builder: (ctx, online, _) {
+            if (online) return const SizedBox.shrink();
+            return Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(color: Colors.red.shade700, borderRadius: BorderRadius.circular(10)),
+              child: const Row(children: [
+                Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                SizedBox(width: 10),
+                Expanded(child: Text("Sin conexión — el GPS y las notificaciones no funcionarán", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
+              ]),
+            );
+          },
+        ),
         // Header estado
         Container(
           padding: const EdgeInsets.all(20),
