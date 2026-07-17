@@ -406,8 +406,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     decoration: BoxDecoration(
                         color: AppColors.warning.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(5)),
-                    child: const Text("Efectivo",
-                        style: TextStyle(
+                    child: Text(AppLocalizations.of(context)!.notifCash,
+                        style: const TextStyle(
                             color: AppColors.warning,
                             fontSize: 10,
                             fontWeight: FontWeight.w700)),
@@ -444,7 +444,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         const Row(children: [
           Icon(Icons.payments_outlined, color: AppColors.accent, size: 22),
           SizedBox(width: 8),
-          Text("Retirar ganancias", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.accent)),
+          Text(AppLocalizations.of(context)!.earningsWithdraw, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.accent)),
         ]),
         const SizedBox(height: 8),
         Text(
@@ -472,7 +472,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
           const SizedBox(height: 14),
           const Divider(),
           const SizedBox(height: 8),
-          const Text("Historial de retiros", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+          Text(AppLocalizations.of(context)!.earningsHistory, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textLight)),
           const SizedBox(height: 8),
           ...rider.paymentRequests.take(5).map((r) {
             final status = r["status"] as String? ?? "pending";
