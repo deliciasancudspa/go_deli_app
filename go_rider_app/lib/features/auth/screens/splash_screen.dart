@@ -54,6 +54,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     } else if (!rider.isApproved) {
       context.go("/pending");
     } else {
+      // ── Crash recovery: restaurar entrega activa si existe ──
+      final activeOrderId = await _findActiveOrder(rider.riderId);
+      if (activeOrderId != null) {
+        context.go("/order/$activeOrderId");
+        return;
+      }
+
       context.go("/dashboard");
       // Si la app se abrió desde una notificación de pedido, abrir la oferta
       final pending = NotificationService.pendingRoute;
@@ -64,6 +71,23 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         });
       }
     }
+  }
+
+  /// Busca una entrega activa del rider (crash recovery). Si la app crasheó
+  /// durante una entrega, al reiniciar redirige directamente a esa pantalla.
+  Future<String?> _findActiveOrder(String riderId) async {
+    try {
+      final data = await Supabase.instance.client
+          .from("orders")
+          .select("id")
+          .eq("deliverer_id", riderId)
+          .inFilter("status", ["assigned", "picked_up", "on_the_way"])
+          .order("updated_at", ascending: false)
+          .limit(1);
+      final list = data as List;
+      if (list.isNotEmpty) return list[0]["id"] as String?;
+    } catch (_) {}
+    return null;
   }
 
   @override

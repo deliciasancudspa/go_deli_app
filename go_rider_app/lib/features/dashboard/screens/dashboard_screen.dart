@@ -7,6 +7,7 @@ import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:geolocator/geolocator.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/services/connectivity_service.dart";
 import "../../../core/services/notification_service.dart";
 import "../../../core/utils/chile_time.dart";
 import "../../../providers/rider_provider.dart";
@@ -338,6 +339,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       child: Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(child: Column(children: [
+        // Banner de desconexión
+        ValueListenableBuilder<bool>(
+          valueListenable: ConnectivityService.instance.isOnline,
+          builder: (ctx, online, _) {
+            if (online) return const SizedBox.shrink();
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.red.shade700,
+              child: const Row(children: [
+                Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                SizedBox(width: 10),
+                Expanded(child: Text("Sin conexion — el GPS y las notificaciones no funcionaran", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
+              ]),
+            );
+          },
+        ),
         Container(color: AppColors.primary, padding: const EdgeInsets.all(20), child: Column(children: [
           Row(children: [
             CircleAvatar(radius: 24, backgroundColor: AppColors.accent, child: Text(rider.riderName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900))),

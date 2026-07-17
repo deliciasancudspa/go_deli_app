@@ -8,6 +8,7 @@ import "package:supabase_flutter/supabase_flutter.dart";
 import "package:geolocator/geolocator.dart";
 import "package:google_maps_flutter/google_maps_flutter.dart";
 import "../../../core/theme/app_theme.dart";
+import "../../../core/services/connectivity_service.dart";
 import "../../../core/utils/chile_time.dart";
 import "../../../providers/rider_provider.dart";
 import "../../map/widgets/route_map_view.dart";
@@ -29,6 +30,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   String? _routeEta;            // tiempo estimado (ej: "12 min")
   bool _hasOrderAhead = false;  // el rider tiene otro pedido en curso por delante
   Timer? _gpsTimer;
+  int _codeAttempts = 0;        // intentos fallidos de código de entrega
+  bool _codeLocked = false;     // 3 intentos fallidos → verificación alternativa
 
   // Pedido en cola: aceptado mientras el rider aún tiene otro pedido en ruta.
   // No se navega hasta entregar el de adelante.
@@ -305,15 +308,62 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       final result = await _sb.from("orders").select("delivery_code").eq("id", widget.orderId).single();
       final dbCode = (result["delivery_code"] as String?)?.toUpperCase() ?? "";
       if (entered == dbCode) {
+        _codeAttempts = 0;
         await _updateStatus("delivered");
       } else {
+        _codeAttempts++;
         if (mounted) {
           setState(() => _deliveryLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Código incorrecto, intenta de nuevo"), backgroundColor: AppColors.error));
+          if (_codeAttempts >= 3) {
+            setState(() => _codeLocked = true);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Demasiados intentos. Usa la verificación alternativa."), backgroundColor: AppColors.warning, duration: Duration(seconds: 4)),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Código incorrecto. ${3 - _codeAttempts} intento(s) restante(s)."), backgroundColor: AppColors.error),
+            );
+          }
         }
       }
     } catch (_) {
       if (mounted) setState(() => _deliveryLoading = false);
+    }
+  }
+
+  /// Verificación alternativa: confirma la entrega sin código (admin es notificado).
+  Future<void> _confirmDeliveryWithoutCode() async {
+    setState(() => _deliveryLoading = true);
+    try {
+      final riderName = context.read<RiderProvider>().riderName;
+      final codigo = widget.orderId.substring(0, 8).toUpperCase();
+
+      await _sb.from("orders").update({
+        "status": "delivered",
+        "delivery_verified_by": "rider_override",
+        "delivery_note": "Sin código — verificación alternativa",
+      }).eq("id", widget.orderId);
+
+      // Notificar al admin para revisión
+      await _sb.from("notifications").insert({
+        "target": "admin",
+        "type": "delivery_override",
+        "emoji": "⚠️",
+        "title": "Entrega sin código",
+        "message": "$riderName confirmó entrega #$codigo sin código (verificación alternativa). Revisar.",
+        "data": {"order_id": widget.orderId},
+      });
+
+      _stopGps();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Entrega confirmada (verificación alternativa)"), backgroundColor: AppColors.warning));
+        context.go("/dashboard");
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _deliveryLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: AppColors.error));
+      }
     }
   }
 
@@ -532,13 +582,41 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(height: 10),
         ],
 
-        // Acción: Recogí el pedido (solo accepted)
-        if (status == "accepted") ElevatedButton.icon(
-          onPressed: () => _updateStatus("picked_up"),
-          icon: const Icon(Icons.shopping_bag),
-          label: const Text("Recogí el pedido"),
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, minimumSize: const Size(double.infinity, 50)),
-        ),
+        // Acción: Recogí el pedido (solo assigned)
+        if (status == "assigned") ...[
+          ElevatedButton.icon(
+            onPressed: () => _updateStatus("picked_up"),
+            icon: const Icon(Icons.shopping_bag),
+            label: const Text("Recogí el pedido"),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, minimumSize: const Size(double.infinity, 50)),
+          ),
+          const SizedBox(height: 10),
+          // Problemas en la tienda
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.05), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.warning.withOpacity(0.2))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text("Problemas en la tienda", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: () => _showStoreClosedDialog(),
+                  icon: const Icon(Icons.store_outlined, size: 16),
+                  label: const Text("Tienda cerrada", style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.warning, side: const BorderSide(color: AppColors.warning), minimumSize: const Size(0, 42)),
+                )),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: () => _showDelayDialog(),
+                  icon: const Icon(Icons.hourglass_empty, size: 16),
+                  label: const Text("Avisar demora", style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.info, side: const BorderSide(color: AppColors.info), minimumSize: const Size(0, 42)),
+                )),
+              ]),
+            ]),
+          ),
+          const SizedBox(height: 10),
+        ],
 
         // Acción: En camino (solo picked_up)
         if (status == "picked_up") ElevatedButton.icon(
@@ -562,32 +640,80 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               const SizedBox(height: 4),
               const Text("Pide al cliente el código de 4 dígitos", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
               const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: _deliveryCodeCtrl,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 6),
-                    decoration: const InputDecoration(
-                      hintText: "0000",
-                      counterText: "",
-                      contentPadding: EdgeInsets.symmetric(vertical: 14),
+              if (!_codeLocked) ...[
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _deliveryCodeCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 6),
+                      decoration: const InputDecoration(
+                        hintText: "0000",
+                        counterText: "",
+                        contentPadding: EdgeInsets.symmetric(vertical: 14),
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _deliveryLoading ? null : _confirmDelivery,
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, minimumSize: const Size(100, 52)),
+                    child: _deliveryLoading
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text("Confirmar"),
+                  ),
+                ]),
+                if (_codeAttempts > 0) ...[
+                  const SizedBox(height: 6),
+                  Text("${_codeAttempts}/3 intentos fallidos", style: TextStyle(fontSize: 11, color: AppColors.error.withOpacity(0.8))),
+                ],
+              ] else ...[
+                // Verificación alternativa tras 3 intentos fallidos
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.warning.withOpacity(0.3))),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Row(children: [
+                      Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(child: Text("Verificación alternativa", style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.warning, fontSize: 13))),
+                    ]),
+                    const SizedBox(height: 8),
+                    const Text("El cliente no puede verificar su identidad con el código. Confirma bajo tu responsabilidad.", style: TextStyle(color: AppColors.textLight, fontSize: 12)),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _deliveryLoading ? null : _confirmDeliveryWithoutCode,
+                        icon: const Icon(Icons.check_circle_outline, size: 18),
+                        label: const Text("Confirmar entrega sin código"),
+                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning, minimumSize: const Size(0, 46)),
+                      ),
+                    ),
+                  ]),
                 ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: _deliveryLoading ? null : _confirmDelivery,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, minimumSize: const Size(100, 52)),
-                  child: _deliveryLoading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text("Confirmar"),
-                ),
-              ]),
+              ],
             ]),
           ),
+          const SizedBox(height: 10),
+          // SOS — Cliente agresivo
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showSosDialog(),
+              icon: const Icon(Icons.shield_outlined, size: 18),
+              label: const Text("Cliente agresivo — Pedir ayuda", style: TextStyle(fontWeight: FontWeight.w700)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red.shade700,
+                side: BorderSide(color: Colors.red.shade400, width: 1.5),
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
         ],
 
         const SizedBox(height: 20),
@@ -727,6 +853,65 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       ]),
     ]),
   );
+
+  // ── Tienda cerrada ──────────────────────────────────────────────────────
+
+  Future<void> _showStoreClosedDialog() async {
+    final note = await showModalBottomSheet<String>(
+      context: context, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _StoreClosedSheet(),
+    );
+    if (note != null && mounted) {
+      setState(() => _deliveryLoading = true);
+      try {
+        final result = await _sb.rpc("rider_report_store_closed", params: {"p_order_id": widget.orderId, "p_note": note});
+        if (mounted) {
+          if (result == "ok") { _stopGps(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tienda cerrada reportada"), backgroundColor: AppColors.warning)); context.go("/dashboard"); }
+          else { setState(() => _deliveryLoading = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $result"), backgroundColor: AppColors.error)); }
+        }
+      } catch (e) {
+        if (mounted) { setState(() => _deliveryLoading = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: AppColors.error)); }
+      }
+    }
+  }
+
+  // ── Avisar demora ────────────────────────────────────────────────────────
+
+  Future<void> _showDelayDialog() async {
+    final result = await showDialog<Map<String, dynamic>>(context: context, builder: (ctx) => const _DelayDialog());
+    if (result != null && mounted) {
+      try {
+        await _sb.rpc("rider_notify_delay", params: {"p_order_id": widget.orderId, "p_minutes": result["minutes"] as int, "p_note": result["note"] as String});
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cliente notificado de la demora"), backgroundColor: AppColors.info));
+      } catch (_) {}
+    }
+  }
+
+  // ── SOS (cliente agresivo) ───────────────────────────────────────────────
+
+  Future<void> _showSosDialog() async {
+    final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), backgroundColor: Colors.red.shade50,
+      title: const Row(children: [Icon(Icons.shield_outlined, color: Colors.red, size: 28), SizedBox(width: 10), Expanded(child: Text("Cliente agresivo?", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.red)))]),
+      content: const Text("Esto enviara una alerta inmediata al equipo de soporte con tu ubicacion. Ellos te contactaran.\n\nNo estas solo. Si te sientes en peligro, prioriza tu seguridad y alejate del lugar.", style: TextStyle(fontSize: 14, height: 1.5)),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      actions: [Row(children: [
+        Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx, false), style: OutlinedButton.styleFrom(minimumSize: const Size(0, 46)), child: const Text("Cancelar"))),
+        const SizedBox(width: 10),
+        Expanded(child: ElevatedButton.icon(onPressed: () => Navigator.pop(ctx, true), icon: const Icon(Icons.shield_outlined, size: 18), label: const Text("Enviar alerta", style: TextStyle(fontWeight: FontWeight.w800)), style: ElevatedButton.styleFrom(backgroundColor: Colors.red, minimumSize: const Size(0, 46)))),
+      ])],
+    ));
+    if (confirm == true && mounted) {
+      setState(() => _deliveryLoading = true);
+      try {
+        double? lat = _riderLat, lng = _riderLng;
+        if (lat == null || lng == null) { try { final pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high)).timeout(const Duration(seconds: 5)); lat = pos.latitude; lng = pos.longitude; } catch (_) {} }
+        final result = await _sb.rpc("rider_sos_alert", params: {"p_order_id": widget.orderId, "p_lat": lat ?? 0, "p_lng": lng ?? 0, "p_note": ""});
+        if (mounted) { setState(() => _deliveryLoading = false); if (result == "ok") { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Alerta enviada. Soporte te contactara."), backgroundColor: Colors.red, duration: Duration(seconds: 5))); } }
+      } catch (e) { if (mounted) { setState(() => _deliveryLoading = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: AppColors.error)); } }
+    }
+  }
 }
 
   Widget _storeAvatar(String? logoUrl, String? emoji, {double size = 40}) {
@@ -813,6 +998,7 @@ class _IncidentSheetState extends State<_IncidentSheet> {
     {"id": "vehicle_breakdown", "emoji": "🚗", "label": "Vehículo averiado", "desc": "Pinchazo, motor, falla mecánica"},
     {"id": "traffic_accident",  "emoji": "💥", "label": "Accidente de tránsito", "desc": "Choque, colisión, despiste"},
     {"id": "medical_emergency", "emoji": "🏥", "label": "Emergencia médica", "desc": "Lesión, malestar repentino"},
+    {"id": "stolen",            "emoji": "🚨", "label": "Pedido robado", "desc": "Asalto, hurto del pedido"},
     {"id": "damaged_order",     "emoji": "📦", "label": "Pedido dañado", "desc": "Se derramó, rompió o contaminó"},
     {"id": "other",             "emoji": "📝", "label": "Otro", "desc": "Especificar en la nota"},
   ];
@@ -918,6 +1104,111 @@ class _IncidentSheetState extends State<_IncidentSheet> {
         ]),
         const SizedBox(height: 8),
       ]),
+    );
+  }
+}
+
+// ── Tienda cerrada ──────────────────────────────────────────────────────────
+class _StoreClosedSheet extends StatefulWidget {
+  const _StoreClosedSheet();
+  @override
+  State<_StoreClosedSheet> createState() => _StoreClosedSheetState();
+}
+
+class _StoreClosedSheetState extends State<_StoreClosedSheet> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 24, left: 24, right: 24, top: 24),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.store_outlined, color: AppColors.warning, size: 24),
+          SizedBox(width: 10),
+          Expanded(child: Text("Tienda cerrada", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+        ]),
+        const SizedBox(height: 8),
+        const Text("El pedido sera cancelado y se notificara al cliente y al administrador.", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _ctrl,
+          maxLines: 2,
+          decoration: InputDecoration(hintText: "Detalles (opcional)...", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+        ),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar"))),
+          const SizedBox(width: 12),
+          Expanded(child: ElevatedButton(
+            onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning),
+            child: const Text("Confirmar", style: TextStyle(color: Colors.white)),
+          )),
+        ]),
+        const SizedBox(height: 8),
+      ]),
+    );
+  }
+}
+
+// ── Dialog: Avisar demora ──────────────────────────────────────────────────
+class _DelayDialog extends StatefulWidget {
+  const _DelayDialog();
+  @override
+  State<_DelayDialog> createState() => _DelayDialogState();
+}
+
+class _DelayDialogState extends State<_DelayDialog> {
+  int _minutes = 10;
+  final _noteCtrl = TextEditingController();
+
+  @override
+  void dispose() { _noteCtrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Row(children: [
+        Icon(Icons.hourglass_empty, color: AppColors.info, size: 24),
+        SizedBox(width: 10),
+        Text("Avisar demora", style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      ]),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text("El cliente recibira una notificacion con el tiempo estimado de espera.", style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+        const SizedBox(height: 16),
+        const Text("Tiempo estimado de demora:", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          IconButton(onPressed: _minutes > 5 ? () => setState(() => _minutes -= 5) : null, icon: const Icon(Icons.remove_circle_outline)),
+          const SizedBox(width: 8),
+          Text("$_minutes min", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.info)),
+          const SizedBox(width: 8),
+          IconButton(onPressed: _minutes < 60 ? () => setState(() => _minutes += 5) : null, icon: const Icon(Icons.add_circle_outline)),
+        ]),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _noteCtrl,
+          maxLines: 2,
+          decoration: InputDecoration(hintText: "Nota adicional (opcional)...", border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), prefixIcon: const Icon(Icons.edit_note, size: 20)),
+        ),
+      ]),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      actions: [
+        Row(children: [
+          Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar"))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton(
+            onPressed: () => Navigator.pop(context, {"minutes": _minutes, "note": _noteCtrl.text.trim()}),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.info),
+            child: const Text("Notificar", style: TextStyle(color: Colors.white)),
+          )),
+        ]),
+      ],
     );
   }
 }
