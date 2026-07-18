@@ -446,11 +446,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   @override
   Widget build(BuildContext context) {
     final rider = context.watch<RiderProvider>();
+    final tc = ThemeColors.of(context);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) { if (!didPop) _confirmExit(context); },
       child: Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: tc.background,
       body: SafeArea(child: Column(children: [
         // Banner de desconexión
         ValueListenableBuilder<bool>(
@@ -543,7 +544,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           onRefresh: () async { await _loadStats(); await rider.loadActiveOrders(); },
           color: AppColors.accent,
           child: ListView(padding: const EdgeInsets.all(16), children: [
-            Text(AppLocalizations.of(context)!.dashboardTodaySummary, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textMedium)),
+            Text(AppLocalizations.of(context)!.dashboardTodaySummary, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textDark)),
             const SizedBox(height: 12),
             Row(children: [
               Expanded(child: _kpi(AppLocalizations.of(context)!.dashboardOrders, "${_stats["orders"] ?? 0}", Icons.delivery_dining, AppColors.accent)),
@@ -606,15 +607,31 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ]),
             const SizedBox(height: 8),
             if (rider.activeOrders.isEmpty)
-              Container(padding: const EdgeInsets.all(32), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)), child: Column(children: [
+              Container(padding: const EdgeInsets.all(32), decoration: BoxDecoration(color: tc.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: tc.border)), child: Column(children: [
                 const Text("🛵", style: TextStyle(fontSize: 48)),
                 const SizedBox(height: 12),
-                Text(rider.isOnline ? AppLocalizations.of(context)!.dashboardNoOrders : AppLocalizations.of(context)!.dashboardActivateOnline, style: const TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w600)),
+                Text(rider.isOnline ? AppLocalizations.of(context)!.dashboardNoOrders : AppLocalizations.of(context)!.dashboardActivateOnline, style: TextStyle(color: tc.textLight, fontWeight: FontWeight.w600)),
               ]))
             else
               ...() {
-                final hasAhead = rider.activeOrders.any((o) => o["status"] == "picked_up" || o["status"] == "on_the_way");
-                return rider.activeOrders.map((o) => _orderCard(o, context, queued: hasAhead && o["status"] == "assigned"));
+                // Filter out cancelled/returned orders defensively (should be handled by provider already)
+                final activeOnly = rider.activeOrders.where((o) {
+                  final s = o["status"] as String?;
+                  return s == "assigned" || s == "picked_up" || s == "on_the_way";
+                }).toList();
+                if (activeOnly.isEmpty) {
+                  return [Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(color: tc.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: tc.border)),
+                    child: Column(children: [
+                      const Text("🛵", style: TextStyle(fontSize: 48)),
+                      const SizedBox(height: 12),
+                      Text(rider.isOnline ? AppLocalizations.of(context)!.dashboardNoOrders : AppLocalizations.of(context)!.dashboardActivateOnline, style: TextStyle(color: tc.textLight, fontWeight: FontWeight.w600)),
+                    ]),
+                  )];
+                }
+                final hasAhead = activeOnly.any((o) => o["status"] == "picked_up" || o["status"] == "on_the_way");
+                return activeOnly.map((o) => _orderCard(o, context, queued: hasAhead && o["status"] == "assigned"));
               }(),
           ]),
         )),
@@ -739,42 +756,46 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
-  Widget _kpi(String label, String value, IconData icon, Color color) => Container(
+  Widget _kpi(String label, String value, IconData icon, Color color) {
+    final tc = ThemeColors.of(context);
+    return Container(
     padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+    decoration: BoxDecoration(color: tc.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: tc.border)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(icon, color: color, size: 22), const SizedBox(height: 8),
       Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
-      Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textLight, fontWeight: FontWeight.w600)),
+      Text(label, style: TextStyle(fontSize: 12, color: tc.textLight, fontWeight: FontWeight.w600)),
     ]),
   );
+  }
 
   Widget _orderCard(Map<String, dynamic> o, BuildContext context, {bool queued = false}) {
     final statusColors = {"assigned": AppColors.warning, "picked_up": AppColors.info, "on_the_way": AppColors.accent};
     final loc = AppLocalizations.of(context)!;
+    final tc = ThemeColors.of(context);
     final statusLabels = {"assigned": loc.orderPickup, "picked_up": loc.orderDeliver, "on_the_way": loc.orderOnTheWay};
-    final color = queued ? AppColors.info : (statusColors[o["status"]] ?? AppColors.textLight);
+    final color = queued ? AppColors.info : (statusColors[o["status"]] ?? tc.textLight);
     return GestureDetector(
       onTap: () => context.push("/order/${o["id"]}"),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.4), width: 2)),
+        decoration: BoxDecoration(color: tc.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.4), width: 2)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             _storeAvatar(o["stores"]?["logo_url"] as String?, o["stores"]?["emoji"] as String?, size: 40),
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(o["stores"]?["name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-              Text(o["stores"]?["address"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
+              Text(o["stores"]?["name"] ?? "", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: tc.textDark)),
+              Text(o["stores"]?["address"] ?? "", style: TextStyle(color: tc.textLight, fontSize: 12)),
             ])),
             Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(queued ? loc.orderQueued : (statusLabels[o["status"]] ?? o["status"]), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800))),
           ]),
           const SizedBox(height: 10),
           Row(children: [
-            const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textLight),
+            Icon(Icons.location_on_outlined, size: 14, color: tc.textLight),
             const SizedBox(width: 4),
-            Expanded(child: Text(o["delivery_address"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 12))),
+            Expanded(child: Text(o["delivery_address"] ?? "", style: TextStyle(color: tc.textLight, fontSize: 12))),
             Text("\$${((o["total"] as num?) ?? 0).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accent)),
           ]),
           const SizedBox(height: 10),

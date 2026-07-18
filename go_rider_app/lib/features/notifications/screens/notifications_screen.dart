@@ -284,8 +284,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
 
   @override
   Widget build(BuildContext context) {
+    final tc = ThemeColors.of(context);
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: tc.background,
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.notifOffers),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
@@ -299,9 +300,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsB
               ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   const Text("📭", style: TextStyle(fontSize: 56)),
                   const SizedBox(height: 12),
-                  Text(AppLocalizations.of(context)!.notifEmpty, style: const TextStyle(color: AppColors.textLight, fontSize: 16, fontWeight: FontWeight.w600)),
+                  Text(AppLocalizations.of(context)!.notifEmpty, style: TextStyle(color: tc.textLight, fontSize: 16, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
-                  const Text("Las nuevas ofertas aparecerán aquí", style: TextStyle(color: AppColors.textLight, fontSize: 13), textAlign: TextAlign.center),
+                  Text("Las nuevas ofertas aparecerán aquí", style: TextStyle(color: tc.textLight, fontSize: 13), textAlign: TextAlign.center),
                   const SizedBox(height: 20),
                   OutlinedButton(onPressed: _load, child: const Text("Actualizar")),
                 ]))
@@ -404,13 +405,14 @@ class _OfferCardState extends State<_OfferCard> {
     final payMethod  = data["payment_method"] as String?;
     final itemsCount = (data["items_count"] as num?)?.toInt();
     final distance   = data["distance_km"] as String?;
+    final tc = ThemeColors.of(context);
 
     return GestureDetector(
       onTap: widget.isProcessing ? null : widget.onTap,
       child: Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: tc.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _timerColor.withOpacity(0.45), width: 1.5),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
@@ -427,9 +429,9 @@ class _OfferCardState extends State<_OfferCard> {
             Text(emoji, style: const TextStyle(fontSize: 26)),
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.textDark)),
+              Text(title, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: tc.textDark)),
               if (message.isNotEmpty)
-                Text(message, style: const TextStyle(color: AppColors.textLight, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(message, style: TextStyle(color: tc.textLight, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               if (total > 0)
@@ -467,7 +469,7 @@ class _OfferCardState extends State<_OfferCard> {
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: _remaining / _kTimeout,
-                backgroundColor: AppColors.border,
+                backgroundColor: tc.border,
                 valueColor: AlwaysStoppedAnimation<Color>(_timerColor),
                 minHeight: 6,
               ),
@@ -482,11 +484,11 @@ class _OfferCardState extends State<_OfferCard> {
             if (storeName.isNotEmpty)
               _detailRow(Text(storeEmoji, style: const TextStyle(fontSize: 13)), storeName),
             if (delivAddr.isNotEmpty)
-              _detailRow(const Icon(Icons.location_on_outlined, size: 15, color: AppColors.textLight), delivAddr),
+              _detailRow(Icon(Icons.location_on_outlined, size: 15, color: tc.textLight), delivAddr),
             if (itemsCount != null)
-              _detailRow(const Icon(Icons.shopping_bag_outlined, size: 15, color: AppColors.textLight), "$itemsCount producto${itemsCount != 1 ? "s" : ""}"),
+              _detailRow(Icon(Icons.shopping_bag_outlined, size: 15, color: tc.textLight), "$itemsCount producto${itemsCount != 1 ? "s" : ""}"),
             if (distance != null)
-              _detailRow(const Icon(Icons.route_outlined, size: 15, color: AppColors.textLight), "$distance km aproximados"),
+              _detailRow(Icon(Icons.route_outlined, size: 15, color: tc.textLight), "$distance km aproximados"),
             _detailRow(const Icon(Icons.map_outlined, size: 15, color: AppColors.accent), "Toca para ver la ruta en el mapa"),
           ]),
         ),
@@ -524,12 +526,15 @@ class _OfferCardState extends State<_OfferCard> {
     );
   }
 
-  Widget _detailRow(Widget icon, String text) => Padding(
+  Widget _detailRow(Widget icon, String text) {
+    final tc = ThemeColors.of(context);
+    return Padding(
     padding: const EdgeInsets.only(bottom: 5),
     child: Row(children: [
       SizedBox(width: 20, child: icon),
       const SizedBox(width: 6),
-      Expanded(child: Text(text, style: const TextStyle(color: AppColors.textMedium, fontSize: 13))),
+      Expanded(child: Text(text, style: TextStyle(color: tc.textMedium, fontSize: 13))),
     ]),
   );
+  }
 }

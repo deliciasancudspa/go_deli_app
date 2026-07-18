@@ -100,6 +100,7 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tc = ThemeColors.of(context);
     final store = _order?["stores"] as Map?;
     final storeName = store?["name"] as String? ?? widget.offerData["store_name"] as String? ?? "Tienda";
     final storeEmoji = store?["emoji"] as String? ?? widget.offerData["store_emoji"] as String? ?? "🏪";
@@ -114,7 +115,7 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
     final canShowMap = pickupPos != null && clientPos != null;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: tc.background,
       appBar: AppBar(
         title: const Text("Nueva oferta de pedido"),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context, false)),
@@ -138,13 +139,13 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
                         },
                       )
                     : Container(
-                        color: AppColors.border.withOpacity(0.3),
-                        child: const Center(
+                        color: tc.border.withOpacity(0.3),
+                        child: Center(
                           child: Column(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.map_outlined, size: 56, color: AppColors.textLight),
-                            SizedBox(height: 12),
+                            Icon(Icons.map_outlined, size: 56, color: tc.textLight),
+                            const SizedBox(height: 12),
                             Text("Mapa no disponible para este pedido",
-                                style: TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w600)),
+                                style: TextStyle(color: tc.textLight, fontWeight: FontWeight.w600)),
                           ]),
                         ),
                       ),
@@ -156,13 +157,13 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: tc.surface,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                     boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 14, offset: const Offset(0, -3))],
                   ),
                   child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Center(child: Container(width: 42, height: 4, margin: const EdgeInsets.only(bottom: 14),
-                        decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
+                        decoration: BoxDecoration(color: tc.border, borderRadius: BorderRadius.circular(2)))),
 
                     // Ganancia + distancia
                     Row(children: [
@@ -187,8 +188,8 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
                           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             const Text("Pedido de rescate", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFDC2626))),
                             const SizedBox(height: 2),
-                            Text("Recoger en: $_pickupLabel", style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
-                            Text("Tienda: $storeName", style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textDark)),
+                            Text("Recoger en: $_pickupLabel", style: TextStyle(fontSize: 12, color: tc.textLight)),
+                            Text("Tienda: $storeName", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: tc.textDark)),
                           ])),
                         ]),
                       ),
@@ -197,8 +198,8 @@ class _OfferMapScreenState extends State<OfferMapScreen> {
                         _storeAvatar(storeLogo, storeEmoji, size: 36),
                         const SizedBox(width: 10),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const Text("Recoger en", style: TextStyle(fontSize: 11, color: AppColors.textLight, fontWeight: FontWeight.w700)),
-                          Text(storeName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                          Text("Recoger en", style: TextStyle(fontSize: 11, color: tc.textLight, fontWeight: FontWeight.w700)),
+                          Text(storeName, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: tc.textDark)),
                         ])),
                       ]),
                     ],

@@ -18,6 +18,7 @@ class MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final idx = _tabIndex(context);
+    final tc = ThemeColors.of(context);
     return Scaffold(
       body: child,
       bottomNavigationBar: Builder(builder: (ctx) {
@@ -26,8 +27,8 @@ class MainShell extends StatelessWidget {
           currentIndex: idx,
           type: BottomNavigationBarType.fixed,
           selectedItemColor: AppColors.accent,
-          unselectedItemColor: AppColors.textLight,
-          backgroundColor: AppColors.surface,
+          unselectedItemColor: tc.textLight,
+          backgroundColor: tc.surface,
           elevation: 8,
           onTap: (i) {
             switch (i) {

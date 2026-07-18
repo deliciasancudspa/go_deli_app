@@ -169,6 +169,61 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _openWaze(double lat, double lng) async {
+    final uri = Uri.parse("https://waze.com/ul?ll=$lat,$lng&navigate=yes");
+    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  void _showNavigationChooser(LatLng dest) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+            ),
+            const Text("Navegar con...", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(color: const Color(0xFF4285F4).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.map, color: Color(0xFF4285F4), size: 24),
+              ),
+              title: const Text("Google Maps", style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text("Indicaciones paso a paso", style: TextStyle(fontSize: 12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _navigateTo(dest.latitude, dest.longitude);
+              },
+            ),
+            const SizedBox(height: 4),
+            ListTile(
+              leading: Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(color: const Color(0xFF33CCFF).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.explore_outlined, color: Color(0xFF33CCFF), size: 24),
+              ),
+              title: const Text("Waze", style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text("Alertas de tráfico en tiempo real", style: TextStyle(fontSize: 12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _openWaze(dest.latitude, dest.longitude);
+              },
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
   Future<void> _updateStatus(String newStatus) async {
     final rider = context.read<RiderProvider>();
     await rider.updateOrderStatus(widget.orderId, newStatus);
@@ -394,6 +449,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.accent)));
     final l10n = AppLocalizations.of(context)!;
+    final tc = ThemeColors.of(context);
     if (_order == null) return Scaffold(appBar: AppBar(), body: Center(child: Text(l10n.orderNotFound)));
 
     final status = _order!["status"] as String;
@@ -444,6 +500,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   _voiceNav?.dispose();
                   _voiceNav = VoiceNavigationService();
                   _voiceNav!.initialize();
+                  // Auto-start voice navigation — rider can disable manually
+                  _voiceNav!.startNavigation(r.steps!).then((_) {
+                    if (mounted) setState(() => _voiceNavEnabled = true);
+                  });
                 }
               },
               // Floating navigation button on the map
@@ -459,11 +519,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           child: const Icon(Icons.my_location, color: AppColors.primary),
                         ),
                         const SizedBox(height: 10),
-                        // Google Maps navigation
+                        // Google Maps / Waze navigation
                         FloatingActionButton(
                           heroTag: "navigate",
                           backgroundColor: AppColors.accent,
-                          onPressed: () { if (destLatLng != null) _navigateTo(destLatLng!.latitude, destLatLng!.longitude); },
+                          onPressed: () { if (destLatLng != null) _showNavigationChooser(destLatLng!); },
                           child: const Icon(Icons.navigation, color: Colors.white, size: 28),
                         ),
                       ]),
@@ -570,7 +630,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           builder: (ctx, scrollController) {
             return Container(
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: tc.background,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 20, offset: const Offset(0, -4))],
               ),
@@ -583,7 +643,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   Center(
                     child: Container(
                       width: 40, height: 4,
-                      decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(color: tc.border, borderRadius: BorderRadius.circular(2)),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -613,8 +673,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   _productsCard(items, total, riderFee, tipAmount, payMethod),
                   const SizedBox(height: 12),
 
-                  // ── Chat (always in active status) ──
-                  if (_activeStatuses.contains(status)) ...[
+                  // ── Chat (only after pickup — rider and client need to coordinate) ──
+                  if (status == "picked_up" || status == "on_the_way") ...[
                     _actionButton(Icons.chat_bubble_outline, "Chat con el cliente", AppColors.accent,
                         onTap: () => context.push("/chat/${widget.orderId}")),
                     const SizedBox(height: 6),
@@ -632,9 +692,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     const SizedBox(height: 6),
                   ],
 
-                  // ── Confirm pickup (assigned) ──
+                  // ── Waiting for store pickup code (assigned) ──
                   if (status == "assigned") ...[
-                    _bigButton("Recogí el pedido", AppColors.primary, Icons.shopping_bag, onTap: () => _updateStatus("picked_up")),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.info.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.info.withOpacity(0.3)),
+                      ),
+                      child: const Row(children: [
+                        Icon(Icons.info_outline, color: AppColors.info, size: 18),
+                        SizedBox(width: 10),
+                        Expanded(child: Text(
+                          "Espera a que la tienda ingrese el código de retiro.\nEl pedido se confirmará automáticamente.",
+                          style: TextStyle(color: AppColors.info, fontSize: 12, fontWeight: FontWeight.w600, height: 1.4),
+                        )),
+                      ]),
+                    ),
                     const SizedBox(height: 10),
                     // Store problems
                     Container(
@@ -728,19 +804,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     ]),
   );
 
-  Widget _infoCard(String label, String emoji, String name, String subtitle, String? phone, {String? logoUrl, String? reference}) => Container(
+  Widget _infoCard(String label, String emoji, String name, String subtitle, String? phone, {String? logoUrl, String? reference}) {
+    final tc = ThemeColors.of(context);
+    return Container(
     margin: const EdgeInsets.symmetric(horizontal: 20),
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+    decoration: BoxDecoration(color: tc.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: tc.border)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+      Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: tc.textLight)),
       const SizedBox(height: 8),
       Row(children: [
         _storeAvatar(logoUrl, emoji, size: 36),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-          if (subtitle.isNotEmpty) Text(subtitle, style: const TextStyle(color: AppColors.textLight, fontSize: 11)),
+          Text(name, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: tc.textDark)),
+          if (subtitle.isNotEmpty) Text(subtitle, style: TextStyle(color: tc.textLight, fontSize: 11)),
         ])),
         if (phone != null) ...[
           const SizedBox(width: 8),
@@ -769,34 +847,37 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       ],
     ]),
   );
+  }
 
-  Widget _productsCard(List items, double total, double riderFee, double tipAmount, String? payMethod) => Container(
+  Widget _productsCard(List items, double total, double riderFee, double tipAmount, String? payMethod) {
+    final tc = ThemeColors.of(context);
+    return Container(
     margin: const EdgeInsets.symmetric(horizontal: 20),
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+    decoration: BoxDecoration(color: tc.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: tc.border)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text("Productos", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+      Text("Productos", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: tc.textDark)),
       const SizedBox(height: 10),
       ...items.map((item) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Row(children: [
           Text("${item["quantity"]}× ", style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.accent)),
-          Expanded(child: Text(item["item_name"] ?? "", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-          Text("\$${((item["item_price"] as num?) ?? 0).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          Expanded(child: Text(item["item_name"] ?? "", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: tc.textDark))),
+          Text("\$${((item["item_price"] as num?) ?? 0).toStringAsFixed(0)}", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: tc.textDark)),
         ]),
       )),
       const Divider(),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const Text("Total", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+        Text("Total", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: tc.textDark)),
         Text(_fmt(total), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accent)),
       ]),
       if (riderFee > 0) ...[
         const SizedBox(height: 6),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Row(children: [
-            Icon(Icons.monetization_on_outlined, size: 15, color: AppColors.success),
-            SizedBox(width: 4),
-            Text("Tu ganancia", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          Row(children: [
+            const Icon(Icons.monetization_on_outlined, size: 15, color: AppColors.success),
+            const SizedBox(width: 4),
+            Text("Tu ganancia", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: tc.textDark)),
           ]),
           Text(_fmt(riderFee), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: AppColors.success)),
         ]),
@@ -804,10 +885,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (tipAmount > 0) ...[
         const SizedBox(height: 4),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Row(children: [
-            Icon(Icons.card_giftcard, size: 15, color: AppColors.warning),
-            SizedBox(width: 4),
-            Text("🎁 Propina", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          Row(children: [
+            const Icon(Icons.card_giftcard, size: 15, color: AppColors.warning),
+            const SizedBox(width: 4),
+            Text("🎁 Propina", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: tc.textDark)),
           ]),
           Text("+${_fmt(tipAmount)}", style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.warning)),
         ]),
@@ -826,6 +907,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       ],
     ]),
   );
+  }
 
   Widget _actionButton(IconData icon, String label, Color color, {VoidCallback? onTap, bool compact = false, bool mini = false, double borderWidth = 1}) {
     final style = OutlinedButton.styleFrom(

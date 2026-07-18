@@ -165,6 +165,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tc = ThemeColors.of(context);
     final totalEarned = _orders.fold(0.0, (s, o) => s + _orderEarning(o) + ((o["tip_amount"] as num?)?.toDouble() ?? 0));
 
     // Propinas totales
@@ -195,7 +196,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         if (!didPop) context.go("/dashboard");
       },
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: tc.background,
         appBar: AppBar(
           title: Text(AppLocalizations.of(context)!.earningsTitle),
           leading: IconButton(
@@ -265,15 +266,15 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       Container(
                         padding: const EdgeInsets.all(32),
                         decoration: BoxDecoration(
-                            color: AppColors.surface,
+                            color: tc.surface,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.border)),
-                        child: const Column(children: [
-                          Text("🛵", style: TextStyle(fontSize: 40)),
-                          SizedBox(height: 12),
+                            border: Border.all(color: tc.border)),
+                        child: Column(children: [
+                          const Text("🛵", style: TextStyle(fontSize: 40)),
+                          const SizedBox(height: 12),
                           Text("Sin entregas esta semana",
                               style: TextStyle(
-                                  color: AppColors.textLight,
+                                  color: tc.textLight,
                                   fontWeight: FontWeight.w600)),
                         ]),
                       ),
@@ -287,11 +288,12 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
   // ── Navegación de semana: ← | fecha | → ──
   Widget _weekNav() {
+    final tc = ThemeColors.of(context);
     return Container(
       decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: tc.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border)),
+          border: Border.all(color: tc.border)),
       child: Row(children: [
         IconButton(
           icon: const Icon(Icons.chevron_left, color: AppColors.accent),
@@ -311,17 +313,17 @@ class _EarningsScreenState extends State<EarningsScreen> {
             child: Text(
               _isCurrentWeek ? "Esta semana" : _semanaLabel(),
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 14,
-                  color: AppColors.textDark),
+                  color: tc.textDark),
             ),
           ),
         ),
         IconButton(
           icon: Icon(Icons.chevron_right,
               color: _isCurrentWeek
-                  ? AppColors.border
+                  ? tc.border
                   : AppColors.accent),
           onPressed: _isCurrentWeek ? null : _semanaSiguiente,
           tooltip: "Semana siguiente",
@@ -397,6 +399,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
   // ── Fila de pedido individual ──
   Widget _orderRow(Map<String, dynamic> o) {
+    final tc = ThemeColors.of(context);
     final store = (o["stores"] as Map<String, dynamic>?) ?? {};
     final storeLogo = store["logo_url"] as String?;
     final storeEmoji = store["emoji"] as String? ?? "🍽️";
@@ -411,14 +414,17 @@ class _EarningsScreenState extends State<EarningsScreen> {
     final timeLabel = createdAt != null
         ? "${createdAt.hour.toString().padLeft(2, "0")}:${createdAt.minute.toString().padLeft(2, "0")}"
         : "";
+    final dateLabel = createdAt != null
+        ? "${createdAt.day.toString().padLeft(2, "0")}/${createdAt.month.toString().padLeft(2, "0")}/${createdAt.year}"
+        : "";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: tc.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border)),
+          border: Border.all(color: tc.border)),
       child: Row(children: [
         _storeAvatar(storeLogo, storeEmoji, size: 40),
         const SizedBox(width: 12),
@@ -427,17 +433,17 @@ class _EarningsScreenState extends State<EarningsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
               Text(storeName,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 14)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14, color: tc.textDark)),
               const SizedBox(height: 3),
               Row(children: [
                 if (distLabel != null) ...[
-                  const Icon(Icons.route_outlined,
-                      size: 13, color: AppColors.textLight),
+                  Icon(Icons.route_outlined,
+                      size: 13, color: tc.textLight),
                   const SizedBox(width: 3),
                   Text(distLabel,
-                      style: const TextStyle(
-                          color: AppColors.textLight, fontSize: 12)),
+                      style: TextStyle(
+                          color: tc.textLight, fontSize: 12)),
                   const SizedBox(width: 10),
                 ],
                 if (payMethod == "cash")
@@ -453,11 +459,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
                             fontSize: 10,
                             fontWeight: FontWeight.w700)),
                   ),
-                if (timeLabel.isNotEmpty) ...[
+                if (dateLabel.isNotEmpty) ...[
                   const SizedBox(width: 6),
-                  Text(timeLabel,
-                      style: const TextStyle(
-                          color: AppColors.textLight, fontSize: 11)),
+                  Text("$timeLabel · $dateLabel",
+                      style: TextStyle(
+                          color: tc.textLight, fontSize: 11)),
                 ],
               ]),
             ])),

@@ -361,6 +361,7 @@ class RiderProvider extends ChangeNotifier {
   Future<void> loadActiveOrders() async {
     if (_rider == null) return;
     try {
+      // Only fetch orders that are truly active — cancelled/returned/delivered are history
       final orders = await _sb.from("orders").select("*, stores(name,emoji,logo_url,address,phone), users!client_id(name,phone), order_items(item_name,quantity)").eq("deliverer_id", _rider!["id"]).inFilter("status", ["assigned", "picked_up", "on_the_way"]).order("created_at", ascending: false);
       _activeOrders = List<Map<String, dynamic>>.from(orders);
       notifyListeners();

@@ -48,6 +48,34 @@ class AppColors {
 ''';
 }
 
+/// Resolved colors that respect the current theme brightness.
+/// Use [ThemeColors.of(context)] instead of [AppColors] directly to get
+/// correct colors in both light and dark modes.
+class ThemeColors {
+  final Brightness brightness;
+  const ThemeColors._(this.brightness);
+
+  bool get isDark => brightness == Brightness.dark;
+
+  Color get background => isDark ? AppColors.darkBg : AppColors.background;
+  Color get surface => isDark ? AppColors.darkSurface : AppColors.surface;
+  Color get textDark => isDark ? AppColors.darkText : AppColors.textDark;
+  Color get textMedium => isDark ? AppColors.darkTextSecondary : AppColors.textMedium;
+  Color get textLight => isDark ? AppColors.darkTextSecondary : AppColors.textLight;
+  Color get border => isDark ? AppColors.darkBorder : AppColors.border;
+  // Brand colors stay the same in both modes
+  Color get primary => AppColors.primary;
+  Color get accent => AppColors.accent;
+  Color get success => AppColors.success;
+  Color get error => AppColors.error;
+  Color get warning => AppColors.warning;
+  Color get info => AppColors.info;
+
+  static ThemeColors of(BuildContext context) {
+    return ThemeColors._(Theme.of(context).brightness);
+  }
+}
+
 class AppTheme {
   static ThemeData get theme => ThemeData(
     useMaterial3: true,
