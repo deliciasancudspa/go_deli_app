@@ -55,7 +55,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       _loadStats();
       _loadUnreadCount();
       _subscribeRealtime();
-      rider.loadRatingStats();
+      _riderRef!.loadRatingStats();
       _loadChallenges();
     });
   }

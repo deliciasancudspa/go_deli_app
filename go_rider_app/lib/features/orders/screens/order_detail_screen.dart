@@ -1,4 +1,4 @@
-import "package:flutter/material.dart";
+﻿import "package:flutter/material.dart";
 import "dart:async";
 import "package:flutter/foundation.dart";
 import "package:go_router/go_router.dart";
@@ -178,7 +178,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (newStatus == "delivered") _stopGps();
     await _load();
     if (newStatus == "delivered" && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.orderDeliveryConfirmed), backgroundColor: AppColors.success));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.orderDeliveryConfirmed), backgroundColor: AppColors.success));
       context.go("/dashboard");
     }
   }
@@ -382,6 +382,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final items = (_order!["order_items"] as List?) ?? [];
     final total = (_order!["total"] as num?)?.toDouble() ?? 0;
     final riderFee = (_order!["rider_fee"] as num?)?.toDouble() ?? 0;
+    final tipAmount = (_order!["tip_amount"] as num?)?.toDouble() ?? 0;
     final payMethod = _order!["payment_method"] as String?;
     final pickupCode = _order!["pickup_code"] as String?;
     // Mientras esté en cola no se navega: se muestra aviso en vez del mapa de ruta.
@@ -418,9 +419,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(color: Colors.red.shade700, borderRadius: BorderRadius.circular(10)),
-              child: const Row(children: [
-                Icon(Icons.wifi_off, color: Colors.white, size: 18),
-                SizedBox(width: 10),
+              child: Row(children: [
+                const Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
                 Expanded(child: Text(l10n.dashboardOfflineBanner, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
               ]),
             );
@@ -444,9 +445,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(color: AppColors.success.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.location_on, color: AppColors.success, size: 14),
-                  SizedBox(width: 6),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.location_on, color: AppColors.success, size: 14),
+                  const SizedBox(width: 6),
                   Text(l10n.orderSharingLocation, style: const TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.w700)),
                 ]),
               ),
@@ -532,7 +533,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Text("\$${riderFee.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.success)),
               ]),
             ],
-            final tipAmount = (_order!["tip_amount"] as num?)?.toDouble() ?? 0;
             if (tipAmount > 0) ...[
               const SizedBox(height: 4),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

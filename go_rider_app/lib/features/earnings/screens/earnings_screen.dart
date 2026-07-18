@@ -210,7 +210,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     const SizedBox(height: 16),
 
                     // ── Pago instantáneo ──
-                    if (totalEarned > 0) _paymentRequestSection(rider, totalEarned),
+                    if (totalEarned > 0) _paymentRequestSection(context.read<RiderProvider>(), totalEarned),
                     const SizedBox(height: 24),
 
                     // ── Pedidos entregados ──
@@ -441,9 +441,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
         border: Border.all(color: AppColors.accent.withOpacity(0.2)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
-          Icon(Icons.payments_outlined, color: AppColors.accent, size: 22),
-          SizedBox(width: 8),
+        Row(children: [
+          const Icon(Icons.payments_outlined, color: AppColors.accent, size: 22),
+          const SizedBox(width: 8),
           Text(AppLocalizations.of(context)!.earningsWithdraw, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.accent)),
         ]),
         const SizedBox(height: 8),
@@ -508,10 +508,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(children: [
-          Icon(Icons.payments_outlined, color: AppColors.accent, size: 24),
-          SizedBox(width: 10),
-          Text(AppLocalizations.of(ctx)!.earningsWithdrawTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        title: Row(children: [
+          const Icon(Icons.payments_outlined, color: AppColors.accent, size: 24),
+          const SizedBox(width: 10),
+          Text(AppLocalizations.of(context)!.earningsWithdrawTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
         ]),
         content: Form(
           key: formKey,

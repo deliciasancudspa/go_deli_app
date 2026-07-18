@@ -560,7 +560,7 @@ class RiderProvider extends ChangeNotifier {
   }
 
   Future<String?> requestPayment(int amount) async {
-    if (amount < 2000) return "El monto mínimo es $2.000";
+    if (amount < 2000) return "El monto mínimo es \$2.000";
     try {
       final result = await _sb.rpc("request_payment", params: {"p_amount": amount});
       if (result == "ok") {
@@ -568,7 +568,7 @@ class RiderProvider extends ChangeNotifier {
         return null;
       }
       if (result == "already_requested_today") return "Ya retiraste hoy. Disponible mañana.";
-      if (result == "amount_too_low") return "El monto mínimo es $2.000";
+      if (result == "amount_too_low") return "El monto mínimo es \$2.000";
       return result?.toString();
     } catch (e) {
       return e.toString();

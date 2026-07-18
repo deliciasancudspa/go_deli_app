@@ -98,7 +98,7 @@ class AppLocalizations {
   String get dashboardViewDetails => _tr({'es': 'Ver detalles', 'en': 'View details', 'pt': 'Ver detalhes'});
   String get dashboardDemand => _tr({'es': 'Demanda', 'en': 'Demand', 'pt': 'Demanda'});
   String get dashboardPerformance => _tr({'es': 'Desempeño', 'en': 'Performance', 'pt': 'Desempenho'});
-  String get dashboardEarnedDiff => _tr({'es': '+\$${amount} (hace ${mins} min)', 'en': '+\$${amount} (${mins} min ago)', 'pt': '+\$${amount} (há ${mins} min)'});
+  String get dashboardEarnedDiff => _tr({'es': '+\\\$ {amount} (hace {mins} min)', 'en': '+\\\$ {amount} ({mins} min ago)', 'pt': '+\\\$ {amount} (há {mins} min)'});
 
   // ═══════════════════════════════════════════════════════════════════
   // NOTIFICATIONS / OFFERS
@@ -111,7 +111,7 @@ class AppLocalizations {
   String get notifReject => _tr({'es': 'Rechazar', 'en': 'Reject', 'pt': 'Recusar'});
   String get notifCash => _tr({'es': 'Efectivo', 'en': 'Cash', 'pt': 'Dinheiro'});
   String get notifCard => _tr({'es': 'Tarjeta', 'en': 'Card', 'pt': 'Cartão'});
-  String get notifCollectCash => _tr({'es': 'Cobrar $ ${amount} en efectivo al cliente', 'en': 'Collect $ ${amount} cash from customer', 'pt': 'Cobrar $ ${amount} em dinheiro do cliente'});
+  String get notifCollectCash => _tr({'es': 'Cobrar \\\$ {amount} en efectivo al cliente', 'en': 'Collect \\\$ {amount} cash from customer', 'pt': 'Cobrar \\\$ {amount} em dinheiro do cliente'});
 
   // ═══════════════════════════════════════════════════════════════════
   // ORDERS
