@@ -535,91 +535,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           // No map available yet — show gradient background
           Container(color: AppColors.primary),
 
-        // ════════════════ TOP OVERLAY ════════════════
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(children: [
-              // Back button
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: Container(
-                  width: 42, height: 42,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)]),
-                  child: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.primary),
-                ),
-              ),
-              const Spacer(),
-              // Status pill
-              _statusPill(status),
-              const Spacer(),
-              // GPS indicator
-              if (_gpsActive)
-                Container(
-                  width: 42, height: 42,
-                  decoration: BoxDecoration(color: AppColors.success.withOpacity(0.9), borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)]),
-                  child: const Icon(Icons.gps_fixed, color: Colors.white, size: 20),
-                ),
-            ]),
-          ),
-        ),
-
-        // ════════════════ ROUTE INFO BAR (debajo del top overlay) ════════════════
-        if (_routeKm != null && !_isQueued)
-          Positioned(
-            top: 96, left: 16, right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10)]),
-              child: Row(children: [
-                const Icon(Icons.route_outlined, color: AppColors.accent, size: 18),
-                const SizedBox(width: 8),
-                Text("${_routeKm!.toStringAsFixed(1)} km", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                if (_routeEta != null) ...[
-                  const SizedBox(width: 8),
-                  Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.textLight, shape: BoxShape.circle)),
-                  const SizedBox(width: 8),
-                  Text(_routeEta!, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textMedium)),
-                ],
-                const Spacer(),
-                if (_voiceNav != null)
-                  GestureDetector(
-                    onTap: () async {
-                      if (_voiceNavEnabled) {
-                        _voiceNav!.stopNavigation();
-                        setState(() => _voiceNavEnabled = false);
-                      } else if (_voiceSteps != null && _voiceSteps!.isNotEmpty) {
-                        await _voiceNav!.startNavigation(_voiceSteps!);
-                        setState(() => _voiceNavEnabled = true);
-                      }
-                    },
-                    child: Icon(_voiceNavEnabled ? Icons.volume_up : Icons.volume_off,
-                        color: _voiceNavEnabled ? AppColors.accent : AppColors.textLight, size: 22),
-                  ),
-              ]),
-            ),
-          ),
-
-        // ════════════════ QUEUED BANNER ════════════════
-        if (_isQueued)
-          Positioned(
-            top: 96, left: 16, right: 16,
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.info.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10)],
-              ),
-              child: const Row(children: [
-                Icon(Icons.schedule, color: Colors.white, size: 22),
-                SizedBox(width: 10),
-                Expanded(child: Text("Pedido en cola. Termina tu entrega en curso primero.", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-              ]),
-            ),
-          ),
-
         // ════════════════ BOTTOM DRAGGABLE SHEET ════════════════
+        // Rendered BEFORE top overlay so it doesn't block back-button taps
         DraggableScrollableSheet(
           controller: _sheetController,
           initialChildSize: _midSheetSize,
@@ -747,6 +664,89 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             );
           },
+        ),
+
+        // ════════════════ TOP OVERLAY ════════════════
+        // Rendered AFTER the DraggableScrollableSheet so it's always tappable
+        // Route info bar
+        if (_routeKm != null && !_isQueued)
+          Positioned(
+            top: 96, left: 16, right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10)]),
+              child: Row(children: [
+                const Icon(Icons.route_outlined, color: AppColors.accent, size: 18),
+                const SizedBox(width: 8),
+                Text("${_routeKm!.toStringAsFixed(1)} km", style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                if (_routeEta != null) ...[
+                  const SizedBox(width: 8),
+                  Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.textLight, shape: BoxShape.circle)),
+                  const SizedBox(width: 8),
+                  Text(_routeEta!, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textMedium)),
+                ],
+                const Spacer(),
+                if (_voiceNav != null)
+                  GestureDetector(
+                    onTap: () async {
+                      if (_voiceNavEnabled) {
+                        _voiceNav!.stopNavigation();
+                        setState(() => _voiceNavEnabled = false);
+                      } else if (_voiceSteps != null && _voiceSteps!.isNotEmpty) {
+                        await _voiceNav!.startNavigation(_voiceSteps!);
+                        setState(() => _voiceNavEnabled = true);
+                      }
+                    },
+                    child: Icon(_voiceNavEnabled ? Icons.volume_up : Icons.volume_off,
+                        color: _voiceNavEnabled ? AppColors.accent : AppColors.textLight, size: 22),
+                  ),
+              ]),
+            ),
+          ),
+
+        // Queued banner
+        if (_isQueued)
+          Positioned(
+            top: 96, left: 16, right: 16,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10)],
+              ),
+              child: const Row(children: [
+                Icon(Icons.schedule, color: Colors.white, size: 22),
+                SizedBox(width: 10),
+                Expanded(child: Text("Pedido en cola. Termina tu entrega en curso primero.", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
+              ]),
+            ),
+          ),
+
+        // Back button, status pill & GPS — always on top, never blocked
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(children: [
+              GestureDetector(
+                onTap: () => context.pop(),
+                child: Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)]),
+                  child: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.primary),
+                ),
+              ),
+              const Spacer(),
+              _statusPill(status),
+              const Spacer(),
+              if (_gpsActive)
+                Container(
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(color: AppColors.success.withOpacity(0.9), borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)]),
+                  child: const Icon(Icons.gps_fixed, color: Colors.white, size: 20),
+                ),
+            ]),
+          ),
         ),
       ]),
     );
