@@ -20,7 +20,10 @@ class RouteMapView extends StatefulWidget {
   final double destinationHue;
   final double height;
   final bool embedded; // true: dentro de un scroll (captura gestos del mapa)
+  final bool fullScreen; // true: ocupa todo el espacio disponible (ignora height)
+  final Widget? floatingChild; // widgets superpuestos sobre el mapa (ej: botones)
   final void Function(RouteResult route)? onRouteReady;
+  final void Function(GoogleMapController)? onMapCreated;
 
   const RouteMapView({
     super.key,
@@ -32,7 +35,10 @@ class RouteMapView extends StatefulWidget {
     this.destinationHue = BitmapDescriptor.hueRed,
     this.height = 240,
     this.embedded = false,
+    this.fullScreen = false,
+    this.floatingChild,
     this.onRouteReady,
+    this.onMapCreated,
   });
 
   @override
@@ -165,29 +171,41 @@ class _RouteMapViewState extends State<RouteMapView> {
   @override
   Widget build(BuildContext context) {
     final initial = widget.origin ?? widget.destination;
+
+    Widget mapWidget = GoogleMap(
+      initialCameraPosition: CameraPosition(target: initial, zoom: 14),
+      markers: _markers,
+      polylines: _polylines,
+      myLocationButtonEnabled: !widget.fullScreen,
+      zoomControlsEnabled: false,
+      mapToolbarEnabled: false,
+      compassEnabled: widget.fullScreen,
+      onMapCreated: (c) {
+        _ctrl = c;
+        _fitCamera();
+        _applyDarkMode(context);
+        widget.onMapCreated?.call(c);
+      },
+      gestureRecognizers: widget.embedded
+          ? <Factory<OneSequenceGestureRecognizer>>{
+              Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+            }
+          : const <Factory<OneSequenceGestureRecognizer>>{},
+    );
+
+    if (widget.fullScreen) {
+      // Full screen: render map inside a Stack to allow floating widgets
+      return Stack(children: [
+        mapWidget,
+        if (widget.floatingChild != null) widget.floatingChild!,
+      ]);
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
         height: widget.height,
-        child: GoogleMap(
-          initialCameraPosition: CameraPosition(target: initial, zoom: 14),
-          markers: _markers,
-          polylines: _polylines,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          mapToolbarEnabled: false,
-          compassEnabled: false,
-          onMapCreated: (c) {
-            _ctrl = c;
-            _fitCamera();
-            _applyDarkMode(context);
-          },
-          gestureRecognizers: widget.embedded
-              ? <Factory<OneSequenceGestureRecognizer>>{
-                  Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
-                }
-              : const <Factory<OneSequenceGestureRecognizer>>{},
-        ),
+        child: mapWidget,
       ),
     );
   }

@@ -279,6 +279,21 @@ class NotificationService {
     }
   }
 
+  /// Cancels ALL local notifications and stops the alarm. Use on sign out.
+  static Future<void> cancelAll() async {
+    await stopOfferAlarm();
+    _activeOfferIds.clear();
+    if (_persistentNotifId > 0) {
+      try {
+        await _plugin.cancel(_persistentNotifId);
+      } catch (_) {}
+      _persistentNotifId = -1;
+    }
+    try {
+      await _plugin.cancelAll();
+    } catch (_) {}
+  }
+
   /// Whether there are active (unresolved) offers being tracked.
   static bool get hasActiveOffers => _activeOfferIds.isNotEmpty;
   static bool get isAlarmPlaying => _alarmPlaying;

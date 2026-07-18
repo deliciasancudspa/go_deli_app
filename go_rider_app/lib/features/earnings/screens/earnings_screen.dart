@@ -20,6 +20,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
   bool _loading = true;
   bool _requestingPayment = false;
   final _sb = Supabase.instance.client;
+  double _availableBalance = 0; // saldo disponible para retirar (pedidos no liquidados)
 
   @override
   void initState() {
@@ -70,6 +71,45 @@ class _EarningsScreenState extends State<EarningsScreen> {
           .gte("created_at", _semanaStart.toIso8601String())
           .lte("created_at", _semanaEnd.toIso8601String());
 
+      // Fecha del último retiro para calcular saldo disponible
+      String? lastSettlementStr;
+      try {
+        final riderData = await _sb.from("deliverers")
+            .select("last_settlement_at")
+            .eq("id", rider.riderId)
+            .maybeSingle();
+        lastSettlementStr = riderData?["last_settlement_at"] as String?;
+      } catch (_) {}
+
+      // Calcular saldo disponible: solo pedidos posteriores al último retiro
+      // en la semana actual (o todas las semanas si es la primera vez)
+      double availableBalance = 0;
+      if (_isCurrentWeek) {
+        try {
+          final unsettledOrders = await _sb.from("orders")
+              .select("total, payment_method, status, rider_fee")
+              .eq("deliverer_id", rider.riderId)
+              .eq("status", "delivered")
+              .gte("created_at", lastSettlementStr ?? _semanaStart.toIso8601String())
+              .lte("created_at", _semanaEnd.toIso8601String());
+          final list = List<Map<String, dynamic>>.from(unsettledOrders);
+
+          final cardEarnings = list
+              .where((o) => o["payment_method"] != "cash")
+              .fold(0.0, (s, o) => s + ((o["rider_fee"] as num?)?.toDouble() ?? 0));
+
+          final cashHandled = list
+              .where((o) => o["payment_method"] == "cash")
+              .fold(0.0, (s, o) => s + ((o["total"] as num?)?.toDouble() ?? 0));
+
+          final cashEarnings = list
+              .where((o) => o["payment_method"] == "cash")
+              .fold(0.0, (s, o) => s + ((o["rider_fee"] as num?)?.toDouble() ?? 0));
+
+          availableBalance = cardEarnings - (cashHandled - cashEarnings);
+        } catch (_) {}
+      }
+
       // ¿Admin ya pagó/liquidó esta semana?
       String? status;
       try {
@@ -90,6 +130,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         setState(() {
           _orders = List<Map<String, dynamic>>.from(orders);
           _semanaStatus = status;
+          _availableBalance = availableBalance;
           _loading = false;
         });
       }
@@ -210,7 +251,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     const SizedBox(height: 16),
 
                     // ── Pago instantáneo ──
-                    if (totalEarned > 0) _paymentRequestSection(context.read<RiderProvider>(), totalEarned),
+                    if (totalEarned > 0 || _availableBalance > 0) _paymentRequestSection(context.read<RiderProvider>()),
                     const SizedBox(height: 24),
 
                     // ── Pedidos entregados ──
@@ -430,8 +471,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
   }
 
   // ── Sección de pago instantáneo ──
-  Widget _paymentRequestSection(RiderProvider rider, double totalEarned) {
-    final canRequest = !rider.hasRequestedToday && (totalEarned > 2000);
+  Widget _paymentRequestSection(RiderProvider rider) {
+    final canWithdraw = _availableBalance >= 2000; // mínimo $2.000 y saldo positivo
+    final canRequest = !rider.hasRequestedToday && canWithdraw;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -447,16 +489,28 @@ class _EarningsScreenState extends State<EarningsScreen> {
           Text(AppLocalizations.of(context)!.earningsWithdraw, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.accent)),
         ]),
         const SizedBox(height: 8),
-        Text(
-          canRequest ? "1 retiro disponible hoy" : "Ya retiraste hoy — disponible mañana",
-          style: TextStyle(color: canRequest ? AppColors.textMedium : AppColors.textLight, fontSize: 12, fontWeight: FontWeight.w600),
-        ),
+        if (canRequest) ...[
+          Text(
+            "1 retiro disponible hoy · Máximo: ${_fmt(_availableBalance)}",
+            style: const TextStyle(color: AppColors.textMedium, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ] else if (rider.hasRequestedToday) ...[
+          Text(
+            "Ya retiraste hoy — disponible mañana",
+            style: const TextStyle(color: AppColors.textLight, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ] else ...[
+          Text(
+            _availableBalance <= 0 ? "Sin saldo disponible para retirar" : "Mínimo \$2.000 para retirar",
+            style: const TextStyle(color: AppColors.textLight, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ],
         if (canRequest) ...[
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: _requestingPayment ? null : () => _showPaymentDialog(rider, totalEarned),
+              onPressed: _requestingPayment ? null : () => _showPaymentDialog(rider),
               icon: const Icon(Icons.account_balance_wallet, size: 18),
               label: const Text("Retirar ahora", style: TextStyle(fontWeight: FontWeight.w700)),
               style: OutlinedButton.styleFrom(
@@ -500,9 +554,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
     );
   }
 
-  Future<void> _showPaymentDialog(RiderProvider rider, double totalEarned) async {
+  Future<void> _showPaymentDialog(RiderProvider rider) async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    final maxAvailable = _availableBalance.toInt();
+    final netAfterCommission = maxAvailable > 990 ? maxAvailable - 990 : 0;
 
     final result = await showDialog<bool>(
       context: context,
@@ -516,21 +572,43 @@ class _EarningsScreenState extends State<EarningsScreen> {
         content: Form(
           key: formKey,
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Info de saldo disponible
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.success.withOpacity(0.25)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.account_balance_wallet_outlined, size: 16, color: AppColors.success),
+                  const SizedBox(width: 6),
+                  const Text("Saldo disponible para retirar:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),
+                ]),
+                const SizedBox(height: 4),
+                Text(_fmt(_availableBalance), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.success)),
+                if (netAfterCommission > 0)
+                  Text("Neto a recibir (tras comisión \$990): ${_fmt(netAfterCommission.toDouble())}",
+                      style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
+              ]),
+            ),
             const Text("Ingresa el monto que deseas retirar:", style: TextStyle(color: AppColors.textMedium, fontSize: 13)),
             const SizedBox(height: 8),
             TextFormField(
               controller: controller,
               keyboardType: TextInputType.number,
               autofocus: true,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 prefixText: "\$ ",
-                hintText: "Ej: 15000",
-                border: OutlineInputBorder(),
+                hintText: "Ej: ${maxAvailable > 0 ? maxAvailable : 15000}",
+                border: const OutlineInputBorder(),
               ),
               validator: (v) {
                 final n = int.tryParse(v ?? "");
                 if (n == null || n < 2000) return "Mínimo \$2.000";
-                if (n > totalEarned.toInt()) return "No puedes retirar más de lo ganado (\$${totalEarned.toStringAsFixed(0)})";
+                if (n > maxAvailable) return "No puedes retirar más de tu saldo disponible (${_fmt(_availableBalance)})";
                 return null;
               },
             ),

@@ -39,6 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   List<Map<String, dynamic>> _heatmapData = [];
   bool _showHeatmap = false;
   Timer? _heatmapTimer;
+  String? _heatmapMessage;
   // Challenges
   List<Map<String, dynamic>> _challenges = [];
   bool _challengesLoaded = false;
@@ -74,6 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (_subscribedRiderId.isNotEmpty) {
       _sb.channel("rider-orders-$_subscribedRiderId").unsubscribe();
       _sb.channel("rider-notifs-$_subscribedRiderId").unsubscribe();
+      _sb.channel("rider-notifs-upd-$_subscribedRiderId").unsubscribe();
     }
     if (_subscribedUserId.isNotEmpty) {
       _sb.channel("rider-chat-$_subscribedUserId").unsubscribe();
@@ -104,6 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (_subscribedRiderId.isNotEmpty) {
       _sb.channel("rider-orders-$_subscribedRiderId").unsubscribe();
       _sb.channel("rider-notifs-$_subscribedRiderId").unsubscribe();
+      _sb.channel("rider-notifs-upd-$_subscribedRiderId").unsubscribe();
     }
     if (_subscribedUserId.isNotEmpty) _sb.channel("rider-chat-$_subscribedUserId").unsubscribe();
     super.dispose();
@@ -154,13 +157,33 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   // ── Mapa de calor ─────────────────────────────────────────────────────────
   Future<void> _loadHeatmap() async {
     final rider = context.read<RiderProvider>();
-    if (rider.riderId.isEmpty || !rider.isOnline) return;
+    if (rider.riderId.isEmpty || !rider.isOnline) {
+      if (mounted) {
+        setState(() => _heatmapMessage = AppLocalizations.of(context)!.heatmapNeedOnline);
+        _showHeatmap = false; // revertir toggle, no hay nada que mostrar
+      }
+      return;
+    }
     try {
       final riderData = rider.rider;
       final communeId = riderData?["commune_id"] as String?;
       final data = await _sb.rpc("get_heatmap_data", params: {"p_commune_id": communeId});
-      if (mounted) setState(() => _heatmapData = List<Map<String, dynamic>>.from(data as List));
-    } catch (_) {}
+      final list = List<Map<String, dynamic>>.from(data as List);
+      if (mounted) {
+        setState(() {
+          _heatmapData = list;
+          _heatmapMessage = list.isEmpty ? AppLocalizations.of(context)!.heatmapNoData : null;
+          if (list.isEmpty) _showHeatmap = false; // revertir si no hay datos
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _heatmapMessage = AppLocalizations.of(context)!.heatmapError;
+          _showHeatmap = false;
+        });
+      }
+    }
   }
 
   void _startHeatmapPolling() {
@@ -300,10 +323,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: "deliverer_id", value: riderId),
           callback: (payload) {
             if (!mounted) return;
+            final rec = payload.newRecord;
+            final orderId = rec["id"] as String?;
+            final status = rec["status"] as String?;
+            // Limpiar notificación/alarma si el pedido fue cancelado o completado
+            if (status == "cancelled" || status == "delivered" || status == "rejected") {
+              if (orderId != null) NotificationService.resolveOffer(orderId);
+            }
             context.read<RiderProvider>().loadActiveOrders();
             _loadStats();
-            final rec = payload.newRecord;
-            if (rec["status"] == "assigned") {
+            if (status == "assigned") {
               NotificationService.show(title: "🛵 Nuevo pedido asignado", body: "Tienes un nuevo pedido. Revisa los detalles.");
             }
           },
@@ -337,6 +366,27 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               );
             } else {
               NotificationService.show(title: "$emoji $title", body: msg);
+            }
+          },
+        ).subscribe();
+        // Second subscription: UPDATE on notifications to detect when backend
+        // marks an offer as read (order taken by another rider, cancelled, etc.)
+        _sb.channel("rider-notifs-upd-$riderId").onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: "public",
+          table: "notifications",
+          callback: (payload) {
+            if (!mounted) return;
+            final rec = payload.newRecord;
+            if ((rec["target"] as String?) != riderId) return;
+            final isRead = rec["is_read"] as bool?;
+            final type = rec["type"] as String?;
+            final data = rec["data"] as Map<String, dynamic>?;
+            final orderId = data?["order_id"] as String?;
+            // If an order_offer was marked as read (expired, taken, cancelled),
+            // dismiss the persistent notification and stop the alarm for it.
+            if (isRead == true && type == "order_offer" && orderId != null) {
+              NotificationService.resolveOffer(orderId);
             }
           },
         ).subscribe();
@@ -463,7 +513,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
             ),
             GestureDetector(
-              onTap: () async { await rider.toggleOnline(); _loadStats(); },
+              onTap: () async {
+                final error = await rider.toggleOnline();
+                _loadStats();
+                if (error != null && mounted) {
+                  final loc = AppLocalizations.of(context)!;
+                  final msg = error == "gps_off" ? loc.toggleOnlineGpsOff : loc.toggleOnlineLocationDenied;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(msg), backgroundColor: AppColors.warning, behavior: SnackBarBehavior.floating),
+                  );
+                }
+              },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 width: 64, height: 32,
@@ -515,6 +575,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const SizedBox(height: 24),
             // ── Mapa de calor: resumen de demanda ──
             if (_heatmapData.isNotEmpty && _showHeatmap) _heatmapCard(),
+            if (_heatmapMessage != null) _heatmapMessageCard(),
             // ── Desafíos activos ──
             if (_challenges.isNotEmpty) ...[
               Text(AppLocalizations.of(context)!.challengeActive, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
@@ -528,8 +589,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               const Spacer(),
               TextButton(
                 onPressed: () {
-                  setState(() => _showHeatmap = !_showHeatmap);
-                  if (_showHeatmap) _loadHeatmap();
+                  final turnOn = !_showHeatmap;
+                  setState(() {
+                    _showHeatmap = turnOn;
+                    _heatmapMessage = null;
+                  });
+                  if (turnOn) _loadHeatmap();
                 },
                 child: Text(_showHeatmap ? "Ocultar" : AppLocalizations.of(context)!.dashboardDemand, style: const TextStyle(fontSize: 11)),
               ),
@@ -612,6 +677,25 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       ]),
     );
   }
+
+  Widget _heatmapMessageCard() => Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: AppColors.warning.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+    ),
+    child: Row(children: [
+      const Icon(Icons.info_outline, color: AppColors.warning, size: 22),
+      const SizedBox(width: 12),
+      Expanded(child: Text(_heatmapMessage!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textMedium))),
+      GestureDetector(
+        onTap: () => setState(() => _heatmapMessage = null),
+        child: const Icon(Icons.close, size: 18, color: AppColors.textLight),
+      ),
+    ]),
+  );
 
   Widget _challengeCard(Map<String, dynamic> c) {
     final current = (c["current_count"] as num?)?.toInt() ?? 0;

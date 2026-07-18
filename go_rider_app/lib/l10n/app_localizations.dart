@@ -98,6 +98,11 @@ class AppLocalizations {
   String get dashboardViewDetails => _tr({'es': 'Ver detalles', 'en': 'View details', 'pt': 'Ver detalhes'});
   String get dashboardDemand => _tr({'es': 'Demanda', 'en': 'Demand', 'pt': 'Demanda'});
   String get dashboardPerformance => _tr({'es': 'Desempeño', 'en': 'Performance', 'pt': 'Desempenho'});
+  String get heatmapNeedOnline => _tr({'es': 'Activa el modo online para ver la demanda en tu zona', 'en': 'Go online to see demand in your area', 'pt': 'Fique online para ver a demanda na sua área'});
+  String get heatmapNoData => _tr({'es': 'No hay pedidos pendientes en tu zona en este momento', 'en': 'No pending orders in your area right now', 'pt': 'Sem pedidos pendentes na sua área no momento'});
+  String get heatmapError => _tr({'es': 'Error al cargar datos de demanda. Intenta de nuevo.', 'en': 'Error loading demand data. Try again.', 'pt': 'Erro ao carregar dados de demanda. Tente novamente.'});
+  String get toggleOnlineGpsOff => _tr({'es': 'Activa el GPS de tu dispositivo para conectarte', 'en': 'Turn on your device GPS to go online', 'pt': 'Ative o GPS do seu dispositivo para ficar online'});
+  String get toggleOnlineLocationDenied => _tr({'es': 'Concede permiso de ubicación para conectarte', 'en': 'Grant location permission to go online', 'pt': 'Conceda permissão de localização para ficar online'});
   String get dashboardEarnedDiff => _tr({'es': '+\\\$ {amount} (hace {mins} min)', 'en': '+\\\$ {amount} ({mins} min ago)', 'pt': '+\\\$ {amount} (há {mins} min)'});
 
   // ═══════════════════════════════════════════════════════════════════

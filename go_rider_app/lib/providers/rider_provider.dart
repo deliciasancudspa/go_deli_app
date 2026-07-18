@@ -10,6 +10,7 @@ import "package:http/http.dart" as http;
 import "../config/app_config.dart";
 import "../core/utils/auth_error_translator.dart";
 import "../core/utils/chile_time.dart";
+import "../core/services/notification_service.dart";
 
 class RiderProvider extends ChangeNotifier {
   final _sb = Supabase.instance.client;
@@ -320,15 +321,29 @@ class RiderProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> toggleOnline() async {
-    if (_rider == null) return;
+  Future<String?> toggleOnline() async {
+    if (_rider == null) return "Perfil no cargado";
     final newVal = !_isOnline;
+
+    // ═══ Al activarse: verificar GPS y permisos de ubicación ═══
+    if (newVal) {
+      final gpsEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!gpsEnabled) return "gps_off";
+
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        return "location_denied";
+      }
+    }
+
     await _sb.from("deliverers").update({"is_online": newVal, "is_available": newVal}).eq("id", _rider!["id"]);
     _isOnline = newVal;
     notifyListeners();
 
     // ── Al activarse, enviar ubicación GPS inmediatamente ──
-    // Así el dispatch engine sabe dónde está el rider desde el momento en que se conecta.
     if (newVal) {
       try {
         final pos = await Geolocator.getCurrentPosition(
@@ -339,6 +354,8 @@ class RiderProvider extends ChangeNotifier {
         debugPrint('[GoRider] toggleOnline GPS: $e');
       }
     }
+
+    return null; // éxito
   }
 
   Future<void> loadActiveOrders() async {
@@ -569,6 +586,8 @@ class RiderProvider extends ChangeNotifier {
       }
       if (result == "already_requested_today") return "Ya retiraste hoy. Disponible mañana.";
       if (result == "amount_too_low") return "El monto mínimo es \$2.000";
+      if (result == "negative_balance") return "No tienes saldo disponible. Tienes efectivo pendiente por rendir.";
+      if (result == "amount_exceeds_balance") return "El monto supera tu saldo disponible.";
       return result?.toString();
     } catch (e) {
       return e.toString();
@@ -582,8 +601,23 @@ class RiderProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    // ═══ Marcar como offline en BD y borrar FCM token ═══
+    if (_rider != null) {
+      try {
+        await _sb.from("deliverers").update({
+          "is_online": false,
+          "is_available": false,
+          "fcm_token": null,
+        }).eq("id", _rider!["id"]);
+      } catch (_) {}
+    }
+
     await _fcmTokenSub?.cancel();
     _fcmTokenSub = null;
+
+    // Cancelar todas las notificaciones activas (alarma + system tray)
+    NotificationService.cancelAll();
+
     await _sb.auth.signOut();
     _user = null; _rider = null; _isOnline = false;
     _activeOrders = []; _orderHistory = [];
