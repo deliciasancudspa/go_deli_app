@@ -25,7 +25,10 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
 
   Future<void> _load() async {
     final rider = context.read<RiderProvider>();
-    if (rider.riderId.isEmpty) return;
+    if (rider.riderId.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     try {
       final result = await _sb.rpc("get_rider_performance", params: {"p_rider_id": rider.riderId});
       final list = result as List;
@@ -34,7 +37,8 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
       } else if (mounted) {
         setState(() => _loading = false);
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint("[PerformanceScreen] Error loading performance: $e");
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -109,7 +113,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                   _kpiCard(AppLocalizations.of(context)!.perfEarnings, _fmt(_data!["total_earnings"] ?? 0),
                       "Delivery + propinas", Icons.attach_money, AppColors.success),
                   const SizedBox(width: 10),
-                  _kpiCard(AppLocalizations.of(context)!.perfDistance, "${(_data!["total_distance_km"] ?? 0).toStringAsFixed(0)} km",
+                  _kpiCard(AppLocalizations.of(context)!.perfDistance, "${(((_data!["total_distance_km"] ?? 0) as num).toDouble() / 1000).toStringAsFixed(0)} km",
                       "Total histórico", Icons.route_outlined, AppColors.info),
                 ]),
                 const SizedBox(height: 10),
