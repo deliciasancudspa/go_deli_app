@@ -506,28 +506,34 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   });
                 }
               },
-              // Floating navigation button on the map
+              // Top overlay + nav buttons inside the same Stack as the map
+              // so they render on top of the Google Maps platform view (Android)
               floatingChild: destLatLng != null
-                  ? Positioned(
-                      bottom: 16, right: 16,
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        // Recenter button
-                        FloatingActionButton.small(
-                          heroTag: "recenter",
-                          backgroundColor: Colors.white,
-                          onPressed: () {}, // map auto-fits via RouteMapView
-                          child: const Icon(Icons.my_location, color: AppColors.primary),
-                        ),
-                        const SizedBox(height: 10),
-                        // Google Maps / Waze navigation
-                        FloatingActionButton(
-                          heroTag: "navigate",
-                          backgroundColor: AppColors.accent,
-                          onPressed: () { if (destLatLng != null) _showNavigationChooser(destLatLng!); },
-                          child: const Icon(Icons.navigation, color: Colors.white, size: 28),
-                        ),
-                      ]),
-                    )
+                  ? Stack(children: [
+                      // ── Top overlay: back button, status pill, GPS ──
+                      _topOverlay(status),
+                      // ── Bottom nav FABs ──
+                      Positioned(
+                        bottom: 16, right: 16,
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          // Recenter button
+                          FloatingActionButton.small(
+                            heroTag: "recenter",
+                            backgroundColor: Colors.white,
+                            onPressed: () {}, // map auto-fits via RouteMapView
+                            child: const Icon(Icons.my_location, color: AppColors.primary),
+                          ),
+                          const SizedBox(height: 10),
+                          // Google Maps / Waze navigation
+                          FloatingActionButton(
+                            heroTag: "navigate",
+                            backgroundColor: AppColors.accent,
+                            onPressed: () { if (destLatLng != null) _showNavigationChooser(destLatLng!); },
+                            child: const Icon(Icons.navigation, color: Colors.white, size: 28),
+                          ),
+                        ]),
+                      ),
+                    ])
                   : null,
             ),
           )
@@ -723,31 +729,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
           ),
 
-        // Back button, status pill & GPS — always on top, never blocked
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(children: [
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: Container(
-                  width: 42, height: 42,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)]),
-                  child: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.primary),
-                ),
-              ),
-              const Spacer(),
-              _statusPill(status),
-              const Spacer(),
-              if (_gpsActive)
-                Container(
-                  width: 42, height: 42,
-                  decoration: BoxDecoration(color: AppColors.success.withOpacity(0.9), borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)]),
-                  child: const Icon(Icons.gps_fixed, color: Colors.white, size: 20),
-                ),
-            ]),
-          ),
-        ),
+        // Back button, status pill & GPS — only shown when there's NO map
+        // (when map is visible, they're rendered inside RouteMapView.floatingChild
+        //  to stay above the Google Maps platform view on Android)
+        if (destLatLng == null) _topOverlay(status),
       ]),
     );
   }
@@ -755,6 +740,39 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   // ══════════════════════════════════════════════════════════════════════════════
   // SHEET WIDGETS
   // ══════════════════════════════════════════════════════════════════════════════
+
+  /// Top overlay: back button + status pill + GPS indicator.
+  /// Used both inside RouteMapView.floatingChild (map visible) and directly
+  /// in the outer Stack (no map), so it's always on top and tappable.
+  Widget _topOverlay(String status) {
+    return Positioned(
+      top: 0, left: 0, right: 0,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(children: [
+            GestureDetector(
+              onTap: () => context.pop(),
+              child: Container(
+                width: 42, height: 42,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)]),
+                child: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.primary),
+              ),
+            ),
+            const Spacer(),
+            _statusPill(status),
+            const Spacer(),
+            if (_gpsActive)
+              Container(
+                width: 42, height: 42,
+                decoration: BoxDecoration(color: AppColors.success.withOpacity(0.9), borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)]),
+                child: const Icon(Icons.gps_fixed, color: Colors.white, size: 20),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
 
   Widget _statusPill(String status) {
     final labels = {"assigned": "Recoger pedido", "picked_up": "Pedido recogido", "on_the_way": "En camino", "delivered": "Entregado", "cancelled": "Cancelado"};
