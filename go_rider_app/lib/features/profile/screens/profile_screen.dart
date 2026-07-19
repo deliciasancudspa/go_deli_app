@@ -1,9 +1,11 @@
 import "dart:convert";
+import "dart:io";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:url_launcher/url_launcher.dart";
+import "package:image_picker/image_picker.dart";
 import "../../../core/constants/banks.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
@@ -67,10 +69,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(title: const Text("Mi perfil"), leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go("/dashboard"))),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Center(child: Column(children: [
-          CircleAvatar(radius: 44, backgroundColor: AppColors.accent, child: Text(rider.riderName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900))),
+          GestureDetector(
+            onTap: () => _pickAndUploadSelfie(context, rider),
+            child: Stack(children: [
+              CircleAvatar(
+                radius: 44,
+                backgroundColor: AppColors.accent,
+                backgroundImage: _selfieImage(rider),
+                child: _selfieImage(rider) == null
+                    ? Text(rider.riderName[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900))
+                    : null,
+              ),
+              Positioned(
+                bottom: 0, right: 0,
+                child: Container(
+                  width: 28, height: 28,
+                  decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                  child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                ),
+              ),
+            ]),
+          ),
           const SizedBox(height: 12),
           Text(rider.riderName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          Text(rider.user?["email"] ?? "", style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
+          Text((rider.user?["email"] as String? ?? "").replaceFirst("+gorider@", "@"), style: const TextStyle(color: AppColors.textLight, fontSize: 14)),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -250,6 +272,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ]),
       ),
     );
+  }
+
+  // ── Selfie / foto de perfil ─────────────────────────────────────────────
+
+  ImageProvider? _selfieImage(RiderProvider rider) {
+    final url = rider.rider?["selfie_url"] as String?;
+    if (url != null && url.isNotEmpty) return NetworkImage(url);
+    return null;
+  }
+
+  Future<void> _pickAndUploadSelfie(BuildContext context, RiderProvider rider) async {
+    final img = await ImagePicker().pickImage(
+      source: ImageSource.camera,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 80,
+    );
+    if (img == null) return;
+    if (!mounted) return;
+    final err = await rider.uploadSelfie(img.path);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al subir foto: $err"), backgroundColor: AppColors.error),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("📸 Foto actualizada")),
+      );
+    }
   }
 
   void _changePassword(BuildContext context, RiderProvider rider) {

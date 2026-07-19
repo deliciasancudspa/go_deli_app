@@ -595,24 +595,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               const SizedBox(height: 16),
             ],
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Row(children: [
               Text(AppLocalizations.of(context)!.dashboardActiveOrders, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-              const Spacer(),
-              TextButton(
-                onPressed: () {
-                  final turnOn = !_showHeatmap;
-                  setState(() {
-                    _showHeatmap = turnOn;
-                    _heatmapMessage = null;
-                  });
-                  if (turnOn) _loadHeatmap();
-                },
-                child: Text(_showHeatmap ? "Ocultar" : AppLocalizations.of(context)!.dashboardDemand, style: const TextStyle(fontSize: 11)),
-              ),
-              TextButton(
-                onPressed: () => context.push("/performance"),
-                child: Text(AppLocalizations.of(context)!.dashboardPerformance, style: const TextStyle(fontSize: 11)),
-              ),
+              Row(children: [
+                _pillButton(
+                  onTap: () {
+                    final turnOn = !_showHeatmap;
+                    setState(() {
+                      _showHeatmap = turnOn;
+                      _heatmapMessage = null;
+                    });
+                    if (turnOn) _loadHeatmap();
+                  },
+                  icon: _showHeatmap ? Icons.visibility_off : Icons.whatshot,
+                  label: _showHeatmap ? AppLocalizations.of(context)!.close : AppLocalizations.of(context)!.dashboardDemand,
+                  color: AppColors.warning,
+                ),
+                const SizedBox(width: 8),
+                _pillButton(
+                  onTap: () => context.push("/performance"),
+                  icon: Icons.insights,
+                  label: AppLocalizations.of(context)!.dashboardPerformance,
+                  color: AppColors.accent,
+                ),
+              ]),
             ]),
             ]),
             const SizedBox(height: 8),
@@ -646,6 +651,25 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ]),
         )),
       ])),
+      ),
+    );
+  }
+
+  Widget _pillButton({required VoidCallback onTap, required IconData icon, required String label, required Color color}) {
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+          ]),
+        ),
       ),
     );
   }

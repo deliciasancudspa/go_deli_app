@@ -1,6 +1,8 @@
+import "dart:io";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 import "package:provider/provider.dart";
+import "package:image_picker/image_picker.dart";
 import "../../../core/constants/banks.dart";
 import "../../../core/theme/app_theme.dart";
 import "../../../providers/rider_provider.dart";
@@ -41,6 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _termGeo = false;
   bool _showContract = false;
   String? _signatureBase64;
+  XFile? _selfieFile;
 
   Future<void> _submit() async {
     if (_accountNumCtrl.text.isEmpty || _accountHolderCtrl.text.isEmpty) {
@@ -82,6 +85,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       accountHolder: _accountHolderCtrl.text.trim(), accountRut: _accountRutCtrl.text.trim(),
       signerName: signerName, signerRut: signerRut,
       signatureImage: _signatureBase64,
+      selfiePath: _selfieFile?.path,
     );
     if (err == "revisa_tu_correo") {
       if (!mounted) return;
@@ -302,12 +306,71 @@ EMPRESAS GO SpA · RUT 78.445.567-K · soporte@godeli.cl · www.godeli.cl
                   _field(_rutCtrl, "RUT", Icons.badge_outlined),
                   const SizedBox(height: 12),
                   _field(_passCtrl, "Contrasena", Icons.lock_outline, obscure: true),
+                  const SizedBox(height: 16),
+                  // ── Selfie obligatoria ──
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+                    ),
+                    child: Column(children: [
+                      Row(children: [
+                        const Icon(Icons.camera_alt, color: AppColors.accent, size: 20),
+                        const SizedBox(width: 8),
+                        const Expanded(child: Text("Foto tipo carnet (obligatoria)", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                      ]),
+                      const SizedBox(height: 4),
+                      const Text("Debe mostrar tu rostro completo, sin lentes oscuros ni gorra.", style: TextStyle(color: AppColors.textLight, fontSize: 11)),
+                      const SizedBox(height: 10),
+                      if (_selfieFile != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(File(_selfieFile!.path), height: 140, width: double.infinity, fit: BoxFit.cover),
+                        )
+                      else
+                        Container(
+                          height: 100, width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.border, style: BorderStyle.solid),
+                          ),
+                          child: const Center(child: Icon(Icons.add_a_photo, size: 36, color: AppColors.textLight)),
+                        ),
+                      const SizedBox(height: 8),
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            final img = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 512, maxHeight: 512, imageQuality: 80);
+                            if (img != null) setState(() => _selfieFile = img);
+                          },
+                          icon: const Icon(Icons.camera_alt, size: 16),
+                          label: const Text("Tomar foto"),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: () async {
+                            final img = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 80);
+                            if (img != null) setState(() => _selfieFile = img);
+                          },
+                          icon: const Icon(Icons.photo_library, size: 16),
+                          label: const Text("Galeria"),
+                        ),
+                      ]),
+                    ]),
+                  ),
                   if (_error != null) ...[const SizedBox(height: 8), Text(_error!, style: const TextStyle(color: AppColors.error))],
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () {
                       if (_nameCtrl.text.isEmpty || _emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
                         setState(() => _error = "Completa todos los campos");
+                        return;
+                      }
+                      if (_selfieFile == null) {
+                        setState(() => _error = "La foto tipo carnet es obligatoria");
                         return;
                       }
                       _next();

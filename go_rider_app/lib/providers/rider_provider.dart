@@ -1,5 +1,6 @@
 import "dart:async";
 import "dart:convert";
+import "dart:io";
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
@@ -131,7 +132,7 @@ class RiderProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> register({required String name, required String email, required String password, required String phone, required String rut, required String vehicle, required String plate, required String bankName, required String accountType, required String accountNumber, required String accountHolder, required String accountRut, String? communeId, String? signerName, String? signerRut, String? signatureImage}) async {
+  Future<String?> register({required String name, required String email, required String password, required String phone, required String rut, required String vehicle, required String plate, required String bankName, required String accountType, required String accountNumber, required String accountHolder, required String accountRut, String? communeId, String? signerName, String? signerRut, String? signatureImage, String? selfiePath}) async {
     String? authUid;
     try {
       _loading = true; notifyListeners();
@@ -148,6 +149,7 @@ class RiderProvider extends ChangeNotifier {
           accountHolder: accountHolder, accountRut: accountRut,
           communeId: communeId, signerName: signerName,
           signerRut: signerRut, signatureImage: signatureImage,
+          selfiePath: selfiePath,
         );
       }
 
@@ -201,6 +203,10 @@ class RiderProvider extends ChangeNotifier {
       try {
         rider = await _sb.from("deliverers").insert({"user_id": user["id"], "vehicle_type": vehicle, "vehicle_plate": plate, "status": "pending", "is_online": false, "is_available": false, "commune_id": communeId}).select().single();
         await _sb.from("deliverer_bank_info").insert({"deliverer_id": rider["id"], "bank_name": bankName, "account_type": accountType, "account_number": accountNumber, "account_holder": accountHolder, "rut": accountRut});
+        // Subir selfie si viene del registro
+        if (selfiePath != null) {
+          await _uploadSelfieForRider(rider["id"] as String, selfiePath);
+        }
       } catch (insertError) {
         // Rollback: borrar usuario y auth user si falla inserción de rider/bank
         await _sb.from("users").delete().eq("id", user["id"]);
@@ -255,6 +261,7 @@ class RiderProvider extends ChangeNotifier {
     required String accountNumber, required String accountHolder,
     required String accountRut, String? communeId,
     String? signerName, String? signerRut, String? signatureImage,
+    String? selfiePath,
   }) async {
     try {
       // Buscar o crear la fila en users
@@ -287,6 +294,10 @@ class RiderProvider extends ChangeNotifier {
         "account_number": accountNumber, "account_holder": accountHolder,
         "rut": accountRut,
       });
+      // Subir selfie si viene del registro
+      if (selfiePath != null) {
+        await _uploadSelfieForRider(rider["id"] as String, selfiePath);
+      }
 
       // Notificar al admin
       final signedAt = DateTime.now().toIso8601String();
@@ -521,6 +532,42 @@ class RiderProvider extends ChangeNotifier {
       }
       await _notifyAdminDataChange("datos bancarios",
           "${data["bank_name"]} · ${data["account_type"]} · cta. ${data["account_number"]}");
+      await reloadProfile();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Helper interno: sube selfie a Storage sin necesitar _rider cargado.
+  Future<void> _uploadSelfieForRider(String riderId, String filePath) async {
+    try {
+      final path = "rider_selfie_$riderId.jpg";
+      await _sb.storage.from("rider-photos").upload(
+        path, File(filePath),
+        fileOptions: const FileOptions(upsert: true, contentType: "image/jpeg"),
+      );
+      final publicUrl = _sb.storage.from("rider-photos").getPublicUrl(path);
+      final cacheBusted = "$publicUrl?v=${DateTime.now().millisecondsSinceEpoch}";
+      await _sb.from("deliverers").update({"selfie_url": cacheBusted}).eq("id", riderId);
+    } catch (_) { /* non-blocking */ }
+  }
+
+  /// Sube una selfie/foto del rider a Supabase Storage y actualiza
+  /// deliverers.selfie_url. Usado en perfil y registro.
+  Future<String?> uploadSelfie(String filePath) async {
+    if (_rider == null) return "Perfil no cargado";
+    try {
+      final riderId = _rider!["id"] as String;
+      final path = "rider_selfie_$riderId.jpg";
+      await _sb.storage.from("rider-photos").upload(
+        path,
+        File(filePath),
+        fileOptions: const FileOptions(upsert: true, contentType: "image/jpeg"),
+      );
+      final publicUrl = _sb.storage.from("rider-photos").getPublicUrl(path);
+      final cacheBusted = "$publicUrl?v=${DateTime.now().millisecondsSinceEpoch}";
+      await _sb.from("deliverers").update({"selfie_url": cacheBusted}).eq("id", riderId);
       await reloadProfile();
       return null;
     } catch (e) {
