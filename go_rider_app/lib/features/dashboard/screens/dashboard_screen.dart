@@ -28,7 +28,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String _subscribedUserId = "";
   RiderProvider? _riderRef;
   int _unreadNotifCount = 0;
-  Timer? _bgGpsTimer;
+  StreamSubscription<Position>? _bgGpsSub;
+  DateTime _lastGpsSend = DateTime(2000);
   Timer? _realtimeHealthTimer;
   // Live earnings counter
   double? _prevEarned;
@@ -116,10 +117,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _syncBackgroundGps() {
     final rider = context.read<RiderProvider>();
-    if (rider.isOnline && _bgGpsTimer == null) {
+    if (rider.isOnline && _bgGpsSub == null) {
       _startBackgroundGps();
       _startHeatmapPolling();
-    } else if (!rider.isOnline && _bgGpsTimer != null) {
+    } else if (!rider.isOnline && _bgGpsSub != null) {
       _stopBackgroundGps();
       _stopHeatmapPolling();
     }
@@ -127,30 +128,36 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _startBackgroundGps() {
     _stopBackgroundGps();
-    debugPrint('[GoRider] Dashboard GPS tracking iniciado (cada 45s)');
-    _bgGpsTimer = Timer.periodic(const Duration(seconds: 45), (_) async {
+    debugPrint('[GoRider] Dashboard GPS stream iniciado');
+    _lastGpsSend = DateTime(2000); // forzar primer envío inmediato
+    _bgGpsSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+    ).listen((pos) async {
       if (!mounted) return;
       final rider = context.read<RiderProvider>();
       if (!rider.isOnline) {
         _stopBackgroundGps();
         return;
       }
+      // Throttle: enviar cada 45s, pero el stream sigue vivo → foreground service notification visible
+      final now = DateTime.now();
+      if (now.difference(_lastGpsSend).inSeconds < 45) return;
+      _lastGpsSend = now;
       try {
-        final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
-        ).timeout(const Duration(seconds: 5));
         await rider.sendLocation(pos.latitude, pos.longitude);
       } catch (e) {
-        debugPrint('[GoRider] Dashboard bg GPS: $e');
+        debugPrint('[GoRider] Dashboard stream GPS: $e');
       }
+    }, onError: (e) {
+      debugPrint('[GoRider] Dashboard GPS stream error: $e');
     });
   }
 
   void _stopBackgroundGps() {
-    if (_bgGpsTimer != null) {
-      _bgGpsTimer!.cancel();
-      _bgGpsTimer = null;
-      debugPrint('[GoRider] Dashboard GPS tracking detenido');
+    if (_bgGpsSub != null) {
+      _bgGpsSub!.cancel();
+      _bgGpsSub = null;
+      debugPrint('[GoRider] Dashboard GPS stream detenido');
     }
   }
 
