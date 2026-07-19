@@ -619,7 +619,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ),
               ]),
             ]),
-            ]),
             const SizedBox(height: 8),
             if (rider.activeOrders.isEmpty)
               Container(padding: const EdgeInsets.all(32), decoration: BoxDecoration(color: tc.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: tc.border)), child: Column(children: [
