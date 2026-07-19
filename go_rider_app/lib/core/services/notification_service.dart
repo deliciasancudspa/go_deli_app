@@ -16,6 +16,13 @@ class NotificationService {
   static const _channelId   = "go_rider_channel";
   static const _channelName = "Go Rider Notificaciones";
   static const _channelDesc = "Pedidos, mensajes y alertas para repartidores";
+
+  // ── Online foreground notification ───────────────────────────────────────
+  static const _onlineChannelId   = "go_rider_online";
+  static const _onlineChannelName = "Go Rider — Conexión";
+  static const _onlineChannelDesc = "Notificación persistente que indica que el repartidor está en línea";
+  static const _onlineNotifId = 9999; // ID fijo para la notificación de online
+
   static int _idCounter = 0;
 
   // ── Alarm / persistent offer sound ────────────────────────────────────────
@@ -48,6 +55,15 @@ class NotificationService {
       importance: Importance.high,
       playSound: true,
       enableVibration: true,
+    ));
+    // Canal dedicado para la notificación persistente "En línea"
+    await androidPlugin?.createNotificationChannel(const AndroidNotificationChannel(
+      _onlineChannelId,
+      _onlineChannelName,
+      description: _onlineChannelDesc,
+      importance: Importance.low,  // sin sonido, solo presencia visual
+      playSound: false,
+      enableVibration: false,
     ));
     _initialized = true;
 
@@ -289,8 +305,53 @@ class NotificationService {
       } catch (_) {}
       _persistentNotifId = -1;
     }
+    await cancelOnlineNotification();
     try {
       await _plugin.cancelAll();
+    } catch (_) {}
+  }
+
+  // ── Online / foreground persistent notification ──────────────────────────
+  ///
+  /// Muestra una notificación persistente (ongoing, no deslizable) que informa
+  /// al repartidor que está en línea. Esto emula lo que hacen Uber, Didi y
+  /// Rappi con su foreground service nativo: una notificación siempre visible
+  /// mientras el rider está activo.
+  ///
+  /// La notificación usa un canal de importancia LOW (sin sonido ni vibración)
+  /// para no molestar, pero es ongoing=true (no se puede deslizar para quitar).
+
+  static Future<void> showOnlineNotification({String subtitle = "Recibiendo pedidos cercanos"}) async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      _onlineNotifId,
+      "🛵 Estás en línea",
+      subtitle,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _onlineChannelId,
+          _onlineChannelName,
+          channelDescription: _onlineChannelDesc,
+          importance: Importance.low,
+          priority: Priority.low,
+          playSound: false,
+          enableVibration: false,
+          ongoing: true,
+          autoCancel: false,
+          icon: "@drawable/ic_notification",
+          color: Color(0xFFFF6B35),
+          // Muestra la notificación colapsada en la barra de estado
+          showWhen: true,
+        ),
+      ),
+      payload: "online_status",
+    );
+  }
+
+  /// Cancela la notificación persistente "En línea".
+  static Future<void> cancelOnlineNotification() async {
+    try {
+      await _plugin.cancel(_onlineNotifId);
     } catch (_) {}
   }
 

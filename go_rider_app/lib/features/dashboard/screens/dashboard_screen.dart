@@ -129,6 +129,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   void _startBackgroundGps() {
     _stopBackgroundGps();
     debugPrint('[GoRider] Dashboard GPS stream iniciado');
+    // Notificación persistente "En línea" — mismo patrón que Uber/Didi/Rappi
+    NotificationService.showOnlineNotification();
     _lastGpsSend = DateTime(2000); // forzar primer envío inmediato
     _bgGpsSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
@@ -157,6 +159,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (_bgGpsSub != null) {
       _bgGpsSub!.cancel();
       _bgGpsSub = null;
+      NotificationService.cancelOnlineNotification();
       debugPrint('[GoRider] Dashboard GPS stream detenido');
     }
   }
