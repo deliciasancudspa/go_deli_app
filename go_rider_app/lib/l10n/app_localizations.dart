@@ -279,6 +279,45 @@ class AppLocalizations {
   String get voiceNavArrived => _tr({'es': 'Has llegado a tu destino.', 'en': 'You have arrived at your destination.', 'pt': 'Você chegou ao seu destino.'});
 
   // ═══════════════════════════════════════════════════════════════════
+  // LOCATION DISCLOSURE (Google Play prominent disclosure)
+  // ═══════════════════════════════════════════════════════════════════
+  String get locDisclosureTitle => _tr({
+    'es': 'Ubicación en segundo plano',
+    'en': 'Background location',
+    'pt': 'Localização em segundo plano',
+  });
+  String get locDisclosureBody => _tr({
+    'es': 'Go Rider recopila datos de ubicación para asignarte pedidos cercanos y permitir el seguimiento de tus entregas en tiempo real, incluso cuando la app está en segundo plano o cerrada.',
+    'en': 'Go Rider collects location data to assign nearby orders and enable real-time delivery tracking, even when the app is in the background or closed.',
+    'pt': 'O Go Rider coleta dados de localização para atribuir pedidos próximos e permitir o rastreamento de entregas em tempo real, mesmo quando o app está em segundo plano ou fechado.',
+  });
+  String get locDisclosureBullet1 => _tr({
+    'es': '📍 Tu ubicación se comparte con el sistema de despacho para encontrar pedidos cercanos.',
+    'en': '📍 Your location is shared with the dispatch system to find nearby orders.',
+    'pt': '📍 Sua localização é compartilhada com o sistema de despacho para encontrar pedidos próximos.',
+  });
+  String get locDisclosureBullet2 => _tr({
+    'es': '🛵 Los clientes pueden ver tu ubicación en el mapa durante la entrega activa.',
+    'en': '🛵 Customers can see your location on the map during active delivery.',
+    'pt': '🛵 Os clientes podem ver sua localização no mapa durante a entrega ativa.',
+  });
+  String get locDisclosureBullet3 => _tr({
+    'es': '📍 La ubicación se actualiza en segundo plano aunque la app esté minimizada.',
+    'en': '📍 Location updates in the background even when the app is minimized.',
+    'pt': '📍 A localização é atualizada em segundo plano mesmo com o app minimizado.',
+  });
+  String get locDisclosureNote => _tr({
+    'es': 'Puedes desactivar la ubicación en cualquier momento desde Ajustes del dispositivo. Mientras estés desconectado, no se compartirá tu ubicación.',
+    'en': 'You can turn off location at any time in your device Settings. While offline, your location will not be shared.',
+    'pt': 'Você pode desativar a localização a qualquer momento nos Ajustes do dispositivo. Enquanto estiver offline, sua localização não será compartilhada.',
+  });
+  String get locDisclosureAccept => _tr({
+    'es': 'Entendido, continuar',
+    'en': 'Got it, continue',
+    'pt': 'Entendido, continuar',
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
   // BOTTOM NAV
   // ═══════════════════════════════════════════════════════════════════
   String get bottomNavHome => _tr({'es': 'Inicio', 'en': 'Home', 'pt': 'Início'});

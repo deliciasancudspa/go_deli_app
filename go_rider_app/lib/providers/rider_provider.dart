@@ -11,6 +11,7 @@ import "../config/app_config.dart";
 import "../core/utils/auth_error_translator.dart";
 import "../core/utils/chile_time.dart";
 import "../core/services/notification_service.dart";
+import "../core/widgets/location_disclosure_dialog.dart";
 
 class RiderProvider extends ChangeNotifier {
   final _sb = Supabase.instance.client;
@@ -321,7 +322,7 @@ class RiderProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> toggleOnline() async {
+  Future<String?> toggleOnline([BuildContext? context]) async {
     if (_rider == null) return "Perfil no cargado";
     final newVal = !_isOnline;
 
@@ -332,6 +333,12 @@ class RiderProvider extends ChangeNotifier {
 
       LocationPermission perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
+        // ── Google Play Prominent Disclosure ──
+        // Debe mostrarse ANTES del diálogo nativo del sistema.
+        if (context != null && context.mounted) {
+          final accepted = await showLocationDisclosureDialog(context);
+          if (!accepted) return "location_denied";
+        }
         perm = await Geolocator.requestPermission();
       }
       if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {

@@ -515,7 +515,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ),
             GestureDetector(
               onTap: () async {
-                final error = await rider.toggleOnline();
+                final error = await rider.toggleOnline(context);
                 _loadStats();
                 if (error != null && mounted) {
                   final loc = AppLocalizations.of(context)!;

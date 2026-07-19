@@ -13,6 +13,7 @@ import "../../../providers/rider_provider.dart";
 import "../../map/widgets/route_map_view.dart";
 import "../../../core/services/voice_navigation_service.dart";
 import "../../../core/services/directions_service.dart";
+import "../../../core/widgets/location_disclosure_dialog.dart";
 import "../../../l10n/app_localizations.dart";
 
 class OrderDetailScreen extends StatefulWidget {
@@ -112,6 +113,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       LocationPermission perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
+        // ── Google Play Prominent Disclosure ──
+        final accepted = await showLocationDisclosureDialog(context);
+        if (!accepted) {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Debes aceptar la ubicación para realizar entregas.'), backgroundColor: AppColors.warning));
+          return;
+        }
         perm = await Geolocator.requestPermission();
       }
       if (perm == LocationPermission.deniedForever) {
