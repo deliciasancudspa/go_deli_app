@@ -54,3 +54,15 @@
 -dontwarn javax.annotation.**
 -dontwarn kotlin.Unit
 -dontwarn retrofit2.**
+
+# ── image_picker ──────────────────────────────────────────────────────────
+# R8 puede romper la reflexión interna del plugin en modo release
+-keep class com.flutter.image_picker.** { *; }
+-keep class io.flutter.plugins.imagepicker.** { *; }
+-keep class io.flutter.plugins.image_picker.** { *; }
+-dontwarn io.flutter.plugins.imagepicker.**
+-dontwarn io.flutter.plugins.image_picker.**
+
+# ── cross_file (dependencia de image_picker) ──────────────────────────────
+-keep class com.flutter.cross_file.** { *; }
+-dontwarn com.flutter.cross_file.**

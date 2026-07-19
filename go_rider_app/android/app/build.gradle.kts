@@ -50,8 +50,10 @@ android {
                 signingConfigs.getByName("debug")
 
             // R8: reduce y optimiza el APK/AAB para producción
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Deshabilitado temporalmente — image_picker necesita reglas ProGuard
+            // TODO: re-habilitar tras verificar reglas en proguard-rules.pro
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
